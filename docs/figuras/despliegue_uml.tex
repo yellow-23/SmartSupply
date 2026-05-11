@@ -1,0 +1,135 @@
+% Diagrama de Despliegue UML — SmartSupply
+\documentclass[tikz, border=14pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta}
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+% ── Macro: nodo 3D UML ───────────────────────────────────────
+% \umlnode{ancho}{alto}{x}{y}{Nombre del Nodo}
+\newcommand{\umlnode}[5]{%
+  \pgfmathsetmacro{\ox}{0.30}
+  \pgfmathsetmacro{\oy}{0.30}
+  % Cara superior
+  \fill[white, draw=black, line width=0.8pt]
+    (#3,      #4+#2)
+    -- (#3+\ox, #4+#2+\oy)
+    -- (#3+#1+\ox, #4+#2+\oy)
+    -- (#3+#1, #4+#2) -- cycle;
+  % Cara lateral derecha
+  \fill[gray!20, draw=black, line width=0.8pt]
+    (#3+#1, #4)
+    -- (#3+#1+\ox, #4+\oy)
+    -- (#3+#1+\ox, #4+#2+\oy)
+    -- (#3+#1, #4+#2) -- cycle;
+  % Cara frontal
+  \draw[draw=black, line width=0.8pt, fill=white]
+    (#3, #4) rectangle (#3+#1, #4+#2);
+  % Nombre subrayado (dentro, parte superior)
+  \node[font=\small\sffamily, anchor=north west] at (#3+0.15, #4+#2-0.10)
+    {\underline{#5}};
+}
+
+% ── Macro: componente UML ─────────────────────────────────────
+% \umlcomp{x}{y}{ancho}{alto}{Texto}
+\newcommand{\umlcomp}[5]{%
+  % Caja
+  \draw[draw=black, line width=0.7pt, fill=white]
+    (#1, #2) rectangle (#1+#3, #2+#4);
+  % Pin superior
+  \draw[draw=black, line width=0.6pt, fill=white]
+    (#1-0.24, #2+#4*0.60) rectangle (#1+0.06, #2+#4*0.82);
+  % Pin inferior
+  \draw[draw=black, line width=0.6pt, fill=white]
+    (#1-0.24, #2+#4*0.25) rectangle (#1+0.06, #2+#4*0.47);
+  % Texto
+  \node[font=\footnotesize\sffamily, align=center,
+        text width=(#3-0.3)*1cm]
+    at (#1+#3/2, #2+#4/2) {#5};
+}
+
+\begin{document}
+\begin{tikzpicture}[font=\sffamily, scale=1.0]
+
+% ─────────────────────────────────────────────────────────────
+%  Coordenadas de referencia (todo en cm)
+%  Fila superior: y base = 4.5,  alto nodo = 4.0
+%  Fila inferior: y base = 0.0,  alto nodo = 2.2
+%
+%  Nodo CF:     x=2.0   ancho=5.0
+%  Nodo Render: x=10.0  ancho=5.5
+%  Nodo Supa:   x=18.5  ancho=4.8
+%  Nodo GitHub: x=8.5   ancho=5.0  (fila inferior)
+% ─────────────────────────────────────────────────────────────
+
+% ── Nodo 1: Cloudflare Pages ─────────────────────────────────
+\umlnode{5.0}{4.0}{2.0}{4.5}{Cloudflare Pages}
+\umlcomp{2.5}{7.1}{4.2}{0.90}{CDN Edge Network}
+\umlcomp{2.5}{5.7}{4.2}{0.90}{React + Vite (Dashboard)}
+
+% ── Nodo 2: Render Web Service ───────────────────────────────
+\umlnode{5.5}{4.0}{11.0}{4.5}{Render Web Service}
+\umlcomp{11.5}{7.1}{4.5}{0.90}{FastAPI  —  API REST}
+\umlcomp{11.5}{5.8}{4.5}{0.90}{Módulo AMS\\\footnotesize(ARIMA · Prophet · XGB · LSTM)}
+\umlcomp{11.5}{4.7}{4.5}{0.75}{Inventario  EOQ + (s,S)}
+
+% ── Nodo 3: Supabase ─────────────────────────────────────────
+\umlnode{4.8}{4.0}{23.0}{4.5}{Supabase}
+\umlcomp{23.5}{7.1}{3.8}{0.90}{PostgreSQL}
+\umlcomp{23.5}{5.5}{3.8}{1.20}{\footnotesize sales\_history\\ products · orders\\ stores · oil\_prices}
+
+% ── Nodo 4: GitHub CI/CD ─────────────────────────────────────
+\umlnode{5.0}{2.2}{8.5}{0.0}{GitHub  (CI/CD)}
+\umlcomp{9.0}{0.45}{4.0}{0.90}{Repositorio SmartSupply}
+
+% ─────────────────────────────────────────────────────────────
+%  USUARIO
+% ─────────────────────────────────────────────────────────────
+\draw[line width=0.9pt] (-2.5, 7.55) circle (0.30);   % cabeza
+\draw[line width=0.9pt] (-2.5, 7.25) -- (-2.5, 6.55); % cuerpo
+\draw[line width=0.9pt] (-2.95,6.95) -- (-2.05,6.95); % brazos
+\draw[line width=0.9pt] (-2.5, 6.55) -- (-2.90,6.00); % pierna izq
+\draw[line width=0.9pt] (-2.5, 6.55) -- (-2.10,6.00); % pierna der
+\node[font=\small\sffamily] at (-2.5, 5.70) {Usuario};
+
+% ─────────────────────────────────────────────────────────────
+%  FLECHAS HORIZONTALES (fila superior)
+% ─────────────────────────────────────────────────────────────
+
+% Usuario → Cloudflare Pages
+\draw[->, line width=0.9pt]
+  (-2.05, 6.80) -- (2.0, 6.80);
+\node[font=\footnotesize\sffamily, above] at (-0.02, 6.80)
+  {Conexión al Sistema};
+
+% Cloudflare Pages → Render
+\draw[->, line width=0.9pt]
+  (7.30, 6.50) -- (11.0, 6.50);
+\node[font=\footnotesize\sffamily, above] at (9.15, 6.50)
+  {REST API (HTTPS)};
+
+% Render → Supabase
+\draw[->, line width=0.9pt]
+  (16.80, 6.50) -- (23.0, 6.50);
+\node[font=\footnotesize\sffamily, above] at (19.90, 6.50)
+  {Comunicación con Base de Datos};
+
+% ─────────────────────────────────────────────────────────────
+%  FLECHAS CI/CD (GitHub → nodos superiores, punteadas)
+% ─────────────────────────────────────────────────────────────
+
+% GitHub → Cloudflare Pages
+\draw[->, line width=0.9pt, dashed]
+  (9.5, 2.2) -- (5.0, 4.5);
+\node[font=\footnotesize\sffamily, left] at (7.0, 3.35)
+  {auto-deploy};
+
+% GitHub → Render
+\draw[->, line width=0.9pt, dashed]
+  (12.5, 2.2) -- (13.75, 4.5);
+\node[font=\footnotesize\sffamily, right] at (13.3, 3.35)
+  {auto-deploy};
+
+\end{tikzpicture}
+\end{document}

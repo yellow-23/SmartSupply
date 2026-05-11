@@ -32,3 +32,22 @@ dist/
 # IDEs
 .vscode/
 .idea/
+
+# LaTeX — archivos auxiliares generados automáticamente
+docs/*.aux
+docs/*.log
+docs/*.toc
+docs/*.lof
+docs/*.lot
+docs/*.out
+docs/*.synctex.gz
+docs/figuras/*.aux
+docs/figuras/*.log
+docs/figuras/*.synctex.gz
+
+# docs — archivos que NO se suben a GitHub
+docs/2026S1-Seminario/
+docs/*.docx
+docs/Guia_elaboracion.pdf
+docs/proyceto_tesis.pdf
+docs/figuras/despliegue

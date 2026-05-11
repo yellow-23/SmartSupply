@@ -1,0 +1,184 @@
+% Diagrama de Componentes UML — SmartSupply
+\documentclass[tikz, border=14pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta}
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+% ── Macro: icono de componente UML ───────────────────────────
+% Dibuja el icono clásico (rectángulo + 2 pestañas) en la
+% esquina superior derecha del componente.
+% Uso: \compicon{x_der}{y_top}
+\newcommand{\compicon}[2]{%
+  \draw[draw=black, line width=0.7pt, fill=white]
+    (#1-0.46, #2-0.08) rectangle (#1-0.06, #2-0.38);
+  \draw[draw=black, line width=0.5pt, fill=white]
+    (#1-0.54, #2-0.11) rectangle (#1-0.38, #2-0.20);
+  \draw[draw=black, line width=0.5pt, fill=white]
+    (#1-0.54, #2-0.24) rectangle (#1-0.38, #2-0.33);
+}
+
+\begin{document}
+\begin{tikzpicture}[font=\sffamily,
+  dep/.style={->, line width=0.85pt, dashed, -{Latex[length=2.5mm]}},
+  arr/.style={->, line width=0.85pt, -{Latex[length=2.5mm]}},
+  lbl/.style={font=\footnotesize\sffamily, fill=white, inner sep=1pt},
+  stlbl/.style={font=\small\sffamily\itshape, anchor=north west},
+]
+
+% ═════════════════════════════════════════════════════════════
+%  SUBSISTEMA 1 — CLIENTE  (x: 0..4.5,  y: 0..-5)
+% ═════════════════════════════════════════════════════════════
+\draw[draw=black, line width=0.9pt, dashed, rounded corners=4pt]
+  (0, 0) rectangle (4.5, -4.8);
+\node[stlbl] at (0.15, 0) {\textless\textless subsistema\textgreater\textgreater};
+\node[font=\small\sffamily\bfseries, anchor=north west] at (0.15, -0.35) {Cliente};
+
+% Componente: Dashboard
+\draw[draw=black, line width=0.8pt]
+  (0.5, -1.2) rectangle (4.0, -3.8);
+\compicon{4.0}{-1.2}
+\node[font=\footnotesize\sffamily\itshape, anchor=north west] at (0.6,-1.35)
+  {\textless\textless component\textgreater\textgreater};
+\node[font=\small\sffamily\bfseries, anchor=north west] at (0.6,-1.75)
+  {Dashboard};
+\node[font=\footnotesize\sffamily, anchor=north west] at (0.6,-2.15)
+  {React + Vite};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (0.6,-2.55)
+  {Recharts · Axios};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (0.6,-2.95)
+  {React Router};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (0.6,-3.35)
+  {Cloudflare Pages};
+
+% ═════════════════════════════════════════════════════════════
+%  SUBSISTEMA 2 — SERVIDOR  (x: 6..14.5,  y: 0..-12)
+% ═════════════════════════════════════════════════════════════
+\draw[draw=black, line width=0.9pt, dashed, rounded corners=4pt]
+  (6.0, 0) rectangle (14.5, -12.0);
+\node[stlbl] at (6.15, 0) {\textless\textless subsistema\textgreater\textgreater};
+\node[font=\small\sffamily\bfseries, anchor=north west] at (6.15,-0.35) {Servidor (Render)};
+
+% Componente: FastAPI
+\draw[draw=black, line width=0.8pt]
+  (6.5, -1.2) rectangle (14.0, -4.8);
+\compicon{14.0}{-1.2}
+\node[font=\footnotesize\sffamily\itshape, anchor=north west] at (6.6,-1.35)
+  {\textless\textless component\textgreater\textgreater};
+\node[font=\small\sffamily\bfseries, anchor=north west] at (6.6,-1.75)
+  {FastAPI — API REST};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-2.20)
+  {/forecast/predict};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-2.60)
+  {/inventory/status};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-3.00)
+  {/products  /orders};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-3.40)
+  {Pydantic v2 · Uvicorn};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-3.80)
+  {SQLAlchemy 2.0};
+
+% Componente: Módulo AMS
+\draw[draw=black, line width=0.8pt]
+  (6.5, -5.5) rectangle (14.0, -8.5);
+\compicon{14.0}{-5.5}
+\node[font=\footnotesize\sffamily\itshape, anchor=north west] at (6.6,-5.65)
+  {\textless\textless component\textgreater\textgreater};
+\node[font=\small\sffamily\bfseries, anchor=north west] at (6.6,-6.05)
+  {Módulo AMS};
+\node[font=\footnotesize\sffamily, anchor=north west] at (6.6,-6.50)
+  {Selector Automático de Modelos};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-6.90)
+  {ARIMA (statsmodels)};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-7.30)
+  {Prophet (Meta)};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-7.70)
+  {XGBoost · LSTM (PyTorch)};
+
+% Componente: Módulo Inventario
+\draw[draw=black, line width=0.8pt]
+  (6.5, -9.2) rectangle (14.0, -11.5);
+\compicon{14.0}{-9.2}
+\node[font=\footnotesize\sffamily\itshape, anchor=north west] at (6.6,-9.35)
+  {\textless\textless component\textgreater\textgreater};
+\node[font=\small\sffamily\bfseries, anchor=north west] at (6.6,-9.75)
+  {Módulo Inventario};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-10.20)
+  {EOQ — Cantidad Económica};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-10.60)
+  {Política (s, S)};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (6.6,-11.00)
+  {Generador de Órdenes};
+
+% ═════════════════════════════════════════════════════════════
+%  SUBSISTEMA 3 — BASE DE DATOS  (x: 16..20.5,  y: 0..-12)
+% ═════════════════════════════════════════════════════════════
+\draw[draw=black, line width=0.9pt, dashed, rounded corners=4pt]
+  (16.0, 0) rectangle (21.0, -12.0);
+\node[stlbl] at (16.15, 0) {\textless\textless subsistema\textgreater\textgreater};
+\node[font=\small\sffamily\bfseries, anchor=north west] at (16.15,-0.35) {Base de Datos};
+
+% Componente: PostgreSQL
+\draw[draw=black, line width=0.8pt]
+  (16.4, -1.2) rectangle (20.6, -5.5);
+\compicon{20.6}{-1.2}
+\node[font=\footnotesize\sffamily\itshape, anchor=north west] at (16.5,-1.35)
+  {\textless\textless component\textgreater\textgreater};
+\node[font=\small\sffamily\bfseries, anchor=north west] at (16.5,-1.75)
+  {PostgreSQL};
+\node[font=\footnotesize\sffamily, anchor=north west] at (16.5,-2.20)
+  {Supabase (free tier)};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (16.5,-2.65)
+  {sales\_history};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (16.5,-3.05)
+  {stores · oil\_prices};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (16.5,-3.45)
+  {holidays};
+\node[font=\footnotesize\sffamily, anchor=north west, text=black!70] at (16.5,-3.85)
+  {products · orders};
+
+% ═════════════════════════════════════════════════════════════
+%  USUARIO (palito)
+% ═════════════════════════════════════════════════════════════
+\draw[line width=0.9pt] (-2.2, -1.00) circle (0.28);
+\draw[line width=0.9pt] (-2.2, -1.28) -- (-2.2, -2.00);
+\draw[line width=0.9pt] (-2.60,-1.60) -- (-1.80,-1.60);
+\draw[line width=0.9pt] (-2.2, -2.00) -- (-2.55,-2.55);
+\draw[line width=0.9pt] (-2.2, -2.00) -- (-1.85,-2.55);
+\node[font=\small\sffamily] at (-2.2,-2.80) {Usuario};
+
+% ═════════════════════════════════════════════════════════════
+%  RELACIONES / DEPENDENCIAS
+% ═════════════════════════════════════════════════════════════
+
+% Usuario → Dashboard
+\draw[arr] (-1.85,-1.60) -- (0.5,-2.50)
+  node[midway, above, lbl] {interacción};
+
+% Dashboard → FastAPI  (interfaz REST/HTTPS)
+\draw[dep] (4.0,-2.50) -- (6.5,-2.80)
+  node[midway, above, lbl] {REST / HTTPS};
+
+% FastAPI → Módulo AMS
+\draw[dep] (10.25,-4.8) -- (10.25,-5.5)
+  node[midway, right, lbl] {forecast\_service};
+
+% FastAPI → Módulo Inventario
+\draw[dep] (10.25,-4.8) -- (10.25,-9.2)
+  node[pos=0.55, right, lbl] {inventory\_service};
+
+% FastAPI → PostgreSQL
+\draw[dep] (14.0,-3.0) -- (16.4,-3.0)
+  node[midway, above, lbl] {SQLAlchemy};
+
+% Módulo AMS → PostgreSQL
+\draw[dep] (14.0,-7.0) -- (16.4,-3.8)
+  node[pos=0.45, above, lbl, sloped] {SELECT};
+
+% Módulo Inventario → PostgreSQL
+\draw[dep] (14.0,-10.3) -- (16.4,-4.8)
+  node[pos=0.40, above, lbl, sloped] {SELECT / INSERT};
+
+\end{tikzpicture}
+\end{document}

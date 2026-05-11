@@ -1,0 +1,117 @@
+% Diagrama de Base de Datos — SmartSupply
+\documentclass[tikz, border=14pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta}
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily,
+  % Estilo encabezado de tabla
+  thead/.style={
+    draw=black, line width=0.8pt,
+    fill=gray!20,
+    minimum width=4.6cm,
+    minimum height=0.65cm,
+    anchor=north west,
+    font=\small\sffamily\bfseries,
+    align=center,
+  },
+  % Estilo cuerpo de tabla
+  tbody/.style={
+    draw=black, line width=0.8pt,
+    fill=white,
+    minimum width=4.6cm,
+    anchor=north west,
+    font=\footnotesize\sffamily,
+    align=left,
+    inner sep=5pt,
+  },
+  % Flechas FK
+  fk/.style={draw=black, line width=0.9pt, -{Latex[length=2.5mm]}},
+]
+
+% ── FILA SUPERIOR ─────────────────────────────────────────────
+
+% sales_history  (x=0, y=0)
+\node[thead] (sh_h) at (0, 0)     {sales\_history};
+\node[tbody, below=-\pgflinewidth of sh_h] (sh_b)
+  {\underline{PK \ id} \ : INTEGER\\
+   \phantom{FK} \ date \ : DATE\\
+   FK \ store\_nbr \ : INTEGER\\
+   \phantom{FK} \ family \ : VARCHAR\\
+   \phantom{FK} \ sales \ : FLOAT\\
+   \phantom{FK} \ onpromotion \ : BOOLEAN};
+
+% stores  (x=6.2, y=0)
+\node[thead] (st_h) at (6.2, 0)   {stores};
+\node[tbody, below=-\pgflinewidth of st_h] (st_b)
+  {\underline{PK \ store\_nbr} \ : INTEGER\\
+   \phantom{FK} \ city \ : VARCHAR\\
+   \phantom{FK} \ state \ : VARCHAR\\
+   \phantom{FK} \ type \ : CHAR\\
+   \phantom{FK} \ cluster \ : INTEGER};
+
+% oil_prices  (x=12.4, y=0)
+\node[thead] (oil_h) at (12.4, 0) {oil\_prices};
+\node[tbody, below=-\pgflinewidth of oil_h] (oil_b)
+  {\underline{PK \ date} \ : DATE\\
+   \phantom{FK} \ dcoilwtico \ : FLOAT};
+% Nota debajo
+\node[font=\footnotesize\sffamily\itshape, anchor=north]
+  at (oil_b.south) [yshift=-4pt] {* feature exógena};
+
+% ── FILA INFERIOR ─────────────────────────────────────────────
+
+% products  (x=0, y=-5.8)
+\node[thead] (prod_h) at (0, -5.8)   {products};
+\node[tbody, below=-\pgflinewidth of prod_h] (prod_b)
+  {\underline{PK \ id} \ : INTEGER\\
+   \phantom{FK} \ sku \ : VARCHAR\\
+   \phantom{FK} \ name \ : VARCHAR\\
+   \phantom{FK} \ demand\_avg \ : FLOAT\\
+   \phantom{FK} \ lead\_time \ : INTEGER\\
+   \phantom{FK} \ order\_cost \ : FLOAT\\
+   \phantom{FK} \ holding\_cost \ : FLOAT};
+
+% orders  (x=6.2, y=-5.8)
+\node[thead] (ord_h) at (6.2, -5.8)  {orders};
+\node[tbody, below=-\pgflinewidth of ord_h] (ord_b)
+  {\underline{PK \ id} \ : INTEGER\\
+   FK \ sku\_id \ : INTEGER\\
+   \phantom{FK} \ quantity \ : FLOAT\\
+   \phantom{FK} \ status \ : VARCHAR\\
+   \phantom{FK} \ created\_at \ : TIMESTAMP};
+
+% holidays  (x=12.4, y=-5.8)
+\node[thead] (hol_h) at (12.4, -5.8) {holidays};
+\node[tbody, below=-\pgflinewidth of hol_h] (hol_b)
+  {\underline{PK \ id} \ : INTEGER\\
+   \phantom{FK} \ date \ : DATE\\
+   \phantom{FK} \ type \ : VARCHAR\\
+   \phantom{FK} \ locale \ : VARCHAR\\
+   \phantom{FK} \ locale\_name \ : VARCHAR\\
+   \phantom{FK} \ description \ : VARCHAR\\
+   \phantom{FK} \ transferred \ : BOOLEAN};
+% Nota debajo
+\node[font=\footnotesize\sffamily\itshape, anchor=north]
+  at (hol_b.south) [yshift=-4pt] {* feature exógena};
+
+% ─────────────────────────────────────────────────────────────
+%  RELACIONES
+% ─────────────────────────────────────────────────────────────
+
+% sales_history → stores  (FK store_nbr, N:1)
+\draw[fk]
+  (sh_h.east) -- (st_h.west)
+  node[midway, above, font=\footnotesize\sffamily] {N : 1};
+
+% orders → products  (FK sku_id, N:1)
+\draw[fk]
+  (ord_h.west) -- (prod_h.east)
+  node[midway, above, font=\footnotesize\sffamily] {N : 1};
+
+\end{tikzpicture}
+\end{document}
