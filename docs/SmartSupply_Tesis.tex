@@ -16,7 +16,6 @@
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{array}
-\usepackage{multirow}
 \usepackage{xcolor}
 \usepackage{setspace}
 \usepackage{titlesec}
@@ -151,11 +150,18 @@ de productos.
 La plataforma integra un pipeline ETL sobre el dataset público \textit{Store Sales — Corporación
 Favorita} (Kaggle, 2017), una API REST construida con FastAPI, un módulo de gestión de
 inventario basado en las políticas EOQ y $(s,S)$, y un dashboard web desarrollado en
-React. La metodología de desarrollo sigue el framework ágil Scrum y el proceso
-CRISP-DM para el tratamiento de los datos.
+React. Adicionalmente, el sistema incorpora un \textbf{módulo de ingesta inteligente} que
+utiliza el modelo de lenguaje Claude (Anthropic) con capacidades de visión para extraer,
+interpretar y normalizar datos de ventas desde cualquier formato — imágenes de cuadernos,
+planillas Excel o PDFs — permitiendo que distribuidoras chilenas sin sistemas digitalizados
+incorporen sus datos al pipeline de forecasting. La arquitectura es \textbf{multi-tenant}: cada
+negocio registrado opera de forma aislada sobre la misma base de datos mediante un
+identificador único (\texttt{business\_id}). La metodología de desarrollo sigue el framework
+ágil Scrum y el proceso CRISP-DM para el tratamiento de los datos.
 
 \textbf{Palabras clave:} predicción de demanda, selección automática de modelos, MAPE,
-inventario, EOQ, política $(s,S)$, ARIMA, Prophet, XGBoost, LSTM, FastAPI, React.
+inventario, EOQ, política $(s,S)$, ARIMA, Prophet, XGBoost, LSTM, FastAPI, React,
+ingesta IA, multi-tenancy, Claude, visión por computador.
 
 \newpage
 
@@ -174,11 +180,18 @@ each product family.
 The platform integrates an ETL pipeline over the public dataset \textit{Store Sales —
 Corporación Favorita} (Kaggle, 2017), a REST API built with FastAPI, an inventory
 management module based on EOQ and $(s,S)$ policies, and a web dashboard developed
-in React. The development methodology follows the Scrum agile framework and the
+in React. Additionally, the system incorporates an \textbf{intelligent ingestion module}
+that uses the Claude language model (Anthropic) with vision capabilities to extract,
+interpret, and normalize sales data from any format — handwritten notebook photos, Excel
+spreadsheets, or PDFs — enabling Chilean distributors without digital systems to incorporate
+their data into the forecasting pipeline. The architecture is \textbf{multi-tenant}: each
+registered business operates in isolation on the same database through a unique identifier
+(\texttt{business\_id}). The development methodology follows the Scrum agile framework and the
 CRISP-DM process for data treatment.
 
 \textbf{Keywords:} demand forecasting, automatic model selection, MAPE, inventory, EOQ,
-$(s,S)$ policy, ARIMA, Prophet, XGBoost, LSTM, FastAPI, React.
+$(s,S)$ policy, ARIMA, Prophet, XGBoost, LSTM, FastAPI, React, AI ingestion,
+multi-tenancy, Claude, computer vision.
 
 \newpage
 
@@ -223,10 +236,17 @@ SmartSupply aporta:
         forecasting por SKU mediante validación walk-forward (70\,/\,15\,/\,15).
   \item Un \textbf{módulo de inventario} que aplica EOQ y política $(s,S)$ sobre los
         pronósticos generados por AMS.
-  \item Una \textbf{API REST} (FastAPI) que expone los resultados a cualquier cliente.
+  \item Una \textbf{API REST} (FastAPI) que expone los resultados a cualquier cliente,
+        documentada automáticamente via OpenAPI/Swagger.
   \item Un \textbf{dashboard web} (React + Recharts) para visualización de pronósticos,
         alertas y órdenes de compra.
   \item Un \textbf{pipeline ETL} reproducible sobre un dataset real de ventas minoristas.
+  \item Un \textbf{módulo de ingesta IA} que utiliza Claude (Anthropic) para extraer y
+        normalizar datos de ventas desde imágenes, planillas Excel y PDFs, permitiendo
+        incorporar al sistema a distribuidoras sin datos estructurados.
+  \item Una \textbf{arquitectura multi-tenant} que aísla los datos de cada negocio
+        mediante \texttt{business\_id} y Row Level Security (RLS) en PostgreSQL,
+        habilitando el despliegue como plataforma SaaS.
 \end{enumerate}
 
 \section{Objetivos}
@@ -253,17 +273,26 @@ uso de un modelo único para todos los productos.
         pronósticos, métricas de inventario y generación de órdenes de compra.
   \item Diseñar e implementar un pipeline ETL que cargue, limpie y normalice el dataset
         de entrenamiento en una base de datos PostgreSQL.
+  \item Desarrollar un módulo de ingesta inteligente basado en IA (Claude, Anthropic) que
+        permita a distribuidoras chilenas incorporar sus datos históricos de ventas desde
+        cualquier formato digital (imágenes, Excel, PDF), eliminando la barrera de entrada
+        para negocios sin sistemas ERP.
 \end{enumerate}
 
 \section{Limitaciones del Proyecto}
 
 \begin{itemize}
   \item El sistema se valida sobre el dataset Store Sales — Corporación Favorita
-        (Ecuador), que puede diferir en comportamiento de distribuidoras chilenas reales.
+        (Ecuador), que actúa como negocio de demostración (\texttt{business\_id=1}).
+        El módulo de ingesta IA permite incorporar datos de distribuidoras chilenas reales
+        en producción.
   \item El AMS evalúa únicamente cuatro modelos de forecasting; existen alternativas
         (SARIMA, N-BEATS, etc.) no contempladas en este alcance.
   \item El módulo de inventario no implementa restricciones de capacidad de bodega ni
         descuentos por volumen.
+  \item La calidad de la extracción del módulo de ingesta IA depende de la legibilidad
+        del documento fuente; imágenes de muy baja resolución pueden producir resultados
+        incompletos.
   \item La integración con sistemas ERP o WMS externos queda fuera del alcance de esta
         tesis.
 \end{itemize}
@@ -534,7 +563,45 @@ A continuación se describen los requisitos funcionales principales del sistema.
   \end{tabular}
 \end{table}
 
-% Agregar RF-05 a RF-13 con la misma estructura...
+\begin{table}[H]
+  \centering
+  \caption{Requisito RF-05: Registrar Negocio en el Sistema}
+  \label{tab:rf05}
+  \begin{tabular}{lp{9cm}}
+    \toprule
+    \textbf{Campo} & \textbf{Descripción} \\
+    \midrule
+    ID              & RF-05 \\
+    Nombre          & Registrar Negocio en el Sistema \\
+    Descripción     & El sistema debe permitir registrar una distribuidora o tienda
+                      con nombre, RUT y ciudad, asignándole un \texttt{business\_id}
+                      único que aísla sus datos del resto de los negocios. \\
+    Actor           & Administrador \\
+    Prioridad       & Alta \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Requisito RF-06: Ingestar Datos de Ventas mediante IA}
+  \label{tab:rf06}
+  \begin{tabular}{lp{9cm}}
+    \toprule
+    \textbf{Campo} & \textbf{Descripción} \\
+    \midrule
+    ID              & RF-06 \\
+    Nombre          & Ingestar Datos de Ventas mediante IA \\
+    Descripción     & El sistema debe aceptar archivos en formato imagen (JPG, PNG),
+                      planilla Excel/CSV o PDF, extraer automáticamente los registros
+                      de ventas usando Claude (Anthropic), mostrar un preview al usuario
+                      para revisión y confirmar la carga a \texttt{sales\_history}
+                      bajo el \texttt{business\_id} del negocio. \\
+    Actor           & Administrador / Jefe de Bodega \\
+    Prioridad       & Alta \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \section{Planificación Sprint}
 
@@ -550,7 +617,7 @@ A continuación se describen los requisitos funcionales principales del sistema.
     2 & Sem 3--4  & Modelos ARIMA y Prophet, API /forecast (mock)     & Int.1 + Cristóbal \\
     3 & Sem 5--6  & XGBoost, LSTM y AMS walk-forward                  & Int.1 \\
     4 & Sem 7--8  & EOQ, política $(s,S)$, generador de órdenes       & Int.2 \\
-    5 & Sem 9--10 & Integracion API $\leftrightarrow$ BD real, frontend dashboard     & Cristobal \\
+    5 & Sem 9--10 & API conectada a BD real, ingesta IA, multi-tenancy, dashboard     & Cristóbal \\
     6 & Sem 11--12& Pruebas, métricas, retrospectiva, entrega final   & Todos \\
     \bottomrule
   \end{tabular}
@@ -588,6 +655,8 @@ A continuación se describen los requisitos funcionales principales del sistema.
   US-11 & Analista    & Quiero descargar el reporte de predicciones en formato CSV.              & 2 & 5 \\
   US-12 & Analista    & Quiero ver el nivel de servicio y la tasa de quiebre por período.        & 5 & 6 \\
   US-13 & Admin       & Quiero simular el impacto de cambiar los parámetros $(s,S)$.             & 5 & 6 \\
+  US-14 & Admin       & Quiero registrar mi negocio en el sistema para aislar mis datos.         & 3 & 5 \\
+  US-15 & Admin       & Quiero subir una foto o Excel con mis ventas y que el sistema las cargue automáticamente. & 13 & 5 \\
 \end{longtable}
 
 \section{Sprint Backlog — Sprint 1}
@@ -617,19 +686,20 @@ A continuación se describen los requisitos funcionales principales del sistema.
 
 \section{Visión General}
 
-SmartSupply sigue una arquitectura de tres capas:
+SmartSupply sigue una arquitectura de cuatro capas:
 
 \begin{table}[H]
   \centering
-  \caption{Arquitectura en Tres Capas}
+  \caption{Arquitectura en Cuatro Capas}
   \label{tab:arquitectura}
   \begin{tabular}{lll}
     \toprule
     \textbf{Capa} & \textbf{Tecnología} & \textbf{Responsabilidad} \\
     \midrule
-    Presentación & React 18 + Vite + Recharts      & Dashboard web, visualización \\
-    Lógica       & FastAPI 0.111 + Python           & API REST, forecasting, inventario \\
-    Datos        & PostgreSQL via Supabase          & Almacenamiento de series de tiempo \\
+    Presentación  & React 18 + Vite + Recharts      & Dashboard web, visualización, ingesta \\
+    Lógica        & FastAPI 0.111 + Python           & API REST, forecasting, inventario \\
+    Inteligencia  & Claude API (Anthropic)           & Extracción e interpretación de datos no estructurados \\
+    Datos         & PostgreSQL via Supabase          & Almacenamiento multi-tenant con RLS \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -645,12 +715,14 @@ SmartSupply sigue una arquitectura de tres capas:
 
 \section{Diagrama de Base de Datos (Vista Lógica)}
 
-El esquema relacional de SmartSupply consta de seis tablas. Las tablas
-\texttt{sales\_history} y \texttt{stores} se vinculan mediante la llave foránea
-\texttt{store\_nbr}. Las tablas \texttt{orders} y \texttt{products} se relacionan
-a través de \texttt{sku\_id}. Las tablas \texttt{oil\_prices} y \texttt{holidays}
-no tienen llave foránea directa sino que actúan como \textit{features} exógenas
-consumidas por el módulo de forecasting durante el entrenamiento.
+El esquema relacional de SmartSupply consta de cinco tablas. La tabla central es
+\texttt{businesses}, que registra cada negocio con un identificador único
+(\texttt{business\_id}). Las tablas \texttt{sales\_history} y \texttt{stores}
+referencian \texttt{businesses} mediante llave foránea, garantizando el aislamiento
+de datos entre negocios (multi-tenancy por fila). Row Level Security (RLS) de Supabase
+refuerza este aislamiento a nivel de base de datos. El sistema no depende de variables
+exógenas externas fijas: cualquier feature adicional (feriados, eventos, precios)
+puede ser incorporada por cada negocio a través del módulo de ingesta IA.
 
 \begin{figure}[H]
   \centering
@@ -684,6 +756,46 @@ predicción del modelo con menor MAPE.
   \label{fig:despliegue}
 \end{figure}
 
+\section{Módulo de Ingesta Inteligente}
+
+Una de las barreras de entrada más frecuentes para las distribuidoras chilenas es la
+ausencia de datos históricos en formato digital estructurado. SmartSupply resuelve este
+problema mediante un módulo de ingesta basado en inteligencia artificial que acepta
+cualquier formato de entrada.
+
+\subsection{Flujo de Ingesta}
+
+\begin{enumerate}
+  \item El usuario sube un archivo (imagen, Excel o PDF) via el endpoint
+        \texttt{POST /api/ingest/preview}.
+  \item El backend detecta el tipo de archivo y selecciona la estrategia de extracción:
+        \begin{itemize}
+          \item \textbf{Imagen} (JPG, PNG, WEBP): se envía a Claude Opus 4.7 con capacidades
+                de visión mediante la API de Anthropic.
+          \item \textbf{Excel/CSV}: si las columnas son reconocibles (fecha, producto,
+                ventas), se mapean directamente con pandas. Si son ambiguas, se envía
+                una muestra en texto a Claude Sonnet 4.6.
+          \item \textbf{PDF}: se envía a Claude Opus 4.7 usando el tipo de contenido
+                \texttt{document} de la API.
+        \end{itemize}
+  \item Claude devuelve un JSON normalizado con registros del tipo
+        \texttt{\{date, family, sales, onpromotion\}}.
+  \item El sistema retorna un \textbf{preview} al usuario: número de registros encontrados,
+        rango de fechas, familias detectadas y advertencias.
+  \item El usuario revisa el preview y confirma la carga via \texttt{POST /api/ingest/confirm},
+        especificando el \texttt{business\_id} y \texttt{store\_nbr} destino.
+  \item Los registros se insertan en \texttt{sales\_history} con upsert (actualiza si ya existe,
+        inserta si no).
+\end{enumerate}
+
+\subsection{Prompt de Extracción}
+
+El prompt enviado a Claude instruye al modelo a identificar columnas de fecha, producto
+y cantidad vendida, normalizar fechas al formato ISO 8601, y estandarizar los nombres
+de categoría en mayúsculas. El modelo devuelve \textbf{únicamente} un JSON válido,
+evitando texto adicional que dificulte el parseo. En caso de datos ambiguos o ilegibles,
+Claude los documenta en el campo \texttt{warnings} del JSON de respuesta.
+
 % ============================================================
 %  CAPÍTULO 6 — DESARROLLO
 % ============================================================
@@ -696,9 +808,9 @@ El pipeline ETL consta de tres etapas implementadas como scripts Python:
 \begin{enumerate}
   \item \texttt{01\_download\_kaggle.py}: descomprime el archivo \texttt{.zip} descargado
         de Kaggle en \texttt{forecasting/data/}.
-  \item \texttt{02\_clean.py}: elimina valores negativos de ventas, rellena fechas
-        faltantes con ceros, une features exógenas (precio del petróleo, feriados) y
-        genera \texttt{train\_clean.csv}.
+  \item \texttt{02\_clean.py}: elimina valores negativos de ventas, genera features
+        temporales (lags, medias móviles, día de semana, mes) y produce
+        \texttt{train\_clean.csv}.
   \item \texttt{03\_load\_supabase.py}: carga el CSV limpio a la tabla
         \texttt{sales\_history} de PostgreSQL usando SQLAlchemy, con
         \texttt{ON CONFLICT DO NOTHING} para re-runs idempotentes.
@@ -730,7 +842,8 @@ El módulo de inventario recibe las predicciones del AMS y calcula:
 
 \section{API REST}
 
-La API expone cuatro routers:
+La API expone siete routers organizados por dominio funcional. Todos los endpoints
+están documentados automáticamente via OpenAPI en \texttt{/docs}.
 
 \begin{table}[H]
   \centering
@@ -740,25 +853,36 @@ La API expone cuatro routers:
     \toprule
     \textbf{Método} & \textbf{Ruta} & \textbf{Descripción} \\
     \midrule
-    POST & \texttt{/forecast/predict}         & Predice demanda via AMS \\
-    GET  & \texttt{/forecast/models}           & Lista modelos disponibles \\
-    GET  & \texttt{/inventory/alerts}          & SKUs bajo punto de reorden \\
-    GET  & \texttt{/inventory/\{sku\}/metrics} & EOQ, $s$, $S$, rotacion \\
-    GET  & \texttt{/products/}                 & Lista de productos \\
-    POST & \texttt{/orders/generate}           & Genera ordenes automaticas \\
+    POST & \texttt{/api/forecast/predict}            & Predice demanda via AMS \\
+    GET  & \texttt{/api/forecast/models}              & Lista modelos disponibles \\
+    GET  & \texttt{/api/inventory/alerts}             & SKUs bajo punto de reorden \\
+    GET  & \texttt{/api/inventory/\{sku\}/metrics}    & EOQ, $s$, $S$, rotación \\
+    GET  & \texttt{/api/products/}                    & Lista de productos \\
+    POST & \texttt{/api/orders/generate}              & Genera órdenes automáticas \\
+    GET  & \texttt{/api/sales/date-range}             & Rango de fechas disponible del negocio \\
+    GET  & \texttt{/api/sales/families}               & Categorías de productos del negocio \\
+    GET  & \texttt{/api/sales/history}                & Historial de ventas por categoría \\
+    GET  & \texttt{/api/sales/summary}                & Resumen de ventas agregado por categoría \\
+    GET  & \texttt{/api/sales/stores}                 & Tiendas de un negocio \\
+    POST & \texttt{/api/businesses/}                  & Registra un nuevo negocio \\
+    GET  & \texttt{/api/businesses/}                  & Lista negocios registrados \\
+    POST & \texttt{/api/ingest/preview}               & Extrae datos de archivo via Claude IA \\
+    POST & \texttt{/api/ingest/confirm}               & Confirma y carga los datos a BD \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \section{Dashboard Web}
 
-El dashboard React muestra cuatro vistas principales:
+El dashboard React muestra cinco vistas principales:
 
 \begin{enumerate}
   \item \textbf{Inicio}: KPIs (MAPE promedio, stock crítico, órdenes pendientes).
   \item \textbf{Forecasting}: gráfico de demanda histórica + predicha por SKU.
   \item \textbf{Inventario}: tabla de SKUs con nivel actual, $s$, $S$ y estado.
   \item \textbf{Órdenes}: historial y estado de órdenes de compra.
+  \item \textbf{Ingesta}: formulario para subir archivos (imagen, Excel, PDF),
+        visualización del preview extraído por Claude y confirmación de carga.
 \end{enumerate}
 
 % ============================================================
@@ -888,13 +1012,19 @@ Los objetivos específicos del proyecto se encuentran en diferentes estados de a
   \item \textbf{OE-3 (Políticas de Inventario)}: EOQ y $(s,S)$ están definidos
         matemáticamente e implementados como esqueletos; la implementación completa
         corresponde al Sprint 4.
-  \item \textbf{OE-4 (API REST)}: el backend FastAPI está operativo con todos los routers
-        registrados y retornando datos mock. La conexión a datos reales es el objetivo
-        del Sprint 5.
+  \item \textbf{OE-4 (API REST)}: \textbf{Completado.} El backend FastAPI expone siete
+        routers (forecast, inventory, products, orders, sales, ingest, businesses),
+        conectado a PostgreSQL/Supabase y retornando datos reales.
   \item \textbf{OE-5 (Dashboard)}: la estructura del proyecto React está creada; el
         desarrollo de componentes visuales es el objetivo del Sprint 5.
-  \item \textbf{OE-6 (ETL)}: el script de descarga está completo; la limpieza y carga a
-        PostgreSQL están en progreso.
+  \item \textbf{OE-6 (ETL)}: \textbf{Completado.} Los scripts \texttt{02\_clean.py} y
+        \texttt{03\_load\_supabase.py} están implementados; los datos de Corporación
+        Favorita están cargados en Supabase bajo \texttt{business\_id=1}.
+  \item \textbf{OE-7 (Ingesta IA)}: \textbf{Completado.} El módulo \texttt{IngestService}
+        utiliza Claude Opus 4.7 para extraer datos de imágenes, Excel y PDF. Los
+        endpoints \texttt{/api/ingest/preview} y \texttt{/api/ingest/confirm} están
+        operativos. La arquitectura multi-tenant con \texttt{business\_id} y RLS está
+        implementada en Supabase.
 \end{enumerate}
 
 \subsection{Objetivo General}
@@ -919,7 +1049,12 @@ Al concluir los 6 Sprints, SmartSupply estará en condiciones de:
         cuantificado por MAPE.
   \item Generar automáticamente órdenes de compra calibradas por la política $(s,S)$.
   \item Ofrecer un dashboard web accesible para jefes de bodega y analistas.
-  \item Publicar una API REST documentada (Swagger) consumible por sistemas ERP.
+  \item Publicar una API REST documentada (Swagger/OpenAPI) consumible por sistemas ERP.
+  \item Permitir a distribuidoras chilenas sin sistemas digitalizados incorporar sus
+        datos históricos mediante el módulo de ingesta IA, eliminando la barrera de
+        entrada al sistema.
+  \item Operar como plataforma multi-tenant, permitiendo que múltiples negocios usen
+        la misma instancia con datos completamente aislados.
 \end{itemize}
 
 % ============================================================
@@ -959,6 +1094,10 @@ Al concluir los 6 Sprints, SmartSupply estará en condiciones de:
         performances. \textit{International Journal of Production Economics}, 118(1), 63--71.
   \item Tabarroni, S. (2025). \textit{Desarrollo de Sistema de Predicciones Futuras de las
         Acciones de Microsoft mediante Redes Neuronales}. Universidad Andrés Bello.
+  \item Anthropic. (2025). \textit{Claude API Documentation — Vision and Document
+        Understanding}. \url{https://docs.anthropic.com}
+  \item Curino, C., Jones, E., Shah, M., \& Madden, S. (2010). Relational cloud: A
+        database-as-a-service for the cloud. \textit{CIDR Conference}, 235--240.
 \end{enumerate}
 
 \end{document}

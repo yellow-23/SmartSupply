@@ -48,6 +48,8 @@ class ForecastPoint(BaseModel):
     upper_bound: Optional[float] = None
 
 class ForecastResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     sku_id: str
     store_nbr: int
     model_used: str
@@ -103,3 +105,87 @@ class OrderResponse(OrderBase):
 
     class Config:
         from_attributes = True
+
+
+# ─── Negocios (multi-tenancy) ──────────────────────────────────────────────────
+
+class BusinessCreate(BaseModel):
+    name: str = Field(..., example="Distribuidora Santa Elena")
+    rut: Optional[str] = Field(None, example="76.123.456-7")
+    city: Optional[str] = Field(None, example="Santiago")
+    type: Optional[Literal["retail", "distributor", "wholesale", "demo"]] = "distributor"
+
+
+class BusinessResponse(BaseModel):
+    id: int
+    name: str
+    rut: Optional[str] = None
+    city: Optional[str] = None
+    type: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ─── Sales / Datos históricos ──────────────────────────────────────────────────
+
+class StoreResponse(BaseModel):
+    store_nbr: int
+    city: Optional[str] = None
+    state: Optional[str] = None
+    type: Optional[str] = None
+    cluster: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SalesPoint(BaseModel):
+    date: date
+    sales: float
+    onpromotion: int
+
+    class Config:
+        from_attributes = True
+
+
+class SalesSummaryItem(BaseModel):
+    family: str
+    total_sales: float
+    avg_daily_sales: float
+    days_on_promotion: int
+
+
+# ─── Ingesta IA ────────────────────────────────────────────────────────────────
+
+class IngestRecord(BaseModel):
+    date: date
+    family: str
+    sales: float
+    onpromotion: int = 0
+
+
+class IngestPreview(BaseModel):
+    """Lo que Claude extrajo del archivo antes de confirmar la carga."""
+    store_name: str
+    records_found: int
+    date_range_start: Optional[date]
+    date_range_end: Optional[date]
+    families_detected: list[str]
+    records: list[IngestRecord]
+    warnings: list[str] = []
+
+
+class IngestConfirm(BaseModel):
+    business_id: int
+    store_nbr: int
+    records: list[IngestRecord]
+
+
+class IngestResponse(BaseModel):
+    store_nbr: int
+    records_loaded: int
+    families: list[str]
+    date_range_start: date
+    date_range_end: date
