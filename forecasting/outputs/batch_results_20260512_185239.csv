@@ -1,0 +1,6 @@
+sku,store_nbr,status,n_dias,modelo_elegido,wape,wape_arima,wape_prophet,wape_xgboost,wape_lstm,demanda_diaria,stock_seguridad,punto_reorden,eoq,sugerencia_compra,tiempo_seg
+BEAUTY,51,ok,579,LSTM,44.2,65.32,68.38,55.22,44.2,5.88,13.0,54.0,423.0,176.0,39.4
+HARDWARE,16,ok,579,PROPHET,130.61,132.21,130.61,138.12,148.2,0.41,3.0,6.0,111.0,12.0,19.3
+HARDWARE,26,ok,579,ARIMA,91.14,91.14,93.19,99.51,91.66,1.08,7.0,14.0,181.0,32.0,21.2
+LINGERIE,32,ok,579,PROPHET,89.12,97.47,89.12,94.75,100.0,1.62,3.0,15.0,222.0,48.0,20.8
+PERSONAL CARE,27,ok,579,XGBOOST,21.44,24.25,22.05,21.44,24.0,234.93,372.0,2017.0,2673.0,7048.0,20.6
