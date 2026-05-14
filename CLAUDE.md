@@ -1,4 +1,4 @@
-# SmartSupply — Contexto del Proyecto
+﻿# SmartSupply â€” Contexto del Proyecto
 
 ## Que es esto
 
@@ -23,10 +23,10 @@ Una distributiodra chilena real no tiene datos estructurados. El sistema debe ac
 - PDFs escaneados o reportes
 
 **Flujo**:
-1. Usuario sube archivo via dashboard → `POST /api/ingest/preview`
+1. Usuario sube archivo via dashboard â†’ `POST /api/ingest/preview`
 2. Backend envia a Claude (vision/docs) con prompt de extraccion
 3. Claude devuelve JSON normalizado con fechas, familias y ventas
-4. Usuario revisa preview y confirma → `POST /api/ingest/confirm`
+4. Usuario revisa preview y confirma â†’ `POST /api/ingest/confirm`
 5. Backend hace upsert a `sales_history`
 6. El pipeline de forecasting e inventario corre sobre esos datos
 
@@ -34,9 +34,9 @@ Modelo Claude usado: `claude-opus-4-7` para imagenes y PDFs, `claude-sonnet-4-6`
 
 ## Dataset de desarrollo
 
-**Store Sales — Corporacion Favorita** (Kaggle), ya descargado en `datasets/raw/`.
+**Store Sales â€” Corporacion Favorita** (Kaggle), ya descargado en `datasets/raw/`.
 Usado como dataset de benchmarking para validar la hipotesis AMS.
-No reemplaza la ingesta IA — son complementarios.
+No reemplaza la ingesta IA â€” son complementarios.
 
 | Archivo | Descripcion |
 |---------|-------------|
@@ -52,31 +52,31 @@ Rango temporal: 2013-01-01 a 2017-08-15. 54 tiendas, 33 familias de productos.
 
 ```
 SmartSupply/
-├── backend/app/
-│   ├── main.py              # FastAPI + CORS + 6 routers registrados
-│   ├── database.py          # SQLAlchemy engine + sesion + get_db
-│   ├── models/
-│   │   ├── schemas.py       # Todos los Pydantic models
-│   │   └── orm.py           # SQLAlchemy ORM (SalesHistory, Store, OilPrice, Holiday)
-│   ├── api/
-│   │   ├── forecast.py      # Prediccion de demanda
-│   │   ├── inventory.py     # Estado e inventario
-│   │   ├── products.py      # SKUs
-│   │   ├── orders.py        # Ordenes de compra
-│   │   ├── sales.py         # Datos historicos reales desde Supabase
-│   │   └── ingest.py        # Ingesta IA — sube archivo, Claude extrae, carga a BD
-│   └── services/
-│       ├── forecast_service.py   # Mock hasta que Int.1 implemente modelos
-│       ├── inventory_service.py  # Mock hasta que Int.2 implemente logica
-│       └── ingest_service.py     # Claude API — extrae datos de cualquier archivo
-├── etl/scripts/
-│   ├── 01_download_kaggle.py  # Descomprime el zip (hecho)
-│   ├── 02_clean.py            # Limpieza y feature engineering (hecho)
-│   └── 03_load_supabase.py    # Carga a Supabase via REST (hecho)
-├── forecasting/src/         # arima, prophet, xgboost, lstm + selector.py (esqueletos)
-├── inventory/src/           # eoq, s_s_policy, order_generator, simulator (esqueletos)
-├── frontend/                # React + Vite + Recharts + Axios (pendiente)
-└── datasets/raw/            # CSVs del dataset (en .gitignore)
+â”œâ”€â”€ backend/app/
+â”‚   â”œâ”€â”€ main.py              # FastAPI + CORS + 6 routers registrados
+â”‚   â”œâ”€â”€ database.py          # SQLAlchemy engine + sesion + get_db
+â”‚   â”œâ”€â”€ models/
+â”‚   â”‚   â”œâ”€â”€ schemas.py       # Todos los Pydantic models
+â”‚   â”‚   â””â”€â”€ orm.py           # SQLAlchemy ORM (SalesHistory, Store, OilPrice, Holiday)
+â”‚   â”œâ”€â”€ api/
+â”‚   â”‚   â”œâ”€â”€ forecast.py      # Prediccion de demanda
+â”‚   â”‚   â”œâ”€â”€ inventory.py     # Estado e inventario
+â”‚   â”‚   â”œâ”€â”€ products.py      # SKUs
+â”‚   â”‚   â”œâ”€â”€ orders.py        # Ordenes de compra
+â”‚   â”‚   â”œâ”€â”€ sales.py         # Datos historicos reales desde Supabase
+â”‚   â”‚   â””â”€â”€ ingest.py        # Ingesta IA â€” sube archivo, Claude extrae, carga a BD
+â”‚   â””â”€â”€ services/
+â”‚       â”œâ”€â”€ forecast_service.py   # Mock hasta que Int.1 implemente modelos
+â”‚       â”œâ”€â”€ inventory_service.py  # Mock hasta que Int.2 implemente logica
+â”‚       â””â”€â”€ ingest_service.py     # Claude API â€” extrae datos de cualquier archivo
+â”œâ”€â”€ etl/scripts/
+â”‚   â”œâ”€â”€ 01_download_kaggle.py  # Descomprime el zip (hecho)
+â”‚   â”œâ”€â”€ 02_clean.py            # Limpieza y feature engineering (hecho)
+â”‚   â””â”€â”€ 03_load_supabase.py    # Carga a Supabase via REST (hecho)
+â”œâ”€â”€ forecasting/src/         # arima, prophet, xgboost, lstm + selector.py (esqueletos)
+â”œâ”€â”€ inventory/src/           # eoq, s_s_policy, order_generator, simulator (esqueletos)
+â”œâ”€â”€ frontend/                # React + Vite + Recharts + Axios (pendiente)
+â””â”€â”€ datasets/raw/            # CSVs del dataset (en .gitignore)
 ```
 
 ## Stack tecnologico
@@ -111,12 +111,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 ### Completado
 - [x] Estructura de carpetas y archivos base
 - [x] Backend FastAPI con 6 routers (forecast, inventory, products, orders, sales, ingest)
-- [x] SQLAlchemy conectado a Supabase — endpoints devuelven datos reales
-- [x] ETL completo — datos de Corporacion Favorita cargados en Supabase
-- [x] Modulo de ingesta IA — Claude extrae datos de imagenes, Excel y PDF
+- [x] SQLAlchemy conectado a Supabase â€” endpoints devuelven datos reales
+- [x] ETL completo â€” datos de Corporacion Favorita cargados en Supabase
+- [x] Modulo de ingesta IA â€” Claude extrae datos de imagenes, Excel y PDF
 
-### Pendiente
-- [ ] Dashboard React
+### Completado
+- [x] Dashboard React (Sprints 1-6 completados: UI/UX completa con Tailwind)
 - [ ] Agregar ANTHROPIC_API_KEY al .env y probar ingesta con archivo real
 - [ ] Int. 1: implementar modelos de forecasting
 - [ ] Int. 2: implementar logica de inventario
@@ -133,3 +133,5 @@ cd backend
 uvicorn app.main:app --reload
 # -> http://localhost:8000/docs
 ```
+
+
