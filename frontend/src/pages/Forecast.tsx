@@ -30,16 +30,16 @@ const Forecast = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Predicción de Demanda</h2>
-          <p className="text-sm text-gray-500">Módulo AMS - Selección Automática de Modelos</p>
+          <p className="text-sm text-gray-500">El sistema elige automáticamente el mejor modelo de predicción para cada producto</p>
         </div>
         <div className="flex items-center space-x-3">
           <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all shadow-sm">
             <Download className="w-4 h-4" />
             <span className="text-sm font-medium">Exportar</span>
           </button>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-unab-light text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20">
+          <button className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-xl hover:opacity-90 transition-all">
             <Play className="w-4 h-4" />
-            <span className="text-sm font-medium">Ejecutar AMS</span>
+            <span className="text-sm font-medium">Actualizar predicciones</span>
           </button>
         </div>
       </div>
@@ -49,8 +49,8 @@ const Forecast = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input 
             type="text" 
-            placeholder="Buscar SKU o Categoría..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-unab-light transition-all text-sm"
+            placeholder="Buscar producto o categoría..."
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-primary transition-all text-sm"
             value={selectedSku}
             onChange={(e) => setSelectedSku(e.target.value)}
           />
@@ -77,11 +77,11 @@ const Forecast = () => {
           <ForecastLineChart data={mockData} title="Pronóstico de Ventas Semanal" />
         </div>
         <div className="space-y-6">
-          <div className="bg-gradient-to-br from-unab-blue to-blue-900 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden">
+          <div className="bg-gradient-to-br from-slate-950 to-blue-900 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden">
             <TrendingUp className="absolute -right-4 -bottom-4 w-32 h-32 text-white/5 rotate-12" />
             <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-2">Mejor Modelo</p>
             <h4 className="text-3xl font-bold mb-1">Prophet</h4>
-            <p className="text-blue-100 text-sm opacity-80">MAPE: 8.32%</p>
+            <p className="text-blue-100 text-sm opacity-80">Error promedio: 8.32%</p>
             <div className="mt-6 pt-6 border-t border-white/10 flex items-center justify-between">
               <span className="text-xs text-blue-200">Confianza: 95%</span>
               <span className="px-2 py-1 bg-green-500/20 text-green-300 text-[10px] font-bold rounded uppercase">Óptimo</span>

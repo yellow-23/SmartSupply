@@ -1,5 +1,9 @@
-﻿import React from 'react'; import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-const ModelDistributionPie = ({ data }) => {
+﻿import React from 'react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+
+interface PieEntry { name: string; value: number; color: string; }
+
+const ModelDistributionPie = ({ data }: { data: PieEntry[] }) => {
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full min-h-[300px]">
       <h3 className="text-lg font-bold text-gray-800 mb-6">Distribución de Modelos</h3>

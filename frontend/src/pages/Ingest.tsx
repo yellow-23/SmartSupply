@@ -20,22 +20,22 @@ const Ingest = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-gray-800">Ingesta Inteligente</h2>
-        <p className="text-sm text-gray-500">Usa IA (Claude) para extraer ventas desde fotos, PDF o Excel</p>
+        <h2 className="text-2xl font-bold text-gray-800">Importar datos de ventas</h2>
+        <p className="text-sm text-gray-500">Sube una foto, planilla Excel o PDF — la IA extrae y ordena los datos automáticamente</p>
       </div>
 
       {step === 1 && (
-        <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-center space-y-6 hover:border-unab-light transition-colors group cursor-pointer" onClick={handleUpload}>
+        <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-center space-y-6 hover:border-primary transition-colors group cursor-pointer" onClick={handleUpload}>
           {isProcessing ? (
             <div className="space-y-4">
-              <Loader2 className="w-16 h-16 text-unab-light animate-spin mx-auto" />
+              <Loader2 className="w-16 h-16 text-primary animate-spin mx-auto" />
               <p className="text-lg font-bold text-gray-700">Claude está analizando tu archivo...</p>
               <p className="text-sm text-gray-400">Identificando columnas de fecha, familia y ventas</p>
             </div>
           ) : (
             <>
               <div className="w-20 h-20 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Upload className="w-10 h-10 text-unab-light" />
+                <Upload className="w-10 h-10 text-primary" />
               </div>
               <div className="space-y-2">
                 <p className="text-xl font-bold text-gray-800">Sube tu archivo de ventas</p>
@@ -68,7 +68,7 @@ const Ingest = () => {
             </div>
             <button 
               onClick={handleConfirm}
-              className="flex items-center space-x-2 px-6 py-2.5 bg-unab-light text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all"
+              className="flex items-center space-x-2 px-6 py-2.5 bg-orange-600 text-white rounded-xl font-bold hover:opacity-90 transition-all"
             >
               <Send className="w-4 h-4" />
               <span>Confirmar Carga</span>
@@ -111,9 +111,9 @@ const Ingest = () => {
             <h3 className="text-2xl font-bold text-gray-800">¡Datos Cargados!</h3>
             <p className="text-gray-500 max-w-sm mx-auto">Los registros ya están disponibles para los modelos de forecasting y políticas de inventario.</p>
           </div>
-          <button 
+          <button
             onClick={() => setStep(1)}
-            className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-all"
+            className="px-8 py-3 bg-orange-600 text-white rounded-xl font-bold hover:opacity-90 transition-all"
           >
             Subir otro archivo
           </button>

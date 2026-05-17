@@ -14,7 +14,7 @@ const ModelComparisonTable: React.FC<{ models: ModelMetric[] }> = ({ models }) =
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-6 border-b border-gray-50 flex justify-between items-center">
         <h3 className="text-lg font-bold text-gray-800">Comparación de Modelos (AMS)</h3>
-        <span className="px-3 py-1 bg-blue-50 text-unab-light text-xs font-bold rounded-full uppercase tracking-wider">
+        <span className="px-3 py-1 bg-blue-50 text-blue-900 text-xs font-bold rounded-full uppercase tracking-wider">
           SKU: GROCERY-001
         </span>
       </div>

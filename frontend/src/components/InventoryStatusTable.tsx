@@ -1,7 +1,9 @@
 ﻿import React from 'react';
-import { Package, AlertCircle, ArrowRight } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
-const InventoryStatusTable = ({ data }) => {
+interface InventoryRow { sku: string; stock: number; s: number; S: number; }
+
+const InventoryStatusTable = ({ data }: { data: InventoryRow[] }) => {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-6 border-b border-gray-50 flex justify-between items-center">
@@ -19,7 +21,7 @@ const InventoryStatusTable = ({ data }) => {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-          {data.map((r, i) => (
+          {data.map((r: InventoryRow, i: number) => (
             <tr key={i} className="hover:bg-gray-50/30">
               <td className="px-6 py-4 font-bold text-gray-700">{r.sku}</td>
               <td className="px-6 py-4 font-black text-gray-900">{r.stock}</td>

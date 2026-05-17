@@ -1,5 +1,8 @@
-﻿import React from 'react'; import { Download } from 'lucide-react';
-const HistoryTable = ({ data }) => {
+﻿import React from 'react';
+
+interface HistoryRow { date: string; sku: string; sales: number; }
+
+const HistoryTable = ({ data }: { data: HistoryRow[] }) => {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-6 border-b border-gray-50 flex justify-between items-center">
@@ -16,7 +19,7 @@ const HistoryTable = ({ data }) => {
             </tr>
           </thead>
           <tbody>
-            {data.map((r, i) => (
+            {data.map((r: HistoryRow, i: number) => (
               <tr key={i} className="border-t border-gray-50 hover:bg-gray-50/50">
                 <td className="px-6 py-4">{r.date}</td>
                 <td className="px-6 py-4 font-bold text-gray-700">{r.sku}</td>

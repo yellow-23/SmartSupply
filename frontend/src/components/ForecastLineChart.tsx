@@ -10,7 +10,20 @@ import {
   ComposedChart
 } from "recharts";
 
-const ForecastLineChart = ({ data, title }) => {
+interface DataPoint {
+  date: string;
+  actual?: number;
+  forecast?: number;
+  lower?: number;
+  upper?: number;
+}
+
+interface ForecastLineChartProps {
+  data: DataPoint[];
+  title?: string;
+}
+
+const ForecastLineChart = ({ data, title }: ForecastLineChartProps) => {
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full h-full flex flex-col">
       {title && <h3 className="text-lg font-bold text-gray-800 mb-6">{title}</h3>}
