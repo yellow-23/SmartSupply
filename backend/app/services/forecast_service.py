@@ -5,8 +5,10 @@ Capa de servicio que conecta los endpoints de la API con el motor AMS.
 
 import os
 import sys
-from datetime import datetime, date
-from typing import Literal, Optional
+from datetime import datetime
+from typing import Optional
+
+import numpy as np
 
 from app.models.schemas import ForecastResponse, ForecastPoint
 
@@ -41,8 +43,7 @@ class ForecastService:
         fuerza ese modelo saltando la selección automática.
         """
         from forecasting.src.ams_pipeline import run_ams_pipeline, load_sku_series
-        from forecasting.src.selector import AutoModelSelector, MODELS, calculate_wape
-        import numpy as np
+        from forecasting.src.selector import MODELS, calculate_wape
 
         forced_model = None if model in ("auto", None) else model
 
@@ -91,14 +92,7 @@ class ForecastService:
             )
             model_used = result["Modelo_Elegido"].lower()
             wape_used = result["WAPE"]
-            pred_series = result["final_pred"] if "final_pred" in result else None
-
-            # Reconstruir serie de predicción desde el dict si es necesario
-            if pred_series is None:
-                import pandas as pd
-                dates = list(result["Prediccion_30d"].keys())
-                vals = list(result["Prediccion_30d"].values())
-                pred_series = pd.Series(vals, index=pd.to_datetime(dates))
+            pred_series = result["final_pred"]
 
         # Construir lista de ForecastPoint
         predictions = [
