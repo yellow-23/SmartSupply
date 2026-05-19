@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { BarChart3, Eye, EyeOff, TrendingUp, Package, Zap, Loader2 } from "lucide-react";
-import { useAuthStore } from "../store/authStore";
 import { useNavigate, Link } from "react-router-dom";
+import axios from "axios";
 
-export default function Login() {
-  const { login, isLoading, error } = useAuthStore((s) => ({ login: s.login, isLoading: s.isLoading, error: s.error }));
+export default function Register() {
   const navigate = useNavigate();
-
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({ email: "cristobal@distribuidora.cl", password: "demo1234" });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ name: "", email: "", password: "" });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -16,21 +16,26 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setIsLoading(true);
     try {
-      await login(formData.email, formData.password);
-      navigate("/dashboard");
-    } catch {
-      // error ya en store
+      await axios.post("/api/auth/register", {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
+      navigate("/login");
+    } catch (err: any) {
+      setError(err.response?.data?.detail ?? "Error al registrarse");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="w-full min-h-screen flex">
       {/* Left: hero */}
-      <div
-        className="flex-1 hidden md:flex items-center justify-center p-12 relative overflow-hidden bg-gradient-to-br from-slate-950 from-[0%] via-blue-900 via-[70%] to-orange-600 to-[100%]"
-      >
-        {/* Background pattern */}
+      <div className="flex-1 hidden md:flex items-center justify-center p-12 relative overflow-hidden bg-gradient-to-br from-slate-950 from-[0%] via-blue-900 via-[70%] to-orange-600 to-[100%]">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-10 w-64 h-64 rounded-full border border-white/20" />
           <div className="absolute top-40 left-32 w-96 h-96 rounded-full border border-white/10" />
@@ -38,7 +43,6 @@ export default function Login() {
         </div>
 
         <div className="text-white max-w-lg relative z-10">
-          {/* Logo */}
           <div className="flex items-center gap-3 mb-10">
             <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
               <BarChart3 className="w-5 h-5 text-white" />
@@ -47,18 +51,17 @@ export default function Login() {
           </div>
 
           <h1 className="text-5xl font-bold leading-tight mb-6">
-            Predicción inteligente de demanda para tu distribuidora.
+            Únete a SmartSupply y optimiza tu distribuidora.
           </h1>
           <p className="text-white/60 text-lg mb-12">
-            Predice cuánto vas a vender y ordena justo lo que necesitas. Menos mercadería parada, menos quiebres de stock.
+            Predice demanda, automatiza órdenes y reduce quiebres de stock con inteligencia artificial.
           </p>
 
-          {/* Feature pills */}
           <div className="flex flex-col gap-3">
             {[
-              { icon: TrendingUp, label: "El sistema elige automáticamente el mejor modelo de predicción para cada producto" },
-              { icon: Package, label: "Calcula cuánto y cuándo pedir para evitar quiebres de stock sin acumular excesos" },
-              { icon: Zap, label: "Sube fotos, Excel o PDFs con tus ventas — la IA extrae los datos en segundos" },
+              { icon: TrendingUp, label: "Selección automática del mejor modelo de forecasting por SKU" },
+              { icon: Package, label: "Política de inventario óptima calculada en tiempo real" },
+              { icon: Zap, label: "Ingesta inteligente — sube cualquier formato y la IA lo procesa" },
             ].map(({ icon: Icon, label }) => (
               <div key={label} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 backdrop-blur-sm">
                 <Icon className="w-4 h-4 text-orange-400 shrink-0" />
@@ -72,7 +75,6 @@ export default function Login() {
       {/* Right: form */}
       <div className="flex-1 bg-white flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          {/* Mobile logo */}
           <div className="flex items-center gap-2 mb-8 md:hidden">
             <div className="w-8 h-8 bg-[#1565C0] rounded-lg flex items-center justify-center">
               <BarChart3 className="w-4 h-4 text-white" />
@@ -81,11 +83,27 @@ export default function Login() {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Bienvenido de vuelta</h2>
-            <p className="text-gray-500">Ingresa a tu panel de forecasting y reabastecimiento.</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Crear cuenta</h2>
+            <p className="text-gray-500">Ingresa tus datos para acceder a la plataforma.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre completo
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Tu nombre"
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#1E3A8A] focus:border-transparent outline-none transition-all bg-white text-sm"
+              />
+            </div>
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Correo electrónico
@@ -97,6 +115,7 @@ export default function Login() {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="correo@distribuidora.cl"
+                required
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#1E3A8A] focus:border-transparent outline-none transition-all bg-white text-sm"
               />
             </div>
@@ -112,7 +131,9 @@ export default function Login() {
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  placeholder="Ingresa tu contraseña"
+                  placeholder="Mínimo 8 caracteres"
+                  required
+                  minLength={8}
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#1E3A8A] focus:border-transparent outline-none transition-all bg-white text-sm"
                 />
                 <button
@@ -125,18 +146,8 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 text-blue-600 border-gray-300 rounded" />
-                <span className="text-sm text-gray-600">Recordarme</span>
-              </label>
-              <button type="button" className="text-sm font-medium text-orange-600 hover:opacity-80">
-                ¿Olvidaste tu contraseña?
-              </button>
-            </div>
-
             {error && (
-              <p className="text-sm text-red-600 text-center -mt-1">{error}</p>
+              <p className="text-sm text-red-600 text-center">{error}</p>
             )}
 
             <button
@@ -145,18 +156,18 @@ export default function Login() {
               className="w-full py-3 px-4 rounded-xl bg-orange-600 font-semibold text-white transition-opacity duration-200 hover:opacity-90 focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {isLoading ? "Ingresando..." : "Iniciar sesión"}
+              {isLoading ? "Creando cuenta..." : "Crear cuenta"}
             </button>
+
+            <p className="text-center text-sm text-gray-500">
+              ¿Ya tienes cuenta?{" "}
+              <Link to="/login" className="font-medium text-orange-600 hover:opacity-80">
+                Iniciar sesión
+              </Link>
+            </p>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-500">
-            ¿No tienes cuenta?{" "}
-            <Link to="/register" className="font-medium text-orange-600 hover:opacity-80">
-              Registrarse
-            </Link>
-          </p>
-
-          <p className="mt-4 text-center text-xs text-gray-400">
+          <p className="mt-8 text-center text-xs text-gray-400">
             SmartSupply &mdash; Tesis UNAB &middot; Ingeniería Civil en Informática
           </p>
         </div>

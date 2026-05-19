@@ -1,4 +1,5 @@
-﻿import { create } from 'zustand';
+import axios from 'axios';
+import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface User {
@@ -13,27 +14,38 @@ interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (user: User, token: string) => void;
+  isLoading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user: {
-        id: 1,
-        name: 'Cristóbal Flores',
-        email: 'cristobal@distribuidora.cl',
-        role: 'admin',
-        business_id: 1,
-      }, // Mock initial user for dev
-      token: 'mock-token',
-      isAuthenticated: true,
-      login: (user, token) => set({ user, token, isAuthenticated: true }),
-      logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+      login: async (email, password) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await axios.post('/api/auth/login', { email, password });
+          set({
+            user: data.user,
+            token: data.access_token,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } catch (err: any) {
+          const msg = err.response?.data?.detail ?? 'Error al iniciar sesión';
+          set({ isLoading: false, error: msg });
+          throw err;
+        }
+      },
+      logout: () => set({ user: null, token: null, isAuthenticated: false, error: null }),
     }),
-    {
-      name: 'auth-storage',
-    }
+    { name: 'auth-storage' }
   )
 );

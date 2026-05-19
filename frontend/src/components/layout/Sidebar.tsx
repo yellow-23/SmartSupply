@@ -33,7 +33,7 @@ const navSections = [
 
 export default function Sidebar() {
   const navigate = useNavigate();
-  const logout = useAuthStore((s) => s.logout);
+  const { user, logout } = useAuthStore((s) => ({ user: s.user, logout: s.logout }));
 
   return (
     <aside className="w-64 bg-slate-950 text-white flex flex-col flex-shrink-0 h-screen">
@@ -77,8 +77,8 @@ export default function Sidebar() {
 
       <div className="p-3 space-y-1">
         <div className="rounded-xl px-4 py-3 mb-2 border border-white/10 bg-white/5">
-          <p className="text-sm font-semibold text-white">Plan Pro</p>
-          <p className="text-xs text-white/40 mt-0.5">Renueva en 23 días</p>
+          <p className="text-sm font-semibold text-white truncate">{user?.name ?? "Usuario"}</p>
+          <p className="text-xs text-white/40 mt-0.5 capitalize">{user?.role === "admin" ? "Administrador" : "Analista"}</p>
         </div>
         <button
           onClick={() => { logout(); navigate("/login"); }}

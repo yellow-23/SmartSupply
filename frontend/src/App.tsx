@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Forecast from "./pages/Forecast";
 import Inventory from "./pages/Inventory";
@@ -7,19 +8,18 @@ import Ingest from "./pages/Ingest";
 import Orders from "./pages/Orders";
 import Products from "./pages/Products";
 import AppShell from "./components/layout/AppShell";
-import { useAuthStore } from "./store/authStore";
+import ProtectedRoute from "./components/layout/ProtectedRoute";
 
 function App() {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route
           path="/*"
           element={
-            isAuthenticated ? (
+            <ProtectedRoute>
               <AppShell>
                 <Routes>
                   <Route path="/dashboard"   element={<Dashboard />} />
@@ -31,9 +31,7 @@ function App() {
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </AppShell>
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
       </Routes>
