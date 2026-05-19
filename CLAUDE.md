@@ -142,18 +142,38 @@ JWT_EXPIRE_HOURS=8
 
 ## Como correr el proyecto
 
+### Primera vez (setup)
+```bash
+# Requiere python3.11 — instalar si no lo tienes:
+brew install python@3.11
+
+# Desde la raiz del repo:
+bash setup.sh
+
+# Copiar y completar variables de entorno:
+cp backend/.env.example backend/.env
+# Editar backend/.env con DATABASE_URL, JWT_SECRET, etc.
+```
+
+### Dia a dia
 ```bash
 # Backend
-cd SmartSupply/backend
-source ../venv/bin/activate
-python3.11 -m uvicorn app.main:app --reload
+source venv/bin/activate
+cd backend && uvicorn app.main:app --reload
 # -> http://localhost:8000/docs
 
-# Frontend
-cd SmartSupply/frontend
-npm run dev
+# Frontend (otra terminal)
+cd frontend && npm run dev
 # -> http://localhost:5173
 ```
+
+### Problema comun: "No module named X" con venv activado
+Significa que `python`/`pip` apuntan a la version incorrecta dentro del venv. Arreglar con:
+```bash
+ln -sf python3.11 venv/bin/python
+ln -sf python3.11 venv/bin/python3
+```
+Verificar: `python --version` debe decir `Python 3.11.x`
 
 ## Estado actual (2026-05-18)
 
