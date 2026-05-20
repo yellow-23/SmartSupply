@@ -175,7 +175,7 @@ ln -sf python3.11 venv/bin/python3
 ```
 Verificar: `python --version` debe decir `Python 3.11.x`
 
-## Estado actual (2026-05-18)
+## Estado actual (2026-05-20)
 
 ### Completado - Sprint 1
 - [x] Estructura de carpetas y archivos base
@@ -199,12 +199,31 @@ Verificar: `python --version` debe decir `Python 3.11.x`
 - [x] `Register.tsx` - pagina nueva con mismo estilo que Login
 - [x] Sidebar - "Plan Pro" eliminado, muestra nombre y rol del usuario real
 
+### Completado - Sprint 2-B Forecasting (2026-05-20)
+- [x] Auth centralizado en `main.py` via `dependencies=[Depends(get_current_user)]` - todos los routers protegidos excepto `/api/auth`
+- [x] `frontend/src/api/forecast.ts` - modulo con `fetchForecast` y `fetchSalesHistory`
+- [x] `Forecast.tsx` conectado a la API real - selector de SKU con 33 familias, input de tienda, horizonte 7/14/30 dias
+- [x] Grafico con historial real (ultimos 30 dias) + prediccion (linea continua / punteada)
+- [x] Tarjeta modelo ganador con nombre y WAPE real del AMS
+- [x] Resumen del pronostico: total estimado, promedio diario, precision del modelo en %
+- [x] Estado de carga con spinner y mensaje explicativo (~30-90s por SKU)
+- [x] Banner informativo sobre dataset de benchmarking Corporacion Favorita
+- [x] Dependencias instaladas en venv: matplotlib, statsmodels, prophet, xgboost, scikit-learn
+- [x] LSTM usa tensorflow (no instalado) - falla graciosamente, AMS igual elige entre ARIMA/Prophet/XGBoost
+
+### Notas tecnicas importantes
+- **LSTM**: el modelo espera `tensorflow` pero el venv tiene `torch`. Hay que migrar `lstm_model.py` a PyTorch o instalar tensorflow. Por ahora no bloquea - AMS lo descarta y elige el mejor entre los 3 restantes.
+- **Latencia forecast**: cada request corre el AMS completo (30-90s). Para produccion considerar cache por SKU+tienda+horizonte.
+- **Dataset**: fechas de 2017 son del dataset Corporacion Favorita. El banner en Forecast.tsx lo explica al usuario.
+
 ### Pendiente
 - [ ] S2-B: GET /dashboard/kpis + conectar Dashboard a datos reales
 - [ ] S2-C: CRUD de productos conectado a Supabase
-- [ ] S3: AMS batch + Forecast end-to-end + Ingesta IA conectada
+- [ ] S3: Ingesta IA conectada al frontend (Ingest.tsx)
 - [ ] S4: Inventario + Ordenes + Simulador (s,S)
 - [ ] S5: Reportes + Admin + Notificaciones
 - [ ] S6: QA + Deploy Render/Cloudflare + Tesis
-- [ ] Recuperacion de contrasena por email (diferido - necesita servicio SMTP como Resend)
+- [ ] LSTM: migrar lstm_model.py de tensorflow a torch (ya instalado en venv)
+- [ ] Cache de predicciones por SKU+tienda+horizonte (reducir latencia)
+- [ ] Recuperacion de contrasena por email (diferido - necesita SMTP como Resend)
 - [ ] ANTHROPIC_API_KEY en .env para probar ingesta con archivo real
