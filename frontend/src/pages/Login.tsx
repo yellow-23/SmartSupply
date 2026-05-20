@@ -130,9 +130,9 @@ export default function Login() {
                 <input type="checkbox" className="w-4 h-4 text-blue-600 border-gray-300 rounded" />
                 <span className="text-sm text-gray-600">Recordarme</span>
               </label>
-              <button type="button" className="text-sm font-medium text-orange-600 hover:opacity-80">
+              <Link to="/forgot-password" className="text-sm font-medium text-orange-600 hover:opacity-80">
                 ¿Olvidaste tu contraseña?
-              </button>
+              </Link>
             </div>
 
             {error && (

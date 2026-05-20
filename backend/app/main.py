@@ -6,7 +6,7 @@ FastAPI backend para la plataforma de predicción de demanda y reabastecimiento
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, forecast, inventory, products, orders, sales, ingest, businesses
+from app.api import auth, forecast, inventory, products, orders, sales, ingest, businesses, dashboard
 
 app = FastAPI(
     title="SmartSupply API",
@@ -32,6 +32,7 @@ app.include_router(orders.router,     prefix="/api/orders",     tags=["Órdenes 
 app.include_router(sales.router,      prefix="/api/sales",      tags=["Datos históricos"])
 app.include_router(ingest.router,     prefix="/api/ingest",     tags=["Ingesta IA"])
 app.include_router(businesses.router, prefix="/api/businesses", tags=["Negocios"])
+app.include_router(dashboard.router,  prefix="/api/dashboard",  tags=["Dashboard"])
 
 
 @app.get("/", tags=["Health"])

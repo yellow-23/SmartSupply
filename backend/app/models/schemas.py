@@ -8,6 +8,21 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
+# ─── Dashboard ────────────────────────────────────────────────────────────────
+
+class DashboardKPIs(BaseModel):
+    mape_global: Optional[float] = Field(None, description="MAPE promedio de modelos activos (Sprint 3)")
+    skus_en_alerta: int = Field(0, description="SKUs cuyo stock está por debajo del punto de reorden")
+    ordenes_pendientes: int = Field(0, description="Órdenes con status=Pendiente (Sprint 4)")
+    nivel_servicio: Optional[float] = Field(None, description="Nivel de servicio global % (Sprint 4)")
+
+
+class DashboardChartPoint(BaseModel):
+    date: str
+    real: Optional[float] = None
+    forecast: Optional[float] = None
+
+
 # ─── Productos / SKUs ──────────────────────────────────────────────────────────
 
 class ProductBase(BaseModel):
