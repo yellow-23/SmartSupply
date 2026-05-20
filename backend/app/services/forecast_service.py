@@ -5,6 +5,8 @@ Capa de servicio que conecta los endpoints de la API con el motor AMS.
 
 import os
 import sys
+import time
+import threading
 from datetime import datetime
 from typing import Optional
 
@@ -21,11 +23,21 @@ if _ROOT not in sys.path:
 # CSV de ventas limpias (relativo al root del repo)
 _CSV_PATH = os.path.join(_ROOT, "datasets", "processed", "train_clean.csv")
 
+# Cache en memoria: clave -> (resultado, timestamp). TTL 1 hora.
+_CACHE_TTL = 3600
+_cache: dict[str, tuple] = {}
+_cache_lock = threading.Lock()
+
+
+def _cache_key(sku_id: str, store_nbr: int, horizon_days: int, model: str) -> str:
+    return f"{sku_id}|{store_nbr}|{horizon_days}|{model or 'auto'}"
+
 
 class ForecastService:
     """
     Servicio de predicción de demanda.
     Llama al motor AMS (forecasting/src/ams_pipeline.py) para cada request.
+    Resultados se cachean en memoria por 1 hora para evitar recalcular 30-90s por SKU.
     """
 
     def predict(
@@ -42,6 +54,13 @@ class ForecastService:
         Si model es un nombre específico (arima|prophet|xgboost|lstm),
         fuerza ese modelo saltando la selección automática.
         """
+        key = _cache_key(sku_id, store_nbr, horizon_days, model or "auto")
+        with _cache_lock:
+            if key in _cache:
+                result, ts = _cache[key]
+                if time.monotonic() - ts < _CACHE_TTL:
+                    return result
+
         from forecasting.src.ams_pipeline import run_ams_pipeline, load_sku_series
         from forecasting.src.selector import MODELS, calculate_wape
 
@@ -103,7 +122,7 @@ class ForecastService:
             for idx, val in pred_series.items()
         ]
 
-        return ForecastResponse(
+        response = ForecastResponse(
             sku_id=sku_id,
             store_nbr=store_nbr,
             model_used=model_used,
@@ -112,3 +131,6 @@ class ForecastService:
             predictions=predictions,
             generated_at=datetime.now(),
         )
+        with _cache_lock:
+            _cache[key] = (response, time.monotonic())
+        return response

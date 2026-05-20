@@ -1,7 +1,11 @@
-from fastapi import APIRouter, HTTPException, Query
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.api.auth import get_current_user
+from app.models.orm import User
 from app.models.schemas import ForecastRequest, ForecastResponse
-from app.services.forecast_service import ForecastService
+from app.services.forecast_service import ForecastService, _cache, _cache_lock
 
 router = APIRouter()
 service = ForecastService()
@@ -31,6 +35,17 @@ async def predict_demand(request: ForecastRequest):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en predicción: {str(e)}")
+
+
+@router.delete("/cache", status_code=200)
+def clear_forecast_cache(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Invalida el cache de predicciones en memoria. Útil tras reentrenar modelos."""
+    with _cache_lock:
+        count = len(_cache)
+        _cache.clear()
+    return {"cleared": count}
 
 
 @router.get("/models")
