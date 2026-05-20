@@ -177,6 +177,21 @@ Verificar: `python --version` debe decir `Python 3.11.x`
 
 ## Estado actual (2026-05-20)
 
+### Completado - Sprint 2-C Dashboard + Auth hardening (2026-05-20, nachytto)
+- [x] `GET /api/dashboard/kpis` - SKUs en alerta, ordenes pendientes (MAPE y nivel servicio pendientes de modelos)
+- [x] `GET /api/dashboard/chart-data` - ventas reales agregadas por dia, ultimas 4 semanas desde Supabase
+- [x] `Dashboard.tsx` conectado a API real via React Query, sin datos mockeados
+- [x] `AlertsSummaryPanel.tsx` - panel de alertas criticas de SKU en el dashboard
+- [x] `POST /api/auth/forgot-password` - genera token con TTL 30 min, responde siempre 200
+- [x] `POST /api/auth/reset-password` - valida token, actualiza hash, marca token como usado (one-time use)
+- [x] Rate limiting en `/login` - 5 intentos fallidos por IP en ventana de 15 min, responde 429
+- [x] `PasswordResetToken` ORM model + tabla `password_reset_tokens` en Supabase (con RLS activado)
+- [x] `ForgotPassword.tsx` + `ResetPassword.tsx` - paginas nuevas con rutas en App.tsx
+- [x] `ProtectedRoute.tsx` - soporte para roles
+- [x] `require_admin()` dependency lista para proteger endpoints admin
+- [x] `setup.ps1` - script de setup para Windows
+- [x] Migration script: `backend/scripts/migrate_sprint2.sql` (ya aplicado en Supabase)
+
 ### Completado - Sprint 1
 - [x] Estructura de carpetas y archivos base
 - [x] Backend FastAPI con routers (forecast, inventory, products, orders, sales, ingest, businesses)
@@ -217,13 +232,14 @@ Verificar: `python --version` debe decir `Python 3.11.x`
 - **Dataset**: fechas de 2017 son del dataset Corporacion Favorita. El banner en Forecast.tsx lo explica al usuario.
 
 ### Pendiente
-- [ ] S2-B: GET /dashboard/kpis + conectar Dashboard a datos reales
-- [ ] S2-C: CRUD de productos conectado a Supabase
-- [ ] S3: Ingesta IA conectada al frontend (Ingest.tsx)
+- [ ] S2-D: CRUD de productos conectado a Supabase (Products.tsx)
+- [ ] S3: Ingesta IA conectada al frontend (Ingest.tsx) + ANTHROPIC_API_KEY en .env
 - [ ] S4: Inventario + Ordenes + Simulador (s,S)
 - [ ] S5: Reportes + Admin + Notificaciones
 - [ ] S6: QA + Deploy Render/Cloudflare + Tesis
+- [ ] Dashboard: poblar `mape_global` y `nivel_servicio` cuando Int.1 e Int.2 expongan sus metricas
+- [ ] Dashboard: poblar serie `forecast` en chart-data (Sprint 3, cuando AMS este integrado al dashboard)
 - [ ] LSTM: migrar lstm_model.py de tensorflow a torch (ya instalado en venv)
 - [ ] Cache de predicciones por SKU+tienda+horizonte (reducir latencia)
-- [ ] Recuperacion de contrasena por email (diferido - necesita SMTP como Resend)
-- [ ] ANTHROPIC_API_KEY en .env para probar ingesta con archivo real
+- [ ] Recuperacion de contrasena por email real (necesita SMTP como Resend - diferido S5)
+- [ ] DEBUG=false en produccion (.env) para no exponer debug_token en forgot-password
