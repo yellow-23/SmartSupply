@@ -37,6 +37,15 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     pass
 
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    family: Optional[str] = None
+    unit_cost: Optional[float] = None
+    lead_time_days: Optional[int] = None
+    min_order_qty: Optional[int] = None
+
+
 class ProductResponse(ProductBase):
     id: int
     created_at: datetime

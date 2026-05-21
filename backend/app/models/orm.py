@@ -75,6 +75,21 @@ class Holiday(Base):
     transferred = Column(Boolean, default=False)
 
 
+class Product(Base):
+    __tablename__ = "products"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, default=1, index=True)
+    sku_id = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    family = Column(String, nullable=False, index=True)
+    store_nbr = Column(Integer, ForeignKey("stores.store_nbr"), nullable=False, index=True)
+    unit_cost = Column(Float, nullable=False)
+    lead_time_days = Column(Integer, nullable=False, default=3)
+    min_order_qty = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 
