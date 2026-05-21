@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.orm import PasswordResetToken, User
+from app.models.orm import Business, PasswordResetToken, Store, User
 
 router = APIRouter()
 
@@ -69,8 +69,8 @@ class RegisterRequest(BaseModel):
     name: str
     email: str
     password: str
+    business_name: str = ""  # nombre del negocio; si vacío usa "Negocio de {name}"
     role: str = "analyst"
-    business_id: int = 1
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -88,6 +88,7 @@ class UserOut(BaseModel):
     email: str
     role: str
     business_id: int
+    business_name: str = ""
 
 
 class TokenResponse(BaseModel):
@@ -120,9 +121,10 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
 
     _clear_rate_limit(ip)
+    biz = db.query(Business).filter(Business.id == user.business_id).first()
     return TokenResponse(
         access_token=_create_token(user),
-        user=UserOut(id=user.id, name=user.name, email=user.email, role=user.role, business_id=user.business_id),
+        user=UserOut(id=user.id, name=user.name, email=user.email, role=user.role, business_id=user.business_id, business_name=biz.name if biz else ""),
     )
 
 
@@ -132,20 +134,29 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Rol debe ser 'admin' o 'analyst'")
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El correo ya está registrado")
+
+    biz_name = body.business_name.strip() or f"Negocio de {body.name}"
+    business = Business(name=biz_name, type="distributor")
+    db.add(business)
+    db.flush()
+
+    store = Store(business_id=business.id, store_nbr=1, name="Tienda Principal")
+    db.add(store)
+
     hashed = _bcrypt.hashpw(body.password.encode(), _bcrypt.gensalt()).decode()
     user = User(
         name=body.name,
         email=body.email,
         hashed_password=hashed,
-        role=body.role,
-        business_id=body.business_id,
+        role="admin",
+        business_id=business.id,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
     return TokenResponse(
         access_token=_create_token(user),
-        user=UserOut(id=user.id, name=user.name, email=user.email, role=user.role, business_id=user.business_id),
+        user=UserOut(id=user.id, name=user.name, email=user.email, role=user.role, business_id=user.business_id, business_name=biz_name),
     )
 
 

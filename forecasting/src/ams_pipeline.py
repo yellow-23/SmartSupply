@@ -106,7 +106,7 @@ def load_sku_series(
 # ---------------------------------------------------------------------------
 
 def run_ams_pipeline(
-    csv_path: str,
+    csv_path: str | None = None,
     sku_id: str = "GROCERY I",
     store_nbr: int | None = 1,
     horizon: int = 30,
@@ -115,9 +115,14 @@ def run_ams_pipeline(
     lead_time: int = DEFAULT_LEAD_TIME,
     output_dir: str = ".",
     cv: bool = False,
+    series: pd.Series | None = None,
+    save_plot: bool = True,
 ) -> dict:
     """
     Pipeline completo: ETL → AMS → Inventario → Gráfico.
+
+    Si ``series`` se entrega, se usa directamente y se omite la carga de ``csv_path``.
+    Esto permite ejecutar el AMS sobre datos del usuario (Supabase) sin tocar el CSV.
 
     Retorna
     -------
@@ -133,16 +138,19 @@ def run_ams_pipeline(
 
     # ── 1. ETL ─────────────────────────────────────────────────────────────
     print("\n[1/3] Cargando y preparando datos...")
-    series = load_sku_series(csv_path, sku_family=sku_id, store_nbr=store_nbr)
+    if series is None:
+        if csv_path is None:
+            raise ValueError("Debes entregar csv_path o series.")
+        series = load_sku_series(csv_path, sku_family=sku_id, store_nbr=store_nbr)
     print(
         f"      Serie: {len(series):,} días  "
         f"({series.index[0].date()} → {series.index[-1].date()})"
     )
 
-    if len(series) < 90:
+    if len(series) < 30:
         raise ValueError(
-            "La serie tiene menos de 90 observaciones. "
-            "Se necesitan al menos 90 días para el split 70/15/15."
+            "La serie tiene menos de 30 observaciones. "
+            "Se necesitan al menos 30 días para entrenar los modelos."
         )
 
     # ── 2. AMS ─────────────────────────────────────────────────────────────
@@ -187,7 +195,7 @@ def run_ams_pipeline(
     print(f"      Sugerencia de compra   : {purchase_suggestion:.0f} uds (próx. {horizon} días)")
 
     # ── 4. Gráfico ──────────────────────────────────────────────────────────
-    plot_path = _plot_forecast(result, sku_id, store_nbr, output_dir)
+    plot_path = _plot_forecast(result, sku_id, store_nbr, output_dir) if save_plot else None
 
     # ── 5. Resultado ────────────────────────────────────────────────────────
     output: dict = {

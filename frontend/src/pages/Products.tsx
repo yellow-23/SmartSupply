@@ -3,20 +3,8 @@ import { Plus, Search, Package, AlertTriangle, Download, Pencil, Trash2, Loader2
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchProducts, createProduct, updateProduct, deleteProduct, Product, ProductCreate } from "../api/products";
 
-const FAMILIES = [
-  "AUTOMOTIVE", "BABY CARE", "BEAUTY", "BEVERAGES", "BOOKS",
-  "BREAD/BAKERY", "CLEANING", "DAIRY", "DELI", "EGGS",
-  "FROZEN FOODS", "GROCERY I", "GROCERY II", "HARDWARE",
-  "HOME AND KITCHEN I", "HOME AND KITCHEN II", "HOME APPLIANCES",
-  "HOME CARE", "LADIESWEAR", "LAWN AND GARDEN", "LINGERIE",
-  "LIQUOR,WINE,BEER", "MAGAZINES", "MEATS", "PERSONAL CARE",
-  "PET SUPPLIES", "PLAYERS AND ELECTRONICS", "POULTRY",
-  "PREPARED FOODS", "PRODUCE", "SCHOOL AND OFFICE SUPPLIES",
-  "SEAFOOD", "SHOES",
-];
-
 const EMPTY_FORM: ProductCreate = {
-  sku_id: "", name: "", family: "GROCERY I",
+  sku_id: "", name: "", family: "",
   store_nbr: 1, unit_cost: 0, lead_time_days: 3, min_order_qty: 1,
 };
 
@@ -113,7 +101,7 @@ export default function Products() {
             >
               Todos
             </button>
-            {["GROCERY I", "BEVERAGES", "CLEANING", "DAIRY", "PRODUCE"].map(f => (
+            {families.map(f => (
               <button
                 key={f}
                 onClick={() => setFamilyFilter(f === familyFilter ? undefined : f)}
@@ -163,7 +151,7 @@ export default function Products() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {["Código", "Producto", "Familia", "Tienda", "Costo unit.", "Lead time", "MOQ", ""].map(h => (
+                  {["Código", "Producto", "Familia", "Tienda", "Costo unit.", "Lead time", ""].map(h => (
                     <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -177,7 +165,6 @@ export default function Products() {
                     <td className="px-6 py-4 text-gray-500">{p.store_nbr}</td>
                     <td className="px-6 py-4 text-gray-700">${p.unit_cost.toLocaleString("es-CL")}</td>
                     <td className="px-6 py-4 text-gray-500">{p.lead_time_days}d</td>
-                    <td className="px-6 py-4 text-gray-500">{p.min_order_qty} un.</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 justify-end">
                         <button onClick={() => openEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
@@ -250,13 +237,16 @@ export default function Products() {
 
               <div>
                 <label className="text-xs font-medium text-gray-500">Familia</label>
-                <select
+                <input
+                  list="families-list"
                   value={form.family}
-                  onChange={e => setForm(f => ({ ...f, family: e.target.value }))}
+                  onChange={e => setForm(f => ({ ...f, family: e.target.value.toUpperCase() }))}
+                  placeholder="Ej: BEBIDAS"
                   className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30 bg-white"
-                >
-                  {FAMILIES.map(fam => <option key={fam} value={fam}>{fam}</option>)}
-                </select>
+                />
+                <datalist id="families-list">
+                  {families.map(fam => <option key={fam} value={fam} />)}
+                </datalist>
               </div>
 
               <div className="grid grid-cols-3 gap-3">

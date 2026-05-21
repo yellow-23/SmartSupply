@@ -9,11 +9,8 @@ from app.api.auth import get_current_user
 from app.database import get_db
 from app.models.orm import SalesHistory, User
 from app.models.schemas import DashboardChartPoint, DashboardKPIs
-from app.services.inventory_service import InventoryService
 
 router = APIRouter()
-
-_inventory_svc = InventoryService()
 
 
 @router.get("/kpis", response_model=DashboardKPIs)
@@ -21,12 +18,10 @@ def get_kpis(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ):
-
-    skus_en_alerta = len(_inventory_svc.get_critical_skus(store_nbr=1))
-
+    """KPIs del business del usuario. mape_global y nivel_servicio se llenan cuando Int.1 e Int.2 expongan sus métricas."""
     return DashboardKPIs(
         mape_global=None,
-        skus_en_alerta=skus_en_alerta,
+        skus_en_alerta=0,
         ordenes_pendientes=0,
         nivel_servicio=None,
     )
@@ -37,11 +32,12 @@ def get_chart_data(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ):
-    """
-    Retorna ventas reales agregadas por día para las últimas 4 semanas de datos
-    disponibles en sales_history. La serie 'forecast' se poblará en Sprint 3.
-    """
-    max_date = db.query(func.max(SalesHistory.date)).scalar()
+    """Ventas reales agregadas por día (últimas 4 semanas), scoped al business del usuario."""
+    max_date = (
+        db.query(func.max(SalesHistory.date))
+        .filter(SalesHistory.business_id == current_user.business_id)
+        .scalar()
+    )
     if not max_date:
         return []
 
@@ -49,6 +45,7 @@ def get_chart_data(
 
     rows = (
         db.query(SalesHistory.date, func.sum(SalesHistory.sales).label("real"))
+        .filter(SalesHistory.business_id == current_user.business_id)
         .filter(SalesHistory.date >= start_date)
         .group_by(SalesHistory.date)
         .order_by(SalesHistory.date)

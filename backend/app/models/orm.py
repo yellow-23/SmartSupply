@@ -31,7 +31,7 @@ class Business(Base):
 class SalesHistory(Base):
     __tablename__ = "sales_history"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     business_id = Column(Integer, ForeignKey("businesses.id"), default=1, index=True)
     date = Column(Date, nullable=False, index=True)
     store_nbr = Column(Integer, nullable=False, index=True)
@@ -48,12 +48,15 @@ class SalesHistory(Base):
 class Store(Base):
     __tablename__ = "stores"
 
-    store_nbr = Column(Integer, primary_key=True)
-    business_id = Column(Integer, ForeignKey("businesses.id"), default=1, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, index=True)
+    store_nbr = Column(Integer, nullable=False)  # número local dentro del negocio
+    name = Column(String)
     city = Column(String)
     state = Column(String)
     type = Column(String)
     cluster = Column(Integer)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class OilPrice(Base):
@@ -83,7 +86,7 @@ class Product(Base):
     sku_id = Column(String, nullable=False, index=True)
     name = Column(String, nullable=False)
     family = Column(String, nullable=False, index=True)
-    store_nbr = Column(Integer, ForeignKey("stores.store_nbr"), nullable=False, index=True)
+    store_nbr = Column(Integer, nullable=False, index=True)
     unit_cost = Column(Float, nullable=False)
     lead_time_days = Column(Integer, nullable=False, default=3)
     min_order_qty = Column(Integer, nullable=False, default=1)

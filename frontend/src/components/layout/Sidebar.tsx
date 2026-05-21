@@ -2,8 +2,6 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   TrendingUp,
-  Package,
-  ClipboardList,
   ShoppingBag,
   Sparkles,
   LogOut,
@@ -12,23 +10,11 @@ import {
 import { useAuthStore } from "../../store/authStore";
 import { cn } from "../../lib/utils";
 
-const navSections = [
-  {
-    label: "OPERACIÓN",
-    items: [
-      { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-      { name: "Predicción de ventas", path: "/forecasting", icon: TrendingUp },
-      { name: "Inventario", path: "/inventory", icon: Package },
-      { name: "Órdenes", path: "/orders", icon: ClipboardList },
-    ],
-  },
-  {
-    label: "CATÁLOGO",
-    items: [
-      { name: "Productos", path: "/products", icon: ShoppingBag },
-      { name: "Importar datos", path: "/ingest", icon: Sparkles },
-    ],
-  },
+const navItems = [
+  { name: "Inicio",            path: "/dashboard",   icon: LayoutDashboard },
+  { name: "Subir ventas",      path: "/ingest",      icon: Sparkles },
+  { name: "Predecir demanda",  path: "/forecasting", icon: TrendingUp },
+  { name: "Mis productos",     path: "/products",    icon: ShoppingBag },
 ];
 
 export default function Sidebar() {
@@ -46,37 +32,29 @@ export default function Sidebar() {
 
       <div className="mx-5 border-t border-white/10" />
 
-      <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
-        {navSections.map((section) => (
-          <div key={section.label}>
-            <p className="px-3 mb-2 text-[10px] font-semibold text-white/40 uppercase tracking-widest">
-              {section.label}
-            </p>
-            <div className="space-y-0.5">
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors border-l-[3px] pl-[9px]",
-                      isActive
-                        ? "bg-white/10 text-white border-l-orange-600"
-                        : "text-white/50 hover:bg-white/5 hover:text-white border-l-transparent"
-                    )
-                  }
-                >
-                  <item.icon className="w-4 h-4 flex-shrink-0" />
-                  {item.name}
-                </NavLink>
-              ))}
-            </div>
-          </div>
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors border-l-[3px] pl-[9px]",
+                isActive
+                  ? "bg-white/10 text-white border-l-orange-600"
+                  : "text-white/50 hover:bg-white/5 hover:text-white border-l-transparent"
+              )
+            }
+          >
+            <item.icon className="w-4 h-4 flex-shrink-0" />
+            {item.name}
+          </NavLink>
         ))}
       </nav>
 
       <div className="p-3 space-y-1">
         <div className="rounded-xl px-4 py-3 mb-2 border border-white/10 bg-white/5">
+          <p className="text-xs text-orange-400 font-semibold truncate mb-0.5">{user?.business_name ?? ""}</p>
           <p className="text-sm font-semibold text-white truncate">{user?.name ?? "Usuario"}</p>
           <p className="text-xs text-white/40 mt-0.5 capitalize">{user?.role === "admin" ? "Administrador" : "Analista"}</p>
         </div>

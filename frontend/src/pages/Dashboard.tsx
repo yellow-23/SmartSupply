@@ -1,4 +1,4 @@
-import { Target, AlertTriangle, ClipboardList, Activity, RefreshCw, Upload, ShoppingCart, FileDown, Loader2 } from "lucide-react";
+import { Target, AlertTriangle, ClipboardList, Activity, RefreshCw, Upload, FileDown, Loader2, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { KpiCard } from "../components/ui/KpiCard";
@@ -14,8 +14,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import api from "../api/axios.instance";
-
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+import { useAuthStore } from "../store/authStore";
 
 interface DashboardKPIs {
   mape_global: number | null;
@@ -30,8 +29,6 @@ interface ChartPoint {
   forecast: number | null;
 }
 
-// ─── Fetchers ─────────────────────────────────────────────────────────────────
-
 async function fetchKPIs(): Promise<DashboardKPIs> {
   const { data } = await api.get("/dashboard/kpis");
   return data;
@@ -42,19 +39,15 @@ async function fetchChartData(): Promise<ChartPoint[]> {
   return data;
 }
 
-// ─── Constantes UI ────────────────────────────────────────────────────────────
-
 const quickActions = [
-  { label: "Reentrenar modelos", icon: RefreshCw,    href: "/forecasting" },
-  { label: "Cargar ventas",      icon: Upload,       href: "/ingest" },
-  { label: "Generar OC",         icon: ShoppingCart, href: "/orders" },
-  { label: "Exportar reporte",   icon: FileDown,     href: "#" },
+  { label: "Predecir demanda", icon: RefreshCw, href: "/forecasting" },
+  { label: "Subir más ventas",  icon: Upload,   href: "/ingest" },
+  { label: "Exportar reporte",  icon: FileDown, href: "#" },
 ];
-
-// ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const user = useAuthStore(s => s.user);
 
   const {
     data: kpis,
@@ -70,6 +63,7 @@ export default function Dashboard() {
   const {
     data: chartData = [],
     isLoading: chartLoading,
+    isSuccess: chartLoaded,
   } = useQuery<ChartPoint[]>({
     queryKey: ["dashboard", "chart-data"],
     queryFn: fetchChartData,
@@ -77,8 +71,41 @@ export default function Dashboard() {
     refetchInterval: 300_000,
   });
 
+  const isEmptyState = chartLoaded && chartData.length === 0;
+
   const fmt = (v: number | null | undefined, suffix = "") =>
     v == null ? "—" : `${v.toLocaleString("es-CL")}${suffix}`;
+
+  // ─── Onboarding: usuario sin ventas cargadas ──────────────────────────────
+  if (isEmptyState) {
+    return (
+      <div className="flex items-center justify-center min-h-[70vh]">
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-12 max-w-xl text-center space-y-6">
+          <div className="w-20 h-20 bg-orange-50 rounded-2xl flex items-center justify-center mx-auto">
+            <Sparkles className="w-10 h-10 text-orange-600" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold text-gray-800">
+              Hola {user?.name?.split(" ")[0] ?? "bienvenido"} 👋
+            </h2>
+            <p className="text-gray-500 text-base">
+              Para empezar, sube tu primer archivo de ventas. Stocky se encarga de leer fotos, Excel o PDFs y dejar todo ordenado.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/ingest")}
+            className="px-7 py-3 bg-orange-600 text-white rounded-xl font-bold text-base hover:opacity-90 transition-all inline-flex items-center gap-2"
+          >
+            <Upload className="w-5 h-5" />
+            Subir mis ventas
+          </button>
+          <p className="text-xs text-gray-400">
+            Una vez que cargues tus datos podrás ver tu dashboard y predecir tu demanda.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -186,4 +213,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

@@ -8,6 +8,7 @@ interface User {
   email: string;
   role: 'admin' | 'analyst';
   business_id: number;
+  business_name: string;
 }
 
 interface AuthState {

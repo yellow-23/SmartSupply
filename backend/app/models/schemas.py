@@ -213,3 +213,19 @@ class IngestResponse(BaseModel):
     families: list[str]
     date_range_start: date
     date_range_end: date
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class IngestChatRequest(BaseModel):
+    messages: list[ChatMessage]
+    preview_summary: str
+    business_name: str = ""
+
+
+class IngestChatResponse(BaseModel):
+    reply: str
+    trigger_confirm: bool = False

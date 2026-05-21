@@ -30,7 +30,7 @@ Una distribuidora chilena real no tiene datos estructurados. El sistema debe ace
 5. Backend hace upsert a `sales_history`
 6. El pipeline de forecasting e inventario corre sobre esos datos
 
-Modelo Claude usado: `claude-opus-4-7` para imagenes y PDFs, `claude-sonnet-4-6` para Excel con columnas ambiguas.
+Modelo Claude usado: `claude-haiku-4-5-20251001` para imagenes y PDFs, `claude-sonnet-4-6` para Excel con columnas ambiguas.
 
 ## Dataset de desarrollo
 

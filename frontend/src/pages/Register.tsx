@@ -2,13 +2,14 @@ import { useState } from "react";
 import { BarChart3, Eye, EyeOff, TrendingUp, Package, Zap, Loader2 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import { useAuthStore } from "../store/authStore";
 
 export default function Register() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: "", email: "", password: "" });
+  const [formData, setFormData] = useState({ name: "", email: "", password: "", business_name: "" });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -19,12 +20,19 @@ export default function Register() {
     setError(null);
     setIsLoading(true);
     try {
-      await axios.post("/api/auth/register", {
+      const { data } = await axios.post("/api/auth/register", {
         name: formData.name,
         email: formData.email,
         password: formData.password,
+        business_name: formData.business_name,
       });
-      navigate("/login");
+      // Auto-login con el token devuelto por register, igual que en Login
+      useAuthStore.setState({
+        user: data.user,
+        token: data.access_token,
+        isAuthenticated: true,
+      });
+      navigate("/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.detail ?? "Error al registrarse");
     } finally {
@@ -88,6 +96,21 @@ export default function Register() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="business_name" className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre de tu distribuidora
+              </label>
+              <input
+                type="text"
+                id="business_name"
+                name="business_name"
+                value={formData.business_name}
+                onChange={handleInputChange}
+                placeholder="Distribuidora El Ahorro"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#1E3A8A] focus:border-transparent outline-none transition-all bg-white text-sm"
+              />
+            </div>
+
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                 Nombre completo

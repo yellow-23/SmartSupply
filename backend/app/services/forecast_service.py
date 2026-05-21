@@ -1,6 +1,10 @@
 """
 ForecastService — SmartSupply
 Capa de servicio que conecta los endpoints de la API con el motor AMS.
+
+business_id == 1 es el dataset de benchmarking de Corporación Favorita (Kaggle):
+se sigue leyendo desde el CSV procesado para no romper la validación de la tesis.
+Cualquier otro business_id usa el historial real del usuario en Supabase.
 """
 
 import os
@@ -11,7 +15,10 @@ from datetime import datetime
 from typing import Optional
 
 import numpy as np
+import pandas as pd
+from sqlalchemy.orm import Session
 
+from app.models.orm import SalesHistory
 from app.models.schemas import ForecastResponse, ForecastPoint
 
 # Agregar el root del repo al path para importar el módulo forecasting/
@@ -20,8 +27,10 @@ _ROOT = os.path.dirname(_BACKEND_DIR)
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-# CSV de ventas limpias (relativo al root del repo)
+# CSV de ventas limpias (solo se usa para business_id == 1: benchmark Kaggle)
 _CSV_PATH = os.path.join(_ROOT, "datasets", "processed", "train_clean.csv")
+_BENCHMARK_BUSINESS_ID = 1
+_MIN_DAYS = 30
 
 # Cache en memoria: clave -> (resultado, timestamp). TTL 1 hora.
 _CACHE_TTL = 3600
@@ -29,32 +38,68 @@ _cache: dict[str, tuple] = {}
 _cache_lock = threading.Lock()
 
 
-def _cache_key(sku_id: str, store_nbr: int, horizon_days: int, model: str) -> str:
-    return f"{sku_id}|{store_nbr}|{horizon_days}|{model or 'auto'}"
+class InsufficientDataError(Exception):
+    """Se levanta cuando la serie no tiene los 90 días mínimos para el AMS."""
+
+    def __init__(self, days_available: int, days_required: int = _MIN_DAYS):
+        self.days_available = days_available
+        self.days_required = days_required
+        super().__init__(
+            f"Serie insuficiente: {days_available} días disponibles, "
+            f"se requieren al menos {days_required}."
+        )
+
+
+def _cache_key(business_id: int, sku_id: str, store_nbr: int, horizon_days: int, model: str) -> str:
+    return f"{business_id}|{sku_id}|{store_nbr}|{horizon_days}|{model or 'auto'}"
+
+
+def _load_series_from_db(
+    db: Session,
+    business_id: int,
+    family: str,
+    store_nbr: int,
+) -> pd.Series:
+    """
+    Construye una serie diaria de ventas desde sales_history scoped por business_id.
+    Devuelve un pd.Series indexado por fecha (frecuencia diaria, gaps en 0).
+    """
+    rows = (
+        db.query(SalesHistory.date, SalesHistory.sales)
+        .filter(SalesHistory.business_id == business_id)
+        .filter(SalesHistory.family == family)
+        .filter(SalesHistory.store_nbr == store_nbr)
+        .order_by(SalesHistory.date)
+        .all()
+    )
+
+    if not rows:
+        raise InsufficientDataError(days_available=0)
+
+    df = pd.DataFrame([{"date": r.date, "sales": float(r.sales)} for r in rows])
+    df["date"] = pd.to_datetime(df["date"])
+    daily = df.groupby("date")["sales"].sum().sort_index()
+    daily = daily.asfreq("D", fill_value=0.0)
+    return daily.clip(lower=0)
 
 
 class ForecastService:
     """
     Servicio de predicción de demanda.
     Llama al motor AMS (forecasting/src/ams_pipeline.py) para cada request.
-    Resultados se cachean en memoria por 1 hora para evitar recalcular 30-90s por SKU.
+    Resultados se cachean en memoria por 1 hora (clave incluye business_id).
     """
 
     def predict(
         self,
+        db: Session,
+        business_id: int,
         sku_id: str,
         store_nbr: int,
         horizon_days: int,
         model: Optional[str] = "auto",
     ) -> ForecastResponse:
-        """
-        Genera predicción de demanda para un SKU usando el motor AMS.
-
-        Si model='auto' o 'ams', ejecuta el Automated Model Selector.
-        Si model es un nombre específico (arima|prophet|xgboost|lstm),
-        fuerza ese modelo saltando la selección automática.
-        """
-        key = _cache_key(sku_id, store_nbr, horizon_days, model or "auto")
+        key = _cache_key(business_id, sku_id, store_nbr, horizon_days, model or "auto")
         with _cache_lock:
             if key in _cache:
                 result, ts = _cache[key]
@@ -64,16 +109,19 @@ class ForecastService:
         from forecasting.src.ams_pipeline import run_ams_pipeline, load_sku_series
         from forecasting.src.selector import MODELS, calculate_wape
 
+        # Cargar serie según fuente: CSV (Kaggle benchmark) o Supabase (usuario real)
+        if business_id == _BENCHMARK_BUSINESS_ID:
+            series = load_sku_series(_CSV_PATH, sku_family=sku_id, store_nbr=store_nbr)
+        else:
+            series = _load_series_from_db(db, business_id, sku_id, store_nbr)
+
+        if len(series) < _MIN_DAYS:
+            raise InsufficientDataError(days_available=len(series))
+
         forced_model = None if model in ("auto", None) else model
 
         if forced_model:
             # Modo modelo forzado: entrena solo el modelo solicitado
-            series = load_sku_series(_CSV_PATH, sku_family=sku_id, store_nbr=store_nbr)
-            if len(series) < 90:
-                raise ValueError(
-                    f"Serie demasiado corta para '{sku_id}' tienda {store_nbr} "
-                    f"({len(series)} días, mínimo 90)."
-                )
             n = len(series)
             train_end = int(n * 0.70)
             val_end = int(n * 0.85)
@@ -91,7 +139,6 @@ class ForecastService:
             val_pred = m.predict(len(val))
             wape_val = calculate_wape(val.values, val_pred.values[:len(val)])
 
-            # Reentrenar sobre train+val y predecir
             m2 = ModelClass()
             m2.fit(train_val, **fit_kwargs)
             final_pred = m2.predict(horizon_days)
@@ -101,19 +148,18 @@ class ForecastService:
             pred_series = final_pred
 
         else:
-            # Modo AMS completo
+            # Modo AMS completo (sin generar PNG, no lo usa el API)
             result = run_ams_pipeline(
-                csv_path=_CSV_PATH,
                 sku_id=sku_id,
                 store_nbr=store_nbr,
                 horizon=horizon_days,
-                output_dir=os.path.join(_ROOT, "forecasting", "outputs"),
+                series=series,
+                save_plot=False,
             )
             model_used = result["Modelo_Elegido"].lower()
             wape_used = result["WAPE"]
             pred_series = result["final_pred"]
 
-        # Construir lista de ForecastPoint
         predictions = [
             ForecastPoint(
                 date=idx.date() if hasattr(idx, "date") else idx,

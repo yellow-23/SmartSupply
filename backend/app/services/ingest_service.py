@@ -65,7 +65,7 @@ class IngestService:
         image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
 
         message = self.client.messages.create(
-            model="claude-opus-4-7",
+            model="claude-haiku-4-5-20251001",
             max_tokens=4096,
             messages=[
                 {
@@ -132,7 +132,7 @@ class IngestService:
         pdf_b64 = base64.standard_b64encode(file_bytes).decode("utf-8")
 
         message = self.client.messages.create(
-            model="claude-opus-4-7",
+            model="claude-haiku-4-5-20251001",
             max_tokens=4096,
             messages=[
                 {
@@ -217,6 +217,39 @@ class IngestService:
                 records=[],
                 warnings=[f"Error al interpretar respuesta de Claude: {str(e)}", text[:500]],
             )
+
+    def chat(self, messages: list, preview_summary: str, business_name: str = "") -> str:
+        """Stocky responde preguntas sobre los datos extraídos en el preview."""
+        negocio = f"Estás asistiendo a **{business_name}**." if business_name else ""
+        system = f"""Eres Stocky, asistente de ingesta de SmartSupply — plataforma de forecasting e inventario para distribuidoras chilenas.
+{negocio}
+
+DATOS EXTRAÍDOS DEL ARCHIVO (ya los tienes, no los pidas):
+{preview_summary}
+
+PERSONALIDAD:
+- Presentas los datos directamente, sin pedir que el usuario te explique qué subió.
+- Eres breve y concreto. Máximo 3 oraciones por respuesta, salvo que el usuario pida más detalle.
+- Hablas en español natural, sin frases de relleno ni saludos.
+- Cuando hay advertencias, las explicas en términos simples de negocio.
+- Haces UNA sola pregunta a la vez si necesitas aclarar algo.
+- No usas listas con guiones ni asteriscos para negritas. Escribes en prosa simple.
+- Si todo parece correcto, lo dices claramente y preguntas si el usuario quiere agregar contexto adicional (nombre de tienda, período, notas) antes de confirmar la carga.
+
+PRIMERA RESPUESTA: resume en 1-2 frases lo que encontraste y pregunta si quieren agregar contexto o confirmar directo.
+
+AUTO-CONFIRMAR: Cuando el usuario indique que quiere proceder (ejemplos: "carga nomas", "confirma", "dale", "listo", "sí carga", "cárgalo", "no hay más", "todo bien"), termina tu respuesta con la etiqueta exacta [CONFIRMAR] en una línea separada al final. No la uses si el usuario solo está respondiendo preguntas o dando contexto."""
+
+        response = self.client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=512,
+            system=system,
+            messages=[{"role": m.role, "content": m.content} for m in messages],
+        )
+        raw = response.content[0].text
+        trigger = "[CONFIRMAR]" in raw
+        reply = raw.replace("[CONFIRMAR]", "").strip()
+        return reply, trigger
 
     def _build_preview(self, store_name: str, records: list[IngestRecord], warnings: list[str]) -> IngestPreview:
         dates = [r.date for r in records]

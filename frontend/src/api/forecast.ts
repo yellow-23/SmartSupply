@@ -40,7 +40,35 @@ export interface ForecastRequest {
   model?: string;
 }
 
+export interface ForecastStoreOption {
+  store_nbr: number;
+  name: string;
+  days_available: number;
+}
+
+export interface ForecastOptions {
+  families: string[];
+  stores: ForecastStoreOption[];
+  days_required: number;
+}
+
+export interface InsufficientDataDetail {
+  code: 'insufficient_data';
+  days_available: number;
+  days_required: number;
+  message: string;
+}
+
 export async function fetchForecast(req: ForecastRequest): Promise<ForecastResponse> {
   const { data } = await client.post<ForecastResponse>('/forecast/predict', req);
   return data;
+}
+
+export async function fetchForecastOptions(): Promise<ForecastOptions> {
+  const { data } = await client.get<ForecastOptions>('/forecast/options');
+  return data;
+}
+
+export function isInsufficientDataError(err: any): err is { response: { data: { detail: InsufficientDataDetail } } } {
+  return err?.response?.status === 422 && err?.response?.data?.detail?.code === 'insufficient_data';
 }

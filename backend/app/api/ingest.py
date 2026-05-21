@@ -5,12 +5,15 @@ El usuario sube cualquier archivo (imagen, Excel, PDF) y Claude extrae
 los registros de ventas, los normaliza y los carga a sales_history.
 """
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
+from app.api.auth import get_current_user
 from app.database import get_db
-from app.models.orm import SalesHistory
-from app.models.schemas import IngestConfirm, IngestPreview, IngestResponse
+from app.models.orm import Business, Product, SalesHistory, User
+from app.models.schemas import IngestConfirm, IngestPreview, IngestResponse, IngestChatRequest, IngestChatResponse
 from app.services.ingest_service import (
     SUPPORTED_EXCEL_TYPES,
     SUPPORTED_IMAGE_TYPES,
@@ -83,6 +86,24 @@ def confirm_ingest(body: IngestConfirm, db: Session = Depends(get_db)):
             ))
         loaded += 1
 
+    # Auto-crear producto por cada familia nueva detectada
+    families_in_batch = set(r.family for r in body.records)
+    for family in families_in_batch:
+        exists = db.query(Product).filter(
+            Product.business_id == body.business_id,
+            Product.family == family,
+            Product.store_nbr == body.store_nbr,
+        ).first()
+        if not exists:
+            db.add(Product(
+                business_id=body.business_id,
+                sku_id=family,
+                name=family.title(),
+                family=family,
+                store_nbr=body.store_nbr,
+                unit_cost=0.0,
+            ))
+
     db.commit()
 
     dates = [r.date for r in body.records]
@@ -93,3 +114,16 @@ def confirm_ingest(body: IngestConfirm, db: Session = Depends(get_db)):
         date_range_start=min(dates),
         date_range_end=max(dates),
     )
+
+
+@router.post("/chat", response_model=IngestChatResponse)
+def ingest_chat(
+    body: IngestChatRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+):
+    """Stocky — asistente de ingesta. Aclara dudas sobre los datos extraídos."""
+    biz = db.query(Business).filter(Business.id == current_user.business_id).first()
+    business_name = biz.name if biz else ""
+    reply, trigger_confirm = service.chat(body.messages, body.preview_summary, business_name)
+    return IngestChatResponse(reply=reply, trigger_confirm=trigger_confirm)
