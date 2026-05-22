@@ -19,6 +19,7 @@ from app.services.ingest_service import (
     SUPPORTED_IMAGE_TYPES,
     IngestService,
 )
+from app.services.ingest_validator import filter_loadable_records
 
 router = APIRouter()
 service = IngestService()
@@ -60,8 +61,15 @@ def confirm_ingest(body: IngestConfirm, db: Session = Depends(get_db)):
     if not body.records:
         raise HTTPException(status_code=400, detail="No hay registros para cargar.")
 
+    loadable = filter_loadable_records(body.records)
+    if not loadable:
+        raise HTTPException(
+            status_code=400,
+            detail="Ningun registro es cargable (fechas futuras o ventas en cero).",
+        )
+
     loaded = 0
-    for record in body.records:
+    for record in loadable:
         existing = (
             db.query(SalesHistory)
             .filter(
@@ -87,7 +95,7 @@ def confirm_ingest(body: IngestConfirm, db: Session = Depends(get_db)):
         loaded += 1
 
     # Auto-crear producto por cada familia nueva detectada
-    families_in_batch = set(r.family for r in body.records)
+    families_in_batch = set(r.family for r in loadable)
     for family in families_in_batch:
         exists = db.query(Product).filter(
             Product.business_id == body.business_id,
@@ -106,11 +114,11 @@ def confirm_ingest(body: IngestConfirm, db: Session = Depends(get_db)):
 
     db.commit()
 
-    dates = [r.date for r in body.records]
+    dates = [r.date for r in loadable]
     return IngestResponse(
         store_nbr=body.store_nbr,
         records_loaded=loaded,
-        families=sorted(set(r.family for r in body.records)),
+        families=sorted(set(r.family for r in loadable)),
         date_range_start=min(dates),
         date_range_end=max(dates),
     )

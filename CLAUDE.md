@@ -175,7 +175,45 @@ ln -sf python3.11 venv/bin/python3
 ```
 Verificar: `python --version` debe decir `Python 3.11.x`
 
-## Estado actual (2026-05-20)
+## Estado actual (2026-05-22)
+
+### Completado - Sprint 2-E Validador de ingesta + fixes de modelos (2026-05-22, yellow-23)
+
+**Backend - Validador (nuevo):**
+- [x] `backend/app/services/ingest_validator.py` - detecta problemas antes de cargar:
+  - `FUTURE_DATES` (warning): registros con `date > today`
+  - `MIXED_GRANULARITY` (error, bloquea): gaps inconsistentes (ej: mensual + diario mezclados)
+  - `MONTHLY_GRANULARITY` (warning): gap mediano >=25 dias
+  - `WEEKLY_GRANULARITY` (info): gap mediano 5-25 dias
+  - `SCALE_SHIFT` (warning): >5x cambio de mediana entre mitades temporales
+  - `LIKELY_CURRENCY` (warning): >=50% de familias con mediana diaria >10k → probable son pesos CLP no unidades
+- [x] `QualityIssue` schema (severity/code/family/message) + campo `quality_issues` en `IngestPreview`
+- [x] `filter_loadable_records()` - defensa en profundidad: el `/confirm` filtra futuros y `sales=0` aunque el frontend los pase
+- [x] Validador se invoca automaticamente en `IngestService._build_preview()` (cubre imagen, excel, PDF)
+
+**Backend - Hardening de ingesta:**
+- [x] `_get_column_mapping()` ahora intenta Sonnet primero, fallback automatico a Haiku si Sonnet retorna 529 (overloaded). Mensaje user-facing friendly, traceback completo solo en logs del backend
+- [x] `_parse_date()` reescrito: `dayfirst=True` PRIMERO (convencion chilena dd/mm/yyyy), US como fallback. Elimina `infer_datetime_format` deprecated. Bug previo: fechas como `03/05/2026` se parseaban como `mar 5` (US) silenciosamente
+- [x] `max_tokens` de column mapping subido de 600 a 1500 (evita truncamiento de JSON con archivos complejos)
+
+**Backend - Fixes de modelos de forecasting:**
+- [x] `forecasting/src/prophet_model.py` - `yearly_seasonality` ahora dinamico (activo solo si serie >=730 dias). Bug: con `True` hardcoded sobreajustaba en series cortas. WAPE bajo de 213% a 10.86% sobre datos sinteticos
+- [x] `forecasting/src/arima_model.py` - grid search ahora incluye componente estacional semanal `seasonal_order=(P,D,Q,7)` cuando hay >=21 dias. Antes ARIMA predecia linea plana (la media); ahora captura ciclo semanal
+
+**Backend - Forecast Service:**
+- [x] `forecast_service._load_series_from_db()` filtra `date <= today` (evita que futuros polucionen el set de validacion del AMS)
+
+**Frontend:**
+- [x] `frontend/src/api/ingest.ts` - tipos `QualityIssue` y `IssueSeverity` (`'error' | 'warning' | 'info'`)
+- [x] `Ingest.tsx` - panel de quality issues con colores por severidad (rojo/ambar/azul), boton Confirmar se bloquea si hay severidad `error`, Stocky recibe los issues en su contexto
+
+**Base de datos:**
+- [x] `UNIQUE (business_id, date, family, store_nbr)` en `sales_history` - previene duplicados en reingestas
+- [x] Cleanup de businesses huerfanos (12-16) y reset de business 17 (Distribuidora salame), que tenia 1755 filas con granularidad mixta (mensual ene-oct 2025 + diario nov 2025+ + 30 registros futuros). Causa raiz invisible de WAPE 121% en el SKU CONGELADOS
+- [x] Cargado business 18 (Distribuidora Santa Elena - Sucursal Ñuñoa): 1395 filas reales, 9 familias, rango 2025-11-24 → 2026-05-22, todas DIARIAS y consistentes. El validador detecto correctamente que son pesos (LIKELY_CURRENCY) y dejo proceder al usuario
+
+**Validacion end-to-end:**
+- [x] Forecast sobre data real ingestada: PANADERIA Y PASTELERIA business 18 → Prophet gana con WAPE 10.68% y detecta cierre dominical (~$3k vs ~$220k entre semana). El AMS funciona sobre data real, no solo sobre el dataset Kaggle
 
 ### Completado - Sprint 2-C Dashboard + Auth hardening (2026-05-20, nachytto)
 - [x] `GET /api/dashboard/kpis` - SKUs en alerta, ordenes pendientes (MAPE y nivel servicio pendientes de modelos)
@@ -228,18 +266,38 @@ Verificar: `python --version` debe decir `Python 3.11.x`
 
 ### Notas tecnicas importantes
 - **LSTM**: el modelo espera `tensorflow` pero el venv tiene `torch`. Hay que migrar `lstm_model.py` a PyTorch o instalar tensorflow. Por ahora no bloquea - AMS lo descarta y elige el mejor entre los 3 restantes.
-- **Latencia forecast**: cada request corre el AMS completo (30-90s). Para produccion considerar cache por SKU+tienda+horizonte.
-- **Dataset**: fechas de 2017 son del dataset Corporacion Favorita. El banner en Forecast.tsx lo explica al usuario.
+- **Latencia forecast**: cada request corre el AMS completo (30-90s). ARIMA ahora corre grid mas grande (144 combinaciones vs 18 anteriores) por la busqueda estacional. Considerar cache.
+- **Dataset Kaggle**: business_id=1 se lee del CSV directamente (no esta en DB). business_id=2 (SmartSupply Demo) y business_id=18 (Santa Elena) son data real ingestada.
+- **Currency vs units**: el sistema actualmente no distingue. La data de Santa Elena son pesos CLP pero el dashboard etiqueta todo como "uds". El validador avisa con `LIKELY_CURRENCY` pero no bloquea. La hipotesis de la tesis (AMS reduce capital inmovilizado) NO es testeable hasta que se implemente modo monto vs unidades (ver S2-F pendiente).
+- **Fallback de modelos Claude**: ingesta intenta Sonnet primero, cae a Haiku en 529. Si ambos fallan, mensaje friendly al usuario y traceback completo en logs del backend.
+- **Convencion de fechas**: `_parse_date` asume formato chileno (dd/mm/yyyy) por defecto. Para data de fuentes US habria que invertir el orden de intentos.
 
 ### Pendiente
-- [ ] S2-D: CRUD de productos conectado a Supabase (Products.tsx)
-- [ ] S3: Ingesta IA conectada al frontend (Ingest.tsx) + ANTHROPIC_API_KEY en .env
-- [ ] S4: Inventario + Ordenes + Simulador (s,S)
-- [ ] S5: Reportes + Admin + Notificaciones
+
+**Proximo (top priority):**
+- [ ] **S2-F: Modo monto vs unidades** - desbloquear la hipotesis de la tesis:
+  - Schema: agregar `sales_unit` (`'CLP' | 'units'`) a `sales_history`
+  - Ingesta: cuando el validador detecte `LIKELY_CURRENCY`, preguntar al usuario explicitamente "¿son pesos o unidades?" antes de cargar
+  - Dashboard/Forecast: labels dinamicos segun `sales_unit` ("$X CLP esperados" vs "X uds")
+  - Inventario: ocultar EOQ/safety stock/sugerencia de compra para SKUs en `CLP` (no aplica sin precio unitario)
+
+**Sprints siguientes:**
+- [ ] S3: Mas refinamiento del flujo de Ingesta (filtros, edicion manual de registros antes de confirmar)
+- [ ] S4: Inventario + Ordenes + Simulador (s,S) - Int.2
+- [ ] S5: Reportes + Admin + Notificaciones + recuperacion contrasena por email real (SMTP)
 - [ ] S6: QA + Deploy Render/Cloudflare + Tesis
-- [ ] Dashboard: poblar `mape_global` y `nivel_servicio` cuando Int.1 e Int.2 expongan sus metricas
-- [ ] Dashboard: poblar serie `forecast` en chart-data (Sprint 3, cuando AMS este integrado al dashboard)
+
+**Mejoras tecnicas acumuladas:**
+- [ ] Cache de predicciones por SKU+tienda+horizonte (reducir latencia 30-90s a <1s en hit)
 - [ ] LSTM: migrar lstm_model.py de tensorflow a torch (ya instalado en venv)
-- [ ] Cache de predicciones por SKU+tienda+horizonte (reducir latencia)
-- [ ] Recuperacion de contrasena por email real (necesita SMTP como Resend - diferido S5)
-- [ ] DEBUG=false en produccion (.env) para no exponer debug_token en forgot-password
+- [ ] Dashboard: poblar `mape_global` y `nivel_servicio` cuando Int.1 e Int.2 expongan sus metricas
+- [ ] Dashboard: poblar serie `forecast` en chart-data integrando el AMS
+- [ ] DEBUG=false en produccion para no exponer debug_token en forgot-password
+- [ ] RLS en Supabase para garantizar aislamiento por business_id (defensa en profundidad mas alla de filtros en queries)
+- [ ] Tabla `ingest_log` (auditoria de quien subio que archivo cuando) para poder revertir cargas malas
+- [ ] Tests automatizados de `_parse_date` y `validate_ingest_records` (proyecto no tiene infraestructura de testing aun)
+
+**Bugs conocidos / deuda:**
+- [ ] El UI de Forecast etiqueta valores en "uds" sin chequear si la data es CLP - se arregla con S2-F
+- [ ] No hay endpoint para editar/eliminar registros de `sales_history` (si el usuario carga data mala, hoy se borra solo via SQL directo o reset del business)
+- [ ] `MEMORY.md` y CLAUDE.md no estan auto-sincronizados

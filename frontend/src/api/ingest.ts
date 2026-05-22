@@ -7,6 +7,15 @@ export interface IngestRecord {
   onpromotion: number;
 }
 
+export type IssueSeverity = "error" | "warning" | "info";
+
+export interface QualityIssue {
+  severity: IssueSeverity;
+  code: string;
+  family: string | null;
+  message: string;
+}
+
 export interface IngestPreview {
   store_name: string;
   records_found: number;
@@ -15,6 +24,7 @@ export interface IngestPreview {
   families_detected: string[];
   records: IngestRecord[];
   warnings: string[];
+  quality_issues: QualityIssue[];
 }
 
 export interface IngestResponse {

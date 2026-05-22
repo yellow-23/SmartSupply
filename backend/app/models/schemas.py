@@ -190,6 +190,14 @@ class IngestRecord(BaseModel):
     onpromotion: int = 0
 
 
+class QualityIssue(BaseModel):
+    """Problema detectado por el validador de ingesta."""
+    severity: Literal["error", "warning", "info"]
+    code: str = Field(..., description="Codigo identificador del problema (ej: FUTURE_DATES, MIXED_GRANULARITY)")
+    family: Optional[str] = Field(None, description="Familia afectada, si aplica")
+    message: str
+
+
 class IngestPreview(BaseModel):
     """Lo que Claude extrajo del archivo antes de confirmar la carga."""
     store_name: str
@@ -199,6 +207,7 @@ class IngestPreview(BaseModel):
     families_detected: list[str]
     records: list[IngestRecord]
     warnings: list[str] = []
+    quality_issues: list[QualityIssue] = []
 
 
 class IngestConfirm(BaseModel):

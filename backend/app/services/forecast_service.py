@@ -18,6 +18,8 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from datetime import date as date_type
+
 from app.models.orm import SalesHistory
 from app.models.schemas import ForecastResponse, ForecastPoint
 
@@ -69,6 +71,7 @@ def _load_series_from_db(
         .filter(SalesHistory.business_id == business_id)
         .filter(SalesHistory.family == family)
         .filter(SalesHistory.store_nbr == store_nbr)
+        .filter(SalesHistory.date <= date_type.today())
         .order_by(SalesHistory.date)
         .all()
     )

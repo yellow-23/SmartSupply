@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Upload, FileText, ImageIcon, CheckCircle, AlertTriangle, Loader2, Send, X, Bot } from "lucide-react";
+import { Upload, FileText, ImageIcon, CheckCircle, AlertTriangle, Loader2, Send, X, Bot, AlertCircle, Info } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
@@ -45,15 +45,21 @@ export default function Ingest() {
   });
 
   function buildPreviewSummary(p: IngestPreview): string {
-    return `Archivo procesado: ${p.store_name}. ${p.records_found} registros extraídos. Rango: ${p.date_range_start} a ${p.date_range_end}. Familias detectadas: ${p.families_detected.join(", ")}. Advertencias: ${p.warnings.length > 0 ? p.warnings.join(" | ") : "ninguna"}.`;
+    const issuesText = p.quality_issues.length > 0
+      ? p.quality_issues.map(i => `[${i.severity}] ${i.message}`).join(" | ")
+      : "ninguno";
+    return `Archivo procesado: ${p.store_name}. ${p.records_found} registros extraídos. Rango: ${p.date_range_start} a ${p.date_range_end}. Familias detectadas: ${p.families_detected.join(", ")}. Advertencias: ${p.warnings.length > 0 ? p.warnings.join(" | ") : "ninguna"}. Problemas de calidad detectados: ${issuesText}.`;
   }
 
   useEffect(() => {
     if (step === "preview" && preview && chatMessages.length === 0) {
       const summary = buildPreviewSummary(preview);
+      const issuesPart = preview.quality_issues.length > 0
+        ? ` Problemas de calidad detectados: ${preview.quality_issues.map(q => `[${q.severity}] ${q.message}`).join(" | ")}`
+        : "";
       const firstMsg: ChatMessage = {
         role: "user",
-        content: `Extracción completada. ${preview.records_found} registros, familias: ${preview.families_detected.join(", ")}, rango ${preview.date_range_start} a ${preview.date_range_end}.${preview.warnings.length > 0 ? ` Advertencias: ${preview.warnings.join(" | ")}` : " Sin advertencias."} Preséntame el resumen y dime si debo hacer algo antes de confirmar.`,
+        content: `Extracción completada. ${preview.records_found} registros, familias: ${preview.families_detected.join(", ")}, rango ${preview.date_range_start} a ${preview.date_range_end}.${preview.warnings.length > 0 ? ` Advertencias: ${preview.warnings.join(" | ")}` : " Sin advertencias."}${issuesPart} Preséntame el resumen y dime si debo hacer algo antes de confirmar.`,
       };
       const msgs = [firstMsg];
       setChatMessages(msgs);
@@ -207,8 +213,17 @@ export default function Ingest() {
               </button>
               <button
                 onClick={() => confirmMut.mutate()}
-                disabled={confirmMut.isPending || preview.records_found === 0}
-                className="flex items-center gap-2 px-5 py-2.5 bg-orange-600 text-white rounded-xl font-semibold hover:opacity-90 disabled:opacity-50 transition-all"
+                disabled={
+                  confirmMut.isPending ||
+                  preview.records_found === 0 ||
+                  preview.quality_issues.some(q => q.severity === "error")
+                }
+                title={
+                  preview.quality_issues.some(q => q.severity === "error")
+                    ? "Hay errores de calidad bloqueantes. Resuélvelos antes de cargar."
+                    : ""
+                }
+                className="flex items-center gap-2 px-5 py-2.5 bg-orange-600 text-white rounded-xl font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {confirmMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 Confirmar carga
@@ -216,7 +231,7 @@ export default function Ingest() {
             </div>
           </div>
 
-          {/* Warnings */}
+          {/* Warnings (de Claude durante extraccion) */}
           {preview.warnings.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1">
               {preview.warnings.map((w, i) => (
@@ -225,6 +240,31 @@ export default function Ingest() {
                   <span>{w}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Quality issues (del validador) */}
+          {preview.quality_issues.length > 0 && (
+            <div className="space-y-2">
+              {preview.quality_issues.map((q, i) => {
+                const styles = {
+                  error:   { bg: "bg-red-50",    border: "border-red-200",    text: "text-red-700",    Icon: AlertCircle },
+                  warning: { bg: "bg-amber-50",  border: "border-amber-200",  text: "text-amber-700",  Icon: AlertTriangle },
+                  info:    { bg: "bg-blue-50",   border: "border-blue-200",   text: "text-blue-700",   Icon: Info },
+                }[q.severity];
+                const { Icon } = styles;
+                return (
+                  <div key={i} className={`${styles.bg} ${styles.border} border rounded-xl px-4 py-3 flex items-start gap-2`}>
+                    <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${styles.text}`} />
+                    <div className={`text-sm ${styles.text} space-y-0.5`}>
+                      <div className="font-semibold uppercase tracking-tight text-[11px] opacity-70">
+                        {q.code}{q.family ? ` · ${q.family}` : ""}
+                      </div>
+                      <div>{q.message}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 

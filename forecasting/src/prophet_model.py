@@ -42,10 +42,15 @@ class ProphetModel:
         df["ds"] = pd.to_datetime(df["ds"])
         self._last_date = df["ds"].max()
         logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
+        # Activar estacionalidad anual solo con >=2 ciclos completos (~730 días).
+        # Con menos data Prophet sobre-ajusta y genera predicciones absurdas.
+        n_days = (df["ds"].max() - df["ds"].min()).days
+        yearly = n_days >= 730
+        weekly = n_days >= 14
         self.model = Prophet(
             holidays=_chile_holidays(),
-            yearly_seasonality=True,
-            weekly_seasonality=True,
+            yearly_seasonality=yearly,
+            weekly_seasonality=weekly,
             daily_seasonality=False,
             interval_width=0.95,
         )
