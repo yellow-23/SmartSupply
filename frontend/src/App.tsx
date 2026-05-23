@@ -8,7 +8,8 @@ import Forecast from "./pages/Forecast";
 import Inventory from "./pages/Inventory";
 import Ingest from "./pages/Ingest";
 import Orders from "./pages/Orders";
-import Products from "./pages/Products";
+import ProductsPage from "./pages/products/ProductsPage";
+import ProductDetailPage from "./pages/products/ProductDetailPage";
 import AppShell from "./components/layout/AppShell";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 
@@ -26,12 +27,13 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <Routes>
-                  <Route path="/dashboard"   element={<Dashboard />} />
-                  <Route path="/forecasting" element={<Forecast />} />
-                  <Route path="/inventory"   element={<Inventory />} />
-                  <Route path="/ingest"      element={<Ingest />} />
-                  <Route path="/orders"      element={<Orders />} />
-                  <Route path="/products"    element={<Products />} />
+                  <Route path="/dashboard"      element={<Dashboard />} />
+                  <Route path="/forecasting"    element={<Forecast />} />
+                  <Route path="/inventory"      element={<Inventory />} />
+                  <Route path="/ingest"         element={<Ingest />} />
+                  <Route path="/orders"         element={<Orders />} />
+                  <Route path="/products"       element={<ProductsPage />} />
+                  <Route path="/products/:id"   element={<ProductDetailPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </AppShell>

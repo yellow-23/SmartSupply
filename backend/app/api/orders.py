@@ -8,7 +8,7 @@ service = InventoryService()
 MOCK_ORDERS: list[dict] = []
 
 
-@router.get("/", response_model=list[OrderResponse])
+@router.get("", response_model=list[OrderResponse])
 async def list_orders(store_nbr: int = 1, status: str = None):
     """Lista las órdenes de compra generadas, con filtro opcional por estado."""
     orders = [o for o in MOCK_ORDERS if o["store_nbr"] == store_nbr]

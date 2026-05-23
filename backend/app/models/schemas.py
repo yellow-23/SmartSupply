@@ -5,7 +5,7 @@ Define los modelos de request/response para todos los endpoints
 
 from datetime import date, datetime
 from typing import Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -25,33 +25,68 @@ class DashboardChartPoint(BaseModel):
 
 # ─── Productos / SKUs ──────────────────────────────────────────────────────────
 
-class ProductBase(BaseModel):
-    sku_id: str = Field(..., example="GROCERY-001", description="Identificador único del SKU")
-    name: str = Field(..., example="Arroz 1kg")
-    family: str = Field(..., example="GROCERY I")
-    store_nbr: int = Field(..., example=1)
-    unit_cost: float = Field(..., example=850.0, description="Costo unitario de adquisición (CLP)")
-    lead_time_days: int = Field(default=3, description="Lead time del proveedor en días")
-    min_order_qty: int = Field(default=1, description="Mínimo de compra (MOQ) del proveedor")
-
-class ProductCreate(ProductBase):
-    pass
+class ProductCreate(BaseModel):
+    sku_id: str = Field(..., min_length=1, description="Identificador único del SKU")
+    name: str = Field(..., min_length=1)
+    family: str
+    store_nbr: int = Field(1, ge=1)
+    unit_cost: float = Field(..., gt=0, description="Costo unitario (CLP)")
+    lead_time_days: int = Field(..., gt=0, description="Lead time del proveedor en días")
+    order_cost: float = Field(..., ge=0, description="Costo de emitir una orden (CLP)")
+    holding_cost_pct: float = Field(0.20, gt=0, description="Tasa de mantención como decimal (ej: 0.20 = 20%)")
+    min_order_qty: int = Field(1, gt=0, description="MOQ del proveedor")
+    pack_size: int = Field(1, gt=0, description="Tamaño del pack de compra")
+    supplier_name: Optional[str] = None
 
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
     family: Optional[str] = None
-    unit_cost: Optional[float] = None
-    lead_time_days: Optional[int] = None
-    min_order_qty: Optional[int] = None
+    store_nbr: Optional[int] = None
+    unit_cost: Optional[float] = Field(None, gt=0)
+    lead_time_days: Optional[int] = Field(None, gt=0)
+    order_cost: Optional[float] = Field(None, ge=0)
+    holding_cost_pct: Optional[float] = Field(None, gt=0)
+    min_order_qty: Optional[int] = Field(None, gt=0)
+    pack_size: Optional[int] = Field(None, gt=0)
+    supplier_name: Optional[str] = None
 
 
-class ProductResponse(ProductBase):
+class SupplierUpdate(BaseModel):
+    supplier_name: str
+    lead_time_days: int = Field(..., gt=0)
+    min_order_qty: int = Field(1, gt=0)
+    pack_size: int = Field(1, gt=0)
+
+
+class ProductResponse(BaseModel):
     id: int
+    sku_id: str
+    name: str
+    family: str
+    store_nbr: int
+    unit_cost: float
+    lead_time_days: int
+    order_cost: float
+    holding_cost_pct: float
+    min_order_qty: int
+    pack_size: int
+    supplier_name: Optional[str]
+    is_active: bool
     created_at: datetime
+    updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProductPage(BaseModel):
+    items: list[ProductResponse]
+    total: int
+    page: int
+    pages: int
+    total_active: int
+    total_inactive: int
+    total_families: int
 
 
 # ─── Forecasting ───────────────────────────────────────────────────────────────

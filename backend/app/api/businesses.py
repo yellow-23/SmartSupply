@@ -8,7 +8,7 @@ from app.models.schemas import BusinessCreate, BusinessResponse
 router = APIRouter()
 
 
-@router.get("/", response_model=list[BusinessResponse])
+@router.get("", response_model=list[BusinessResponse])
 def list_businesses(db: Session = Depends(get_db)):
     """Lista todos los negocios registrados en el sistema."""
     return db.query(Business).order_by(Business.id).all()
@@ -22,7 +22,7 @@ def get_business(business_id: int, db: Session = Depends(get_db)):
     return biz
 
 
-@router.post("/", response_model=BusinessResponse, status_code=201)
+@router.post("", response_model=BusinessResponse, status_code=201)
 def create_business(body: BusinessCreate, db: Session = Depends(get_db)):
     """
     Registra un nuevo negocio (distribuidora, tienda, etc.).

@@ -83,14 +83,20 @@ class Product(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, default=1, index=True)
-    sku_id = Column(String, nullable=False, index=True)
+    sku_id = Column(String, nullable=False, index=True)  # único por (business_id, store_nbr)
     name = Column(String, nullable=False)
     family = Column(String, nullable=False, index=True)
-    store_nbr = Column(Integer, nullable=False, index=True)
-    unit_cost = Column(Float, nullable=False)
+    store_nbr = Column(Integer, nullable=False, default=1, index=True)
+    unit_cost = Column(Float, nullable=False, default=0.0)
     lead_time_days = Column(Integer, nullable=False, default=3)
+    order_cost = Column(Float, nullable=False, default=0.0)
+    holding_cost_pct = Column(Float, nullable=False, default=0.20)
     min_order_qty = Column(Integer, nullable=False, default=1)
+    pack_size = Column(Integer, nullable=False, default=1)
+    supplier_name = Column(String, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class PasswordResetToken(Base):
