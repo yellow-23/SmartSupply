@@ -22,6 +22,7 @@ export default function Ingest() {
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [salesUnit, setSalesUnit] = useState<"CLP" | "units" | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   const previewMut = useMutation({
@@ -30,6 +31,9 @@ export default function Ingest() {
       setPreview(data);
       setStep("preview");
       setChatMessages([]);
+      // Si el validador detectó CLP, forzar elección explícita del usuario (salesUnit queda null)
+      // Si no hay ambigüedad, pre-setear 'units' para no bloquear el flujo
+      setSalesUnit(data.sales_unit_detected === "CLP" ? null : "units");
     },
   });
 
@@ -90,7 +94,7 @@ export default function Ingest() {
   }
 
   const confirmMut = useMutation({
-    mutationFn: () => confirmIngest(preview!.records, storeNbr, user?.business_id ?? 1),
+    mutationFn: () => confirmIngest(preview!.records, storeNbr, user?.business_id ?? 1, salesUnit ?? "units"),
     onSuccess: (data) => {
       setSuccessData({ loaded: data.records_loaded, families: data.families, start: data.date_range_start, end: data.date_range_end });
       setStep("success");
@@ -115,6 +119,7 @@ export default function Ingest() {
     setFileName("");
     setChatMessages([]);
     setChatInput("");
+    setSalesUnit(null);
     previewMut.reset();
     confirmMut.reset();
   }
@@ -216,10 +221,13 @@ export default function Ingest() {
                 disabled={
                   confirmMut.isPending ||
                   preview.records_found === 0 ||
-                  preview.quality_issues.some(q => q.severity === "error")
+                  preview.quality_issues.some(q => q.severity === "error") ||
+                  salesUnit === null
                 }
                 title={
-                  preview.quality_issues.some(q => q.severity === "error")
+                  salesUnit === null
+                    ? "Debes indicar si los valores son pesos CLP o unidades antes de confirmar."
+                    : preview.quality_issues.some(q => q.severity === "error")
                     ? "Hay errores de calidad bloqueantes. Resuélvelos antes de cargar."
                     : ""
                 }
@@ -274,6 +282,31 @@ export default function Ingest() {
               <span>{confirmError.response?.data?.detail ?? "Error al confirmar la carga"}</span>
             </div>
           )}
+
+          <div className={`rounded-2xl border px-5 py-4 space-y-3 ${salesUnit === null ? "bg-amber-50 border-amber-300" : "bg-white border-gray-100"}`}>
+            <p className="text-sm font-semibold text-gray-800">
+              ¿Qué representan los valores de ventas en este archivo?
+            </p>
+            {salesUnit === null && (
+              <p className="text-xs text-amber-700 font-medium">
+                Stocky detectó que los valores parecen ser montos en pesos. Confirma el tipo antes de cargar.
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSalesUnit("units")}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${salesUnit === "units" ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+              >
+                Unidades vendidas
+              </button>
+              <button
+                onClick={() => setSalesUnit("CLP")}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${salesUnit === "CLP" ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+              >
+                Monto en pesos (CLP)
+              </button>
+            </div>
+          </div>
 
           {/* Stocky chat */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

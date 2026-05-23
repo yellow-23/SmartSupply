@@ -116,6 +116,7 @@ class ForecastResponse(BaseModel):
     horizon_days: int
     predictions: list[ForecastPoint]
     generated_at: datetime
+    sales_unit: Literal["CLP", "units"] = "units"
 
 
 # ─── Inventario ────────────────────────────────────────────────────────────────
@@ -243,12 +244,14 @@ class IngestPreview(BaseModel):
     records: list[IngestRecord]
     warnings: list[str] = []
     quality_issues: list[QualityIssue] = []
+    sales_unit_detected: Optional[Literal["CLP", "units"]] = None
 
 
 class IngestConfirm(BaseModel):
     business_id: int
     store_nbr: int
     records: list[IngestRecord]
+    sales_unit: Literal["CLP", "units"] = "units"
 
 
 class IngestResponse(BaseModel):

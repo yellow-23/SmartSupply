@@ -83,6 +83,7 @@ def confirm_ingest(body: IngestConfirm, db: Session = Depends(get_db)):
         if existing:
             existing.sales = record.sales
             existing.onpromotion = record.onpromotion
+            existing.sales_unit = body.sales_unit
         else:
             db.add(SalesHistory(
                 business_id=body.business_id,
@@ -91,6 +92,7 @@ def confirm_ingest(body: IngestConfirm, db: Session = Depends(get_db)):
                 family=record.family,
                 sales=record.sales,
                 onpromotion=record.onpromotion,
+                sales_unit=body.sales_unit,
             ))
         loaded += 1
 

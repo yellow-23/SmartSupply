@@ -31,6 +31,7 @@ export interface ForecastResponse {
   horizon_days: number;
   predictions: ForecastPoint[];
   generated_at: string;
+  sales_unit: "CLP" | "units";
 }
 
 export interface ForecastRequest {

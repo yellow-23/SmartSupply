@@ -115,8 +115,20 @@ class ForecastService:
         # Cargar serie según fuente: CSV (Kaggle benchmark) o Supabase (usuario real)
         if business_id == _BENCHMARK_BUSINESS_ID:
             series = load_sku_series(_CSV_PATH, sku_family=sku_id, store_nbr=store_nbr)
+            sales_unit = "units"
         else:
             series = _load_series_from_db(db, business_id, sku_id, store_nbr)
+            # Detectar unidad predominante de esta serie
+            unit_row = (
+                db.query(SalesHistory.sales_unit)
+                .filter(
+                    SalesHistory.business_id == business_id,
+                    SalesHistory.family == sku_id,
+                    SalesHistory.store_nbr == store_nbr,
+                )
+                .first()
+            )
+            sales_unit = (unit_row.sales_unit if unit_row and unit_row.sales_unit else "units")
 
         if len(series) < _MIN_DAYS:
             raise InsufficientDataError(days_available=len(series))
@@ -179,6 +191,7 @@ class ForecastService:
             horizon_days=horizon_days,
             predictions=predictions,
             generated_at=datetime.now(),
+            sales_unit=sales_unit,
         )
         with _cache_lock:
             _cache[key] = (response, time.monotonic())

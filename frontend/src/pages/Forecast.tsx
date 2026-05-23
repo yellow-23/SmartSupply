@@ -100,6 +100,12 @@ const Forecast = () => {
     : 'Sin datos';
 
   const modelLabel = result ? (MODEL_LABELS[result.model_used] ?? result.model_used.toUpperCase()) : null;
+  const isCLP = result?.sales_unit === 'CLP';
+  const unitLabel = isCLP ? 'CLP' : 'uds';
+  const formatValue = (v: number) =>
+    isCLP
+      ? `$${v.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`
+      : v.toLocaleString('es-CL', { maximumFractionDigits: 0 });
 
   // ─── Estado: cargando opciones ────────────────────────────────────────────
   if (optionsLoading) {
@@ -296,13 +302,13 @@ const Forecast = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Total estimado</span>
                   <span className="font-bold text-orange-600">
-                    {result.predictions.reduce((s, p) => s + p.predicted_sales, 0).toLocaleString('es-CL', { maximumFractionDigits: 0 })} uds
+                    {formatValue(result.predictions.reduce((s, p) => s + p.predicted_sales, 0))} {unitLabel}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Promedio diario</span>
                   <span className="font-semibold text-gray-800">
-                    {(result.predictions.reduce((s, p) => s + p.predicted_sales, 0) / result.predictions.length).toLocaleString('es-CL', { maximumFractionDigits: 0 })} uds/día
+                    {formatValue(result.predictions.reduce((s, p) => s + p.predicted_sales, 0) / result.predictions.length)} {unitLabel}/día
                   </span>
                 </div>
                 <div className="flex justify-between">

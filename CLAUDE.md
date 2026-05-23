@@ -175,7 +175,25 @@ ln -sf python3.11 venv/bin/python3
 ```
 Verificar: `python --version` debe decir `Python 3.11.x`
 
-## Estado actual (2026-05-22)
+## Estado actual (2026-05-23)
+
+### Completado - Sprint 2-F Modo monto vs unidades (2026-05-23)
+
+**Backend:**
+- [x] `SalesHistory.sales_unit` columna nueva (`VARCHAR(10) DEFAULT 'units'`) en ORM y migración `backend/scripts/migrate_s2f.sql` (aplicar en Supabase)
+- [x] `IngestPreview.sales_unit_detected: 'CLP' | 'units' | null` — el servicio lo setea según `LIKELY_CURRENCY`
+- [x] `IngestConfirm.sales_unit: 'CLP' | 'units'` — el frontend envía la elección del usuario
+- [x] `ingest.py` guarda `sales_unit` en cada fila de `sales_history` al confirmar (insert y update)
+- [x] `ForecastResponse.sales_unit: 'CLP' | 'units'` — forecast service lo consulta desde DB
+- [x] `forecast_service.py` detecta la unidad de la serie antes de cachear la respuesta
+
+**Frontend:**
+- [x] `IngestPreview.sales_unit_detected` en `ingest.ts`
+- [x] `confirmIngest` acepta parámetro `sales_unit`
+- [x] `Ingest.tsx` — tarjeta de selección "Unidades vendidas / Monto en pesos (CLP)" siempre visible en el paso preview; cuando `LIKELY_CURRENCY` detectado, `salesUnit` queda `null` y el botón Confirmar se bloquea hasta que el usuario elija explícitamente
+- [x] `ForecastResponse.sales_unit` en `forecast.ts`
+- [x] `Forecast.tsx` — labels dinámicos: `$X CLP` vs `X uds`, formateo chileno con `$` prefix para CLP
+- [x] `Inventory.tsx` — banner de aviso para SKUs CLP (EOQ no aplica sin precio unitario); bandera `hasCLPSkus` lista para conectar en S4
 
 ### Completado - Sprint 2-E Validador de ingesta + fixes de modelos (2026-05-22, yellow-23)
 
@@ -275,15 +293,8 @@ Verificar: `python --version` debe decir `Python 3.11.x`
 ### Pendiente
 
 **Proximo (top priority):**
-- [ ] **S2-F: Modo monto vs unidades** - desbloquear la hipotesis de la tesis:
-  - Schema: agregar `sales_unit` (`'CLP' | 'units'`) a `sales_history`
-  - Ingesta: cuando el validador detecte `LIKELY_CURRENCY`, preguntar al usuario explicitamente "¿son pesos o unidades?" antes de cargar
-  - Dashboard/Forecast: labels dinamicos segun `sales_unit` ("$X CLP esperados" vs "X uds")
-  - Inventario: ocultar EOQ/safety stock/sugerencia de compra para SKUs en `CLP` (no aplica sin precio unitario)
-
-**Sprints siguientes:**
-- [ ] S3: Mas refinamiento del flujo de Ingesta (filtros, edicion manual de registros antes de confirmar)
-- [ ] S4: Inventario + Ordenes + Simulador (s,S) - Int.2
+- [ ] **S3: Más refinamiento del flujo de Ingesta** (filtros, edición manual de registros antes de confirmar)
+- [ ] **S4: Inventario + Órdenes + Simulador (s,S)** — Int.2; conectar `hasCLPSkus` en `Inventory.tsx` una vez que haya datos reales de inventario
 - [ ] S5: Reportes + Admin + Notificaciones + recuperacion contrasena por email real (SMTP)
 - [ ] S6: QA + Deploy Render/Cloudflare + Tesis
 
@@ -298,6 +309,6 @@ Verificar: `python --version` debe decir `Python 3.11.x`
 - [ ] Tests automatizados de `_parse_date` y `validate_ingest_records` (proyecto no tiene infraestructura de testing aun)
 
 **Bugs conocidos / deuda:**
-- [ ] El UI de Forecast etiqueta valores en "uds" sin chequear si la data es CLP - se arregla con S2-F
+- [ ] El UI de Forecast etiqueta valores en "uds" sin chequear si la data es CLP - ~~se arregla con S2-F~~ RESUELTO en S2-F
 - [ ] No hay endpoint para editar/eliminar registros de `sales_history` (si el usuario carga data mala, hoy se borra solo via SQL directo o reset del business)
 - [ ] `MEMORY.md` y CLAUDE.md no estan auto-sincronizados

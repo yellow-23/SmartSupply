@@ -476,6 +476,10 @@ AUTO-CONFIRMAR: Cuando el usuario indique que quiere proceder (ejemplos: "carga 
 
     def _build_preview(self, store_name: str, records: list[IngestRecord], warnings: list[str]) -> IngestPreview:
         dates = [r.date for r in records]
+        quality_issues = validate_ingest_records(records)
+        sales_unit_detected = (
+            "CLP" if any(i.code == "LIKELY_CURRENCY" for i in quality_issues) else "units"
+        )
         return IngestPreview(
             store_name=store_name,
             records_found=len(records),
@@ -484,5 +488,6 @@ AUTO-CONFIRMAR: Cuando el usuario indique que quiere proceder (ejemplos: "carga 
             families_detected=sorted(set(r.family for r in records)),
             records=records,
             warnings=warnings,
-            quality_issues=validate_ingest_records(records),
+            quality_issues=quality_issues,
+            sales_unit_detected=sales_unit_detected,
         )

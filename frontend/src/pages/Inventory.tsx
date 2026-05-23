@@ -1,9 +1,10 @@
 ﻿import React from 'react';
-import { Package, TrendingDown, ClipboardList } from 'lucide-react';
+import { Package, TrendingDown, ClipboardList, AlertCircle } from 'lucide-react';
 import InventoryStatusTable from '../components/InventoryStatusTable';
 import AlertCard from '../components/AlertCard';
 
 const Inventory = () => {
+  const hasCLPSkus = false;
   const mockAlerts = [
     { sku: 'GROCERY-001', stock: 12, suggestedOrder: 88 },
     { sku: 'BEVERAGES-005', stock: 5, suggestedOrder: 45 },
@@ -22,6 +23,16 @@ const Inventory = () => {
         <h2 className="text-2xl font-bold text-gray-800">Gestión de Inventario</h2>
         <p className="text-sm text-gray-500">Cuándo y cuánto pedir para mantener el stock óptimo</p>
       </div>
+
+      {hasCLPSkus && (
+        <div className="flex items-start gap-3 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800">
+          <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
+          <div className="text-sm">
+            <p className="font-semibold">Algunos SKUs tienen ventas en pesos (CLP)</p>
+            <p className="text-amber-700">El cálculo de EOQ y punto de reorden requiere precio unitario. Estos SKUs no generarán sugerencias de compra hasta que se configure su precio.</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {mockAlerts.map((alert, i) => (

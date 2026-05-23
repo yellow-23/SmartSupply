@@ -38,6 +38,7 @@ class SalesHistory(Base):
     family = Column(String, nullable=False, index=True)
     sales = Column(Float, nullable=False)
     onpromotion = Column(Integer, default=0)
+    sales_unit = Column(String(10), nullable=False, default="units")  # 'units' | 'CLP'
     lag_7 = Column(Float)
     lag_14 = Column(Float)
     rolling_mean_7 = Column(Float)

@@ -25,6 +25,7 @@ export interface IngestPreview {
   records: IngestRecord[];
   warnings: string[];
   quality_issues: QualityIssue[];
+  sales_unit_detected: "CLP" | "units" | null;
 }
 
 export interface IngestResponse {
@@ -47,9 +48,10 @@ export async function previewIngest(file: File): Promise<IngestPreview> {
 export async function confirmIngest(
   records: IngestRecord[],
   store_nbr: number,
-  business_id: number
+  business_id: number,
+  sales_unit: "CLP" | "units" = "units"
 ): Promise<IngestResponse> {
-  const { data } = await api.post("/ingest/confirm", { records, store_nbr, business_id });
+  const { data } = await api.post("/ingest/confirm", { records, store_nbr, business_id, sales_unit });
   return data;
 }
 
