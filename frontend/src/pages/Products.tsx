@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Search, Package, AlertTriangle, Download, Pencil, Trash2, Loader2, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchProducts, createProduct, updateProduct, deleteProduct, Product, ProductCreate } from "../api/products";
+import { useProductsStore } from "../store/productsStore";
 
 const EMPTY_FORM: ProductCreate = {
   sku_id: "", name: "", family: "",
@@ -10,8 +11,7 @@ const EMPTY_FORM: ProductCreate = {
 
 export default function Products() {
   const qc = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [familyFilter, setFamilyFilter] = useState<string | undefined>(undefined);
+  const { search, setSearch, familyFilter, setFamilyFilter } = useProductsStore();
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<ProductCreate>(EMPTY_FORM);

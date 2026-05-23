@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { useAuthStore } from "../store/authStore";
+import { useIngestStore } from "../store/ingestStore";
 import { previewIngest, confirmIngest, chatIngest, IngestPreview, ChatMessage, ChatResponse } from "../api/ingest";
 
 const ACCEPTED = ".jpg,.jpeg,.png,.webp,.pdf,.xlsx,.xls,.csv";
@@ -14,16 +15,19 @@ export default function Ingest() {
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [storeNbr, setStoreNbr] = useState(1);
-  const [preview, setPreview] = useState<IngestPreview | null>(null);
-  const [fileName, setFileName] = useState("");
-  const [step, setStep] = useState<"upload" | "preview" | "success">("upload");
-  const [successData, setSuccessData] = useState<{ loaded: number; families: string[]; start: string; end: string } | null>(null);
-
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [salesUnit, setSalesUnit] = useState<"CLP" | "units" | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  const {
+    step, setStep,
+    preview, setPreview,
+    fileName, setFileName,
+    storeNbr, setStoreNbr,
+    chatMessages, setChatMessages,
+    chatInput, setChatInput,
+    salesUnit, setSalesUnit,
+    successData, setSuccessData,
+    reset,
+  } = useIngestStore();
 
   const previewMut = useMutation({
     mutationFn: (file: File) => previewIngest(file),
@@ -50,7 +54,7 @@ export default function Ingest() {
 
   function buildPreviewSummary(p: IngestPreview): string {
     const issuesText = p.quality_issues.length > 0
-      ? p.quality_issues.map(i => `[${i.severity}] ${i.message}`).join(" | ")
+      ? p.quality_issues.map((i: { severity: string; message: string }) => `[${i.severity}] ${i.message}`).join(" | ")
       : "ninguno";
     return `Archivo procesado: ${p.store_name}. ${p.records_found} registros extraídos. Rango: ${p.date_range_start} a ${p.date_range_end}. Familias detectadas: ${p.families_detected.join(", ")}. Advertencias: ${p.warnings.length > 0 ? p.warnings.join(" | ") : "ninguna"}. Problemas de calidad detectados: ${issuesText}.`;
   }
@@ -113,13 +117,8 @@ export default function Ingest() {
     if (file) handleFile(file);
   }
 
-  function reset() {
-    setStep("upload");
-    setPreview(null);
-    setFileName("");
-    setChatMessages([]);
-    setChatInput("");
-    setSalesUnit(null);
+  function handleReset() {
+    reset();
     previewMut.reset();
     confirmMut.reset();
   }
@@ -213,7 +212,7 @@ export default function Ingest() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={reset} className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl transition-colors">
+              <button onClick={handleReset} className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl transition-colors">
                 <X className="w-4 h-4" /> Cancelar
               </button>
               <button

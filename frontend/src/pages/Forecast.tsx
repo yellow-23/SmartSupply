@@ -8,10 +8,10 @@ import {
   fetchForecastOptions,
   fetchSalesHistory,
   isInsufficientDataError,
-  ForecastResponse,
   SalesPoint,
 } from '../api/forecast';
 import { useAuthStore } from '../store/authStore';
+import { useForecastStore } from '../store/forecastStore';
 
 const MODEL_LABELS: Record<string, string> = {
   xgboost: 'XGBoost',
@@ -23,14 +23,16 @@ const MODEL_LABELS: Record<string, string> = {
 const Forecast = () => {
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
-
-  const [skuId, setSkuId] = useState<string>('');
-  const [storeNbr, setStoreNbr] = useState<number | null>(null);
-  const [horizon, setHorizon] = useState(14);
-  const [result, setResult] = useState<ForecastResponse | null>(null);
-  const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const {
+    skuId, setSkuId,
+    storeNbr, setStoreNbr,
+    horizon, setHorizon,
+    result, setResult,
+    chartData, setChartData,
+    error, setError,
+  } = useForecastStore();
 
   const {
     data: options,
