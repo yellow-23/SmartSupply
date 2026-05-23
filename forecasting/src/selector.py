@@ -160,10 +160,10 @@ class AutoModelSelector:
             key=lambda k: ranking[k] if np.isfinite(ranking.get(k, np.inf)) else np.inf,
         )
 
-        # Reentrenar ganador sobre train + val (85%) y predecir horizonte
+        # Reentrenar ganador sobre la serie COMPLETA (100%) y predecir horizonte futuro
         winner = MODELS[best_name]()
         fit_kwargs = {"epochs": 50} if best_name == "lstm" else {}
-        winner.fit(train_val, **fit_kwargs)
+        winner.fit(series, **fit_kwargs)
         final_pred = winner.predict(self.horizon)
 
         wape_final = (

@@ -35,7 +35,7 @@ _BENCHMARK_BUSINESS_ID = 1
 _MIN_DAYS = 30
 
 # Cache en memoria: clave -> (resultado, timestamp). TTL 1 hora.
-_CACHE_TTL = 3600
+_CACHE_TTL = int(os.getenv("FORECAST_CACHE_TTL", "3600"))  # override con env var para dev
 _cache: dict[str, tuple] = {}
 _cache_lock = threading.Lock()
 
@@ -155,7 +155,7 @@ class ForecastService:
             wape_val = calculate_wape(val.values, val_pred.values[:len(val)])
 
             m2 = ModelClass()
-            m2.fit(train_val, **fit_kwargs)
+            m2.fit(series, **fit_kwargs)
             final_pred = m2.predict(horizon_days)
 
             model_used = forced_model

@@ -15,12 +15,19 @@ class XGBoostModel:
     XGBoost con features temporales y predicción iterativa multi-paso.
     Features: lag_7, lag_14, lag_30, rolling_mean_7, rolling_mean_14,
               day_of_week, month, year, is_holiday.
+
+    Para horizontes largos (>14 días) la predicción iterativa puede acumular
+    error y colapsar a cero. Se aplica un piso por día-de-semana basado en el
+    percentil 10 del historial de entrenamiento, de modo que predicciones
+    aberrantemente bajas se anclan al mínimo histórico razonable para ese día
+    (sin sobreescribir cierres legítimos como domingos de negocios cerrados).
     """
 
     def __init__(self):
         self.model: xgb.XGBRegressor | None = None
-        self._tail: list[float] = []        # últimos 30 valores para predicción
+        self._tail: list[float] = []        # últimos 60 valores para predicción
         self._last_date: pd.Timestamp | None = None
+        self._dow_floor: dict[int, float] = {}  # piso percentil-10 por día de semana
 
     def build_features(self, series: pd.Series) -> pd.DataFrame:
         df = series.to_frame(name="y")
@@ -49,8 +56,19 @@ class XGBoostModel:
             verbosity=0,
         )
         self.model.fit(X, y)
-        self._tail = list(series.values[-30:].astype(float))
+        # Guardar los últimos 60 valores reales (mejor cobertura de lags largos)
+        self._tail = list(series.values[-60:].astype(float))
         self._last_date = pd.to_datetime(series.index[-1])
+        # Piso por día de semana: percentil 10 de los valores no-cero del historial.
+        # Los ceros artificiales (fill_value de días sin datos) se excluyen para que
+        # el piso refleje el mínimo real de actividad comercial en ese día de semana.
+        # Para días que el negocio cierra genuinamente (todos sus valores ≈ 0),
+        # len(nonzero) será 0 y el piso queda en 0 → comportamiento correcto.
+        s_idx = pd.to_datetime(series.index)
+        for dow in range(7):
+            vals = series.values[s_idx.dayofweek == dow]
+            nonzero_vals = vals[vals > 0]
+            self._dow_floor[dow] = float(np.percentile(nonzero_vals, 10)) if len(nonzero_vals) > 0 else 0.0
 
     def predict(self, horizon: int) -> pd.Series:
         if self.model is None:
@@ -71,7 +89,10 @@ class XGBoostModel:
                 "year":           next_date.year,
                 "is_holiday":     int(next_date.strftime("%m-%d") in _CHILE_HOLIDAYS_MD),
             }
-            val = max(0.0, float(self.model.predict(pd.DataFrame([row]))[0]))
+            raw = float(self.model.predict(pd.DataFrame([row]))[0])
+            # Aplicar piso día-de-semana para evitar colapso iterativo a cero
+            floor = self._dow_floor.get(next_date.dayofweek, 0.0)
+            val = max(floor, max(0.0, raw))
             preds.append(val)
             history.append(val)
         idx = pd.date_range(start=self._last_date + pd.Timedelta(days=1), periods=horizon)

@@ -11,6 +11,10 @@ class ARIMAModel:
     SARIMA con selección automática por AIC.
     Búsqueda no-estacional: p∈[0,2], d∈[0,1], q∈[0,2].
     Búsqueda estacional (s=7) cuando hay >=21 días: P∈[0,1], D∈[0,1], Q∈[0,1].
+
+    La serie se normaliza por su media antes de ajustar para mejorar la
+    convergencia numérica con datos de gran magnitud (p.ej. ventas en CLP).
+    La predicción se reescala automáticamente al regresar.
     """
 
     SEASONAL_PERIOD = 7
@@ -20,6 +24,7 @@ class ARIMAModel:
         self.fitted_model = None
         self.order = None
         self.seasonal_order = None
+        self._scale: float = 1.0  # factor de normalización (media de la serie)
 
     def _select_order(self, series: pd.Series) -> tuple:
         """Retorna ((p,d,q), (P,D,Q,s)) con menor AIC."""
@@ -55,19 +60,24 @@ class ARIMAModel:
         return best_order, best_seasonal
 
     def fit(self, series: pd.Series):
-        self.order, self.seasonal_order = self._select_order(series)
+        # Normalizar por la media para estabilidad numérica con series de gran escala
+        mean = float(series.mean())
+        self._scale = mean if mean > 0 else 1.0
+        scaled = series / self._scale
+
+        self.order, self.seasonal_order = self._select_order(scaled)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             self.fitted_model = SARIMAX(
-                series,
+                scaled,
                 order=self.order,
                 seasonal_order=self.seasonal_order,
                 enforce_stationarity=False,
                 enforce_invertibility=False,
-            ).fit(disp=False, maxiter=100)
+            ).fit(disp=False, maxiter=200)
 
     def predict(self, horizon: int) -> pd.Series:
         if self.fitted_model is None:
             raise RuntimeError("Llama a fit() antes de predict()")
         forecast = self.fitted_model.forecast(steps=horizon)
-        return forecast.clip(lower=0)
+        return (forecast * self._scale).clip(lower=0)
