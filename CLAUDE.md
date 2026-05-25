@@ -175,7 +175,43 @@ ln -sf python3.11 venv/bin/python3
 ```
 Verificar: `python --version` debe decir `Python 3.11.x`
 
-## Estado actual (2026-05-23)
+## Estado actual (2026-05-24)
+
+### Completado - Sprint 3 Gestion de datos y cargas (2026-05-24)
+
+Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec en
+`docs/superpowers/specs/2026-05-24-gestion-datos-cargas-design.md`, plan en
+`docs/superpowers/plans/2026-05-24-gestion-datos-cargas.md`. Rama `feature/s3-gestion-datos`.
+
+**Base de datos (migracion aplicada en Supabase):**
+- [x] `ingest_log` tabla nueva: una fila por carga (business_id, store_nbr, user_id, filename, file_type, records_loaded, sales_unit, rango fechas, families JSONB, status active|reverted, created_at). Script `backend/scripts/migrate_s3_ingest_log.sql`
+- [x] `businesses.owner_user_id` FK -> users: un negocio pertenece a un usuario
+- [x] `sales_history.ingest_id` FK -> ingest_log: cada fila sabe de que carga vino
+- [x] Constraint unica cambio de `sales_history_unique_record` a `uq_sales_history_load (business_id, store_nbr, date, family, ingest_id)` para permitir cargas separadas por el mismo dia+familia
+- [x] Backfill `backend/scripts/backfill_s3_ingest_log.py`: creo una carga sintetica 'carga historica' (file_type='historic') por cada (business_id, store_nbr) existente y seteo owner_user_id. 3 cargas creadas (business 2, 18, 19)
+
+**Cambio de comportamiento clave:**
+- [x] El confirm de ingesta YA NO hace UPSERT. Cada carga inserta filas propias con su `ingest_id` sin sobrescribir. El solape entre cargas se resuelve al CONSULTAR (no al cargar)
+- [x] `forecast_service._load_series_from_db` une con `ingest_log`, excluye cargas `reverted` y aplica "ultima gana" (mayor ingest_id por fecha). Los datos crudos quedan intactos y auditables
+
+**Backend (endpoints nuevos):**
+- [x] `GET /api/businesses` ahora scoped por `owner_user_id` (solo los negocios del usuario). `POST /api/businesses` setea owner. `GET /api/businesses/{id}/stores`
+- [x] `backend/app/api/ingests.py`: `GET /api/ingests?business_id=&store_nbr=`, `GET /api/ingests/{id}` (filas de la carga), `POST /api/ingests/{id}/revert` (status='reverted', no borra), `DELETE /api/ingests/{id}` (hard delete carga + filas)
+- [x] `IngestConfirm` gana `filename` y `file_type`; el confirm crea el `ingest_log` y tagea las filas
+- [x] `PATCH /api/sales/record/{id}` y `DELETE /api/sales/record/{id}` para editar/eliminar filas individuales (con check de owner)
+
+**Frontend:**
+- [x] `frontend/src/api/data.ts`: cliente tipado de negocios, ubicaciones, cargas, registros
+- [x] `frontend/src/pages/Datos.tsx`: pagina nueva en sidebar. Drill-down negocio -> ubicacion -> tabla de cargas (fecha, archivo, quien subio, filas, rango, unidad, estado). Expandir muestra registros con edicion inline de venta y borrado por fila. Acciones revertir/eliminar por carga. Boton "Preguntar a Stocky" por carga
+- [x] Flujo de Ingesta: selector de negocio+ubicacion destino en el paso preview, con "+ Nuevo negocio". Confirmar bloqueado hasta elegir destino
+
+**Stocky ampliado:**
+- [x] En el chat de ingesta recibe contexto de cargas previas del negocio (`existing_loads`) para sugerir destino y avisar solapes
+- [x] En la pagina Datos resume cualquier carga a pedido
+
+**Consecuencia del modelo owner-unico:** el negocio 2 lo compartian 4 usuarios; ahora su owner es user 1 (`cristobal@distribuidora.cl`). Los users 2/3/4 ya no lo ven en `GET /api/businesses`. Reversible reasignando `owner_user_id`.
+
+**Verificacion end-to-end (contra Supabase real):** login owner-scoped OK, listado de cargas con familias backfilleadas OK, detalle de registros OK, confirm crea carga OK, revert OK, delete (204) + limpieza OK, serie de forecast con JOIN activo OK. Frontend `vite build` limpio.
 
 ### Completado - Sprint 2-F Modo monto vs unidades (2026-05-23)
 
@@ -293,7 +329,6 @@ Verificar: `python --version` debe decir `Python 3.11.x`
 ### Pendiente
 
 **Proximo (top priority):**
-- [ ] **S3: Más refinamiento del flujo de Ingesta** (filtros, edición manual de registros antes de confirmar)
 - [ ] **S4: Inventario + Órdenes + Simulador (s,S)** — Int.2; conectar `hasCLPSkus` en `Inventory.tsx` una vez que haya datos reales de inventario
 - [ ] S5: Reportes + Admin + Notificaciones + recuperacion contrasena por email real (SMTP)
 - [ ] S6: QA + Deploy Render/Cloudflare + Tesis
@@ -310,5 +345,5 @@ Verificar: `python --version` debe decir `Python 3.11.x`
 
 **Bugs conocidos / deuda:**
 - [ ] El UI de Forecast etiqueta valores en "uds" sin chequear si la data es CLP - ~~se arregla con S2-F~~ RESUELTO en S2-F
-- [ ] No hay endpoint para editar/eliminar registros de `sales_history` (si el usuario carga data mala, hoy se borra solo via SQL directo o reset del business)
+- [x] ~~No hay endpoint para editar/eliminar registros de `sales_history`~~ RESUELTO en S3: `PATCH/DELETE /api/sales/record/{id}` + revert/delete de cargas completas via `/api/ingests`
 - [ ] `MEMORY.md` y CLAUDE.md no estan auto-sincronizados
