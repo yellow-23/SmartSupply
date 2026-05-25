@@ -175,13 +175,13 @@ ln -sf python3.11 venv/bin/python3
 ```
 Verificar: `python --version` debe decir `Python 3.11.x`
 
-## Estado actual (2026-05-24)
+## Estado actual (2026-05-25)
 
-### Completado - Sprint 3 Gestion de datos y cargas (2026-05-24)
+### Completado - Sprint 3 Gestion de datos y cargas (2026-05-24, mergeado a dev 2026-05-25)
 
 Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec en
 `docs/superpowers/specs/2026-05-24-gestion-datos-cargas-design.md`, plan en
-`docs/superpowers/plans/2026-05-24-gestion-datos-cargas.md`. Rama `feature/s3-gestion-datos`.
+`docs/superpowers/plans/2026-05-24-gestion-datos-cargas.md`. Rama `feature/s3-gestion-datos` mergeada a `dev`.
 
 **Base de datos (migracion aplicada en Supabase):**
 - [x] `ingest_log` tabla nueva: una fila por carga (business_id, store_nbr, user_id, filename, file_type, records_loaded, sales_unit, rango fechas, families JSONB, status active|reverted, created_at). Script `backend/scripts/migrate_s3_ingest_log.sql`
@@ -329,7 +329,7 @@ Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec
 ### Pendiente
 
 **Proximo (top priority):**
-- [ ] **S4: Inventario + Órdenes + Simulador (s,S)** — Int.2; conectar `hasCLPSkus` en `Inventory.tsx` una vez que haya datos reales de inventario
+- [ ] **S4: Inventario + Ordenes + Simulador (s,S)** — Int.2; conectar `hasCLPSkus` en `Inventory.tsx` una vez que haya datos reales de inventario
 - [ ] S5: Reportes + Admin + Notificaciones + recuperacion contrasena por email real (SMTP)
 - [ ] S6: QA + Deploy Render/Cloudflare + Tesis
 
@@ -340,10 +340,9 @@ Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec
 - [ ] Dashboard: poblar serie `forecast` en chart-data integrando el AMS
 - [ ] DEBUG=false en produccion para no exponer debug_token en forgot-password
 - [ ] RLS en Supabase para garantizar aislamiento por business_id (defensa en profundidad mas alla de filtros en queries)
-- [ ] Tabla `ingest_log` (auditoria de quien subio que archivo cuando) para poder revertir cargas malas
 - [ ] Tests automatizados de `_parse_date` y `validate_ingest_records` (proyecto no tiene infraestructura de testing aun)
 
 **Bugs conocidos / deuda:**
-- [ ] El UI de Forecast etiqueta valores en "uds" sin chequear si la data es CLP - ~~se arregla con S2-F~~ RESUELTO en S2-F
+- [x] ~~El UI de Forecast etiqueta valores en "uds" sin chequear si la data es CLP~~ RESUELTO en S2-F
 - [x] ~~No hay endpoint para editar/eliminar registros de `sales_history`~~ RESUELTO en S3: `PATCH/DELETE /api/sales/record/{id}` + revert/delete de cargas completas via `/api/ingests`
-- [ ] `MEMORY.md` y CLAUDE.md no estan auto-sincronizados
+- [x] ~~Tabla `ingest_log` (auditoria de cargas)~~ RESUELTO en S3
