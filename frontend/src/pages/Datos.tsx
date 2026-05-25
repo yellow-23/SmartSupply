@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Database, ChevronDown, ChevronRight, RotateCcw, Trash2, Loader2 } from "lucide-react";
 import {
   listBusinesses, listBusinessStores, listIngests, getIngestRecords,
-  revertIngest, deleteIngest,
+  revertIngest, deleteIngest, updateRecord, deleteRecord,
 } from "../api/data";
 
 export default function Datos() {
@@ -125,10 +125,20 @@ function RowGroup({ log, open, onToggle, onRevert, onDelete }: {
   onRevert: () => void;
   onDelete: () => void;
 }) {
+  const qc = useQueryClient();
   const records = useQuery({
     queryKey: ["ingest-records", log.id],
     queryFn: () => getIngestRecords(log.id),
     enabled: open,
+  });
+
+  const editMut = useMutation({
+    mutationFn: ({ id, sales }: { id: number; sales: number }) => updateRecord(id, { sales }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ingest-records", log.id] }),
+  });
+  const delRecMut = useMutation({
+    mutationFn: (id: number) => deleteRecord(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ingest-records", log.id] }),
   });
 
   return (
@@ -169,15 +179,32 @@ function RowGroup({ log, open, onToggle, onRevert, onDelete }: {
             ) : (
               <table className="w-full text-xs">
                 <thead className="text-left text-gray-500">
-                  <tr><th className="py-1">Fecha</th><th>Familia</th><th>Venta</th><th>Promo</th></tr>
+                  <tr><th className="py-1">Fecha</th><th>Familia</th><th>Venta</th><th>Promo</th><th></th></tr>
                 </thead>
                 <tbody>
                   {records.data?.map((r) => (
                     <tr key={r.id} className="border-t">
                       <td className="py-1">{r.date}</td>
                       <td>{r.family}</td>
-                      <td>{r.sales}</td>
+                      <td>
+                        <input
+                          type="number"
+                          defaultValue={r.sales}
+                          className="w-24 border rounded px-1"
+                          onBlur={(e) => {
+                            const v = Number(e.target.value);
+                            if (v !== r.sales) editMut.mutate({ id: r.id, sales: v });
+                          }}
+                        />
+                      </td>
                       <td>{r.onpromotion}</td>
+                      <td>
+                        <button className="text-red-500" onClick={() => {
+                          if (confirm("Eliminar este registro?")) delRecMut.mutate(r.id);
+                        }}>
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
