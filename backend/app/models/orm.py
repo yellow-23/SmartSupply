@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -25,6 +25,7 @@ class Business(Base):
     rut = Column(String, unique=True, nullable=True)
     city = Column(String, nullable=True)
     type = Column(String, nullable=True)
+    owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -39,6 +40,7 @@ class SalesHistory(Base):
     sales = Column(Float, nullable=False)
     onpromotion = Column(Integer, default=0)
     sales_unit = Column(String(10), nullable=False, default="units")  # 'units' | 'CLP'
+    ingest_id = Column(Integer, ForeignKey("ingest_log.id"), nullable=True, index=True)
     lag_7 = Column(Float)
     lag_14 = Column(Float)
     rolling_mean_7 = Column(Float)
@@ -98,6 +100,24 @@ class Product(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class IngestLog(Base):
+    __tablename__ = "ingest_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, index=True)
+    store_nbr = Column(Integer, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    filename = Column(String, nullable=False)
+    file_type = Column(String, nullable=False)  # image | excel | pdf | historic
+    records_loaded = Column(Integer, nullable=False, default=0)
+    sales_unit = Column(String(10), nullable=False, default="units")
+    date_range_start = Column(Date)
+    date_range_end = Column(Date)
+    families = Column(JSON)
+    status = Column(String(10), nullable=False, default="active")  # active | reverted
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class PasswordResetToken(Base):
