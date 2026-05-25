@@ -441,14 +441,19 @@ class IngestService:
                 warnings=[f"Error al interpretar respuesta de Claude: {str(e)}", text[:500]],
             )
 
-    def chat(self, messages: list, preview_summary: str, business_name: str = "") -> str:
+    def chat(self, messages: list, preview_summary: str, business_name: str = "", existing_loads: str = "") -> str:
         """Stocky responde preguntas sobre los datos extraídos en el preview."""
         negocio = f"Estás asistiendo a **{business_name}**." if business_name else ""
+        cargas = f"""
+
+CARGAS PREVIAS DEL USUARIO:
+{existing_loads}
+Si la carga actual se parece a una de estas (por familias o rango de fechas), sugiere el negocio/ubicación destino correspondiente. Si las fechas solapan con una carga existente, avisa que la carga más reciente prevalecerá sobre los días en común.""" if existing_loads else ""
         system = f"""Eres Stocky, asistente de ingesta de SmartSupply — plataforma de forecasting e inventario para distribuidoras chilenas.
 {negocio}
 
 DATOS EXTRAÍDOS DEL ARCHIVO (ya los tienes, no los pidas):
-{preview_summary}
+{preview_summary}{cargas}
 
 PERSONALIDAD:
 - Presentas los datos directamente, sin pedir que el usuario te explique qué subió.

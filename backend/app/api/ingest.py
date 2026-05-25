@@ -139,5 +139,18 @@ def ingest_chat(
     """Stocky — asistente de ingesta. Aclara dudas sobre los datos extraídos."""
     biz = db.query(Business).filter(Business.id == current_user.business_id).first()
     business_name = biz.name if biz else ""
-    reply, trigger_confirm = service.chat(body.messages, body.preview_summary, business_name)
+
+    existing = (
+        db.query(IngestLog)
+        .filter(IngestLog.business_id == current_user.business_id, IngestLog.status == "active")
+        .order_by(IngestLog.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    loads_summary = "; ".join(
+        f"ubicacion {l.store_nbr}: {', '.join(l.families or [])} ({l.date_range_start} a {l.date_range_end})"
+        for l in existing
+    ) or "ninguna carga previa"
+
+    reply, trigger_confirm = service.chat(body.messages, body.preview_summary, business_name, loads_summary)
     return IngestChatResponse(reply=reply, trigger_confirm=trigger_confirm)
