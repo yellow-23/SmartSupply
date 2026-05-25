@@ -1,13 +1,20 @@
 from datetime import date
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.api.auth import get_current_user
 from app.database import get_db
-from app.models.orm import SalesHistory, Store
-from app.models.schemas import SalesPoint, SalesSummaryItem, StoreResponse
+from app.models.orm import Business, SalesHistory, Store, User
+from app.models.schemas import (
+    SalesPoint,
+    SalesRecordResponse,
+    SalesRecordUpdate,
+    SalesSummaryItem,
+    StoreResponse,
+)
 
 router = APIRouter()
 
@@ -137,3 +144,43 @@ def get_sales_summary(
         )
         for r in rows
     ]
+
+
+def _assert_record_owner(db: Session, record: SalesHistory, user: User):
+    biz = db.query(Business).filter(Business.id == record.business_id).first()
+    if biz and biz.owner_user_id not in (None, user.id):
+        raise HTTPException(status_code=403, detail="Este registro no te pertenece")
+
+
+@router.patch("/record/{record_id}", response_model=SalesRecordResponse)
+def update_record(
+    record_id: int,
+    body: SalesRecordUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+):
+    """Edita una fila de sales_history (venta, fecha, familia, promo)."""
+    rec = db.query(SalesHistory).filter(SalesHistory.id == record_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail=f"Registro {record_id} no encontrado")
+    _assert_record_owner(db, rec, current_user)
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(rec, field, value)
+    db.commit()
+    db.refresh(rec)
+    return rec
+
+
+@router.delete("/record/{record_id}", status_code=204)
+def delete_record(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+):
+    """Elimina una fila individual de sales_history."""
+    rec = db.query(SalesHistory).filter(SalesHistory.id == record_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail=f"Registro {record_id} no encontrado")
+    _assert_record_owner(db, rec, current_user)
+    db.delete(rec)
+    db.commit()
