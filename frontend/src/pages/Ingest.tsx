@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { Upload, FileText, ImageIcon, CheckCircle, AlertTriangle, Loader2, Send, X, Bot, AlertCircle, Info } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Upload, FileText, ImageIcon, CheckCircle, AlertTriangle, Loader2, Send, X, Bot, AlertCircle, Info, Plus } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { useAuthStore } from "../store/authStore";
 import { useIngestStore } from "../store/ingestStore";
 import { previewIngest, confirmIngest, chatIngest, IngestPreview, ChatMessage, ChatResponse } from "../api/ingest";
+import { listBusinesses, listBusinessStores, createBusiness } from "../api/data";
+
+function inferFileType(name: string): "image" | "excel" | "pdf" {
+  const n = name.toLowerCase();
+  if (n.endsWith(".pdf")) return "pdf";
+  if (/\.(jpe?g|png|webp)$/.test(n)) return "image";
+  return "excel";
+}
 
 const ACCEPTED = ".jpg,.jpeg,.png,.webp,.pdf,.xlsx,.xls,.csv";
 
@@ -22,12 +30,31 @@ export default function Ingest() {
     preview, setPreview,
     fileName, setFileName,
     storeNbr, setStoreNbr,
+    businessId, setBusinessId,
     chatMessages, setChatMessages,
     chatInput, setChatInput,
     salesUnit, setSalesUnit,
     successData, setSuccessData,
     reset,
   } = useIngestStore();
+
+  // Negocio destino efectivo: el elegido o, por defecto, el del usuario
+  const destBusinessId = businessId ?? user?.business_id ?? null;
+
+  const businessesQuery = useQuery({ queryKey: ["businesses"], queryFn: listBusinesses });
+  const destStoresQuery = useQuery({
+    queryKey: ["stores", destBusinessId],
+    queryFn: () => listBusinessStores(destBusinessId!),
+    enabled: destBusinessId != null,
+  });
+
+  const newBusinessMut = useMutation({
+    mutationFn: (name: string) => createBusiness({ name }),
+    onSuccess: (biz) => {
+      queryClient.invalidateQueries({ queryKey: ["businesses"] });
+      setBusinessId(biz.id);
+    },
+  });
 
   const previewMut = useMutation({
     mutationFn: (file: File) => previewIngest(file),
@@ -98,7 +125,14 @@ export default function Ingest() {
   }
 
   const confirmMut = useMutation({
-    mutationFn: () => confirmIngest(preview!.records, storeNbr, user?.business_id ?? 1, salesUnit ?? "units"),
+    mutationFn: () => confirmIngest(
+      preview!.records,
+      storeNbr,
+      destBusinessId ?? 1,
+      salesUnit ?? "units",
+      fileName,
+      inferFileType(fileName),
+    ),
     onSuccess: (data) => {
       setSuccessData({ loaded: data.records_loaded, families: data.families, start: data.date_range_start, end: data.date_range_end });
       setStep("success");
@@ -196,6 +230,55 @@ export default function Ingest() {
       {/* Step 2: Preview */}
       {step === "preview" && preview && (
         <div className="space-y-6">
+          {/* Selector de destino: negocio + ubicacion */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+            <p className="text-sm font-semibold text-gray-800">¿Dónde quieres guardar estos datos?</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={destBusinessId ?? ""}
+                onChange={e => setBusinessId(e.target.value === "" ? null : Number(e.target.value))}
+                className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+              >
+                <option value="">Selecciona un negocio</option>
+                {businessesQuery.data?.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const name = prompt("Nombre del nuevo negocio:");
+                  if (name?.trim()) newBusinessMut.mutate(name.trim());
+                }}
+                className="flex items-center gap-1 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Nuevo negocio
+              </button>
+
+              {destBusinessId != null && (
+                <select
+                  value={storeNbr}
+                  onChange={e => setStoreNbr(Number(e.target.value))}
+                  className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                >
+                  {destStoresQuery.data && destStoresQuery.data.length > 0 ? (
+                    destStoresQuery.data.map(s => (
+                      <option key={s.store_nbr} value={s.store_nbr}>
+                        Ubicación {s.store_nbr}{s.city ? ` - ${s.city}` : ""}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={storeNbr}>Ubicación {storeNbr}</option>
+                  )}
+                </select>
+              )}
+            </div>
+            {destBusinessId == null && (
+              <p className="text-xs text-amber-700 font-medium">Elige un negocio destino antes de confirmar la carga.</p>
+            )}
+          </div>
+
           {/* Summary bar */}
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -221,10 +304,13 @@ export default function Ingest() {
                   confirmMut.isPending ||
                   preview.records_found === 0 ||
                   preview.quality_issues.some(q => q.severity === "error") ||
-                  salesUnit === null
+                  salesUnit === null ||
+                  destBusinessId == null
                 }
                 title={
-                  salesUnit === null
+                  destBusinessId == null
+                    ? "Elige un negocio destino antes de confirmar la carga."
+                    : salesUnit === null
                     ? "Debes indicar si los valores son pesos CLP o unidades antes de confirmar."
                     : preview.quality_issues.some(q => q.severity === "error")
                     ? "Hay errores de calidad bloqueantes. Resuélvelos antes de cargar."

@@ -49,9 +49,13 @@ export async function confirmIngest(
   records: IngestRecord[],
   store_nbr: number,
   business_id: number,
-  sales_unit: "CLP" | "units" = "units"
+  sales_unit: "CLP" | "units" = "units",
+  filename: string = "carga sin nombre",
+  file_type: "image" | "excel" | "pdf" = "excel",
 ): Promise<IngestResponse> {
-  const { data } = await api.post("/ingest/confirm", { records, store_nbr, business_id, sales_unit });
+  const { data } = await api.post("/ingest/confirm", {
+    records, store_nbr, business_id, sales_unit, filename, file_type,
+  });
   return data;
 }
 

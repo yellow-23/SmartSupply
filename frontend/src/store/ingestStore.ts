@@ -13,6 +13,7 @@ interface IngestState {
   preview: IngestPreview | null;
   fileName: string;
   storeNbr: number;
+  businessId: number | null;
   chatMessages: ChatMessage[];
   chatInput: string;
   salesUnit: 'CLP' | 'units' | null;
@@ -22,6 +23,7 @@ interface IngestState {
   setPreview: (preview: IngestPreview | null) => void;
   setFileName: (fileName: string) => void;
   setStoreNbr: (storeNbr: number) => void;
+  setBusinessId: (businessId: number | null) => void;
   setChatMessages: (messages: ChatMessage[]) => void;
   setChatInput: (input: string) => void;
   setSalesUnit: (unit: 'CLP' | 'units' | null) => void;
@@ -34,6 +36,7 @@ const initialState = {
   preview: null,
   fileName: '',
   storeNbr: 1,
+  businessId: null as number | null,
   chatMessages: [],
   chatInput: '',
   salesUnit: null as null,
@@ -46,6 +49,7 @@ export const useIngestStore = create<IngestState>()((set) => ({
   setPreview: (preview) => set({ preview }),
   setFileName: (fileName) => set({ fileName }),
   setStoreNbr: (storeNbr) => set({ storeNbr }),
+  setBusinessId: (businessId) => set({ businessId }),
   setChatMessages: (chatMessages) => set({ chatMessages }),
   setChatInput: (chatInput) => set({ chatInput }),
   setSalesUnit: (salesUnit) => set({ salesUnit }),
