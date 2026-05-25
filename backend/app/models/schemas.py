@@ -26,57 +26,36 @@ class DashboardChartPoint(BaseModel):
 # ─── Productos / SKUs ──────────────────────────────────────────────────────────
 
 class ProductCreate(BaseModel):
-    sku_id: str = Field(..., min_length=1, description="Identificador único del SKU")
-    name: str = Field(..., min_length=1)
+    business_id: int
+    store_nbr: int
     family: str
-    store_nbr: int = Field(1, ge=1)
-    unit_cost: float = Field(..., gt=0, description="Costo unitario (CLP)")
-    lead_time_days: int = Field(..., gt=0, description="Lead time del proveedor en días")
-    order_cost: float = Field(..., ge=0, description="Costo de emitir una orden (CLP)")
-    holding_cost_pct: float = Field(0.20, gt=0, description="Tasa de mantención como decimal (ej: 0.20 = 20%)")
-    min_order_qty: int = Field(1, gt=0, description="MOQ del proveedor")
-    pack_size: int = Field(1, gt=0, description="Tamaño del pack de compra")
-    supplier_name: Optional[str] = None
-
-
-class ProductUpdate(BaseModel):
-    name: Optional[str] = None
-    family: Optional[str] = None
-    store_nbr: Optional[int] = None
-    unit_cost: Optional[float] = Field(None, gt=0)
-    lead_time_days: Optional[int] = Field(None, gt=0)
-    order_cost: Optional[float] = Field(None, ge=0)
-    holding_cost_pct: Optional[float] = Field(None, gt=0)
-    min_order_qty: Optional[int] = Field(None, gt=0)
-    pack_size: Optional[int] = Field(None, gt=0)
-    supplier_name: Optional[str] = None
-
-
-class SupplierUpdate(BaseModel):
-    supplier_name: str
-    lead_time_days: int = Field(..., gt=0)
-    min_order_qty: int = Field(1, gt=0)
-    pack_size: int = Field(1, gt=0)
+    unit_cost: Optional[float] = None
+    order_cost: float = 5000.0
+    holding_rate: float = 0.25
+    lead_time_days: int = 7
+    moq: Optional[float] = None
 
 
 class ProductResponse(BaseModel):
     id: int
-    sku_id: str
-    name: str
-    family: str
+    business_id: int
     store_nbr: int
-    unit_cost: float
-    lead_time_days: int
+    family: str
+    unit_cost: Optional[float]
     order_cost: float
-    holding_cost_pct: float
-    min_order_qty: int
-    pack_size: int
-    supplier_name: Optional[str]
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
+    holding_rate: float
+    lead_time_days: int
+    moq: Optional[float]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProductUpdate(BaseModel):
+    unit_cost: Optional[float] = None
+    order_cost: Optional[float] = None
+    holding_rate: Optional[float] = None
+    lead_time_days: Optional[int] = None
+    moq: Optional[float] = None
 
 
 class ProductPage(BaseModel):
@@ -84,9 +63,42 @@ class ProductPage(BaseModel):
     total: int
     page: int
     pages: int
-    total_active: int
-    total_inactive: int
     total_families: int
+
+
+class StockLevelCreate(BaseModel):
+    business_id: int
+    store_nbr: int
+    family: str
+    quantity: float
+
+
+class StockLevelResponse(BaseModel):
+    id: int
+    business_id: int
+    store_nbr: int
+    family: str
+    quantity: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PurchaseOrderResponse(BaseModel):
+    id: int
+    business_id: int
+    store_nbr: int
+    family: str
+    quantity: float
+    trigger_stock: Optional[float]
+    reorder_point_s: Optional[float]
+    order_up_to_S: Optional[float]
+    policy_used: str
+    status: str
+    created_at: datetime
+    expected_delivery: Optional[date]
+    received_at: Optional[datetime]
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ─── Forecasting ───────────────────────────────────────────────────────────────
@@ -235,6 +247,19 @@ class QualityIssue(BaseModel):
     message: str
 
 
+class StockRecord(BaseModel):
+    family: str
+    quantity: float
+
+
+class ProductRecord(BaseModel):
+    family: str
+    unit_cost: Optional[float] = None
+    order_cost: Optional[float] = None
+    lead_time_days: Optional[int] = None
+    moq: Optional[float] = None
+
+
 class IngestPreview(BaseModel):
     """Lo que Claude extrajo del archivo antes de confirmar la carga."""
     store_name: str
@@ -246,6 +271,11 @@ class IngestPreview(BaseModel):
     warnings: list[str] = []
     quality_issues: list[QualityIssue] = []
     sales_unit_detected: Optional[Literal["CLP", "units"]] = None
+    data_type: str = "sales"  # "sales" | "stock" | "products" | "unknown"
+    clarification_needed: bool = False
+    clarification_message: Optional[str] = None
+    stock_records: list[StockRecord] = []
+    product_records: list[ProductRecord] = []
 
 
 class IngestConfirm(BaseModel):
@@ -255,6 +285,9 @@ class IngestConfirm(BaseModel):
     sales_unit: Literal["CLP", "units"] = "units"
     filename: str = "carga sin nombre"
     file_type: Literal["image", "excel", "pdf", "historic"] = "excel"
+    data_type: str = "sales"
+    stock_records: list[StockRecord] = []
+    product_records: list[ProductRecord] = []
 
 
 class IngestResponse(BaseModel):

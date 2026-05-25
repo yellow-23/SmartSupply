@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, JSON, Numeric, String, Text
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -85,21 +85,45 @@ class Product(Base):
     __tablename__ = "products"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, default=1, index=True)
-    sku_id = Column(String, nullable=False, index=True)  # único por (business_id, store_nbr)
-    name = Column(String, nullable=False)
-    family = Column(String, nullable=False, index=True)
-    store_nbr = Column(Integer, nullable=False, default=1, index=True)
-    unit_cost = Column(Float, nullable=False, default=0.0)
-    lead_time_days = Column(Integer, nullable=False, default=3)
-    order_cost = Column(Float, nullable=False, default=0.0)
-    holding_cost_pct = Column(Float, nullable=False, default=0.20)
-    min_order_qty = Column(Integer, nullable=False, default=1)
-    pack_size = Column(Integer, nullable=False, default=1)
-    supplier_name = Column(String, nullable=True)
-    is_active = Column(Boolean, nullable=False, default=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, index=True)
+    store_nbr = Column(Integer, nullable=False, index=True)
+    family = Column(String(50), nullable=False, index=True)
+    unit_cost = Column(Numeric(12, 2), nullable=True)
+    order_cost = Column(Numeric(12, 2), default=5000)
+    holding_rate = Column(Numeric(5, 4), default=0.25)
+    lead_time_days = Column(Integer, default=7)
+    moq = Column(Numeric(10, 2), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class StockLevel(Base):
+    __tablename__ = "stock_levels"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, index=True)
+    store_nbr = Column(Integer, nullable=False, index=True)
+    family = Column(String(50), nullable=False, index=True)
+    quantity = Column(Numeric(12, 2), default=0)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class PurchaseOrder(Base):
+    __tablename__ = "purchase_orders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, index=True)
+    store_nbr = Column(Integer, nullable=False, index=True)
+    family = Column(String(50), nullable=False, index=True)
+    quantity = Column(Numeric(12, 2), nullable=False)
+    trigger_stock = Column(Numeric(12, 2), nullable=True)
+    reorder_point_s = Column(Numeric(12, 2), nullable=True)
+    order_up_to_S = Column(Numeric(12, 2), nullable=True)
+    policy_used = Column(String(10), default="s_s")
+    status = Column(String(20), default="pending")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expected_delivery = Column(Date, nullable=True)
+    received_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class IngestLog(Base):

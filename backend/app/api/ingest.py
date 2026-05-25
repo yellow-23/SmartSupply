@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.database import get_db
-from app.models.orm import Business, Product, SalesHistory, User, IngestLog
+from app.models.orm import Business, Product, SalesHistory, StockLevel, User, IngestLog
 from app.models.schemas import IngestConfirm, IngestPreview, IngestResponse, IngestChatRequest, IngestChatResponse
 from app.services.ingest_service import (
     SUPPORTED_EXCEL_TYPES,
@@ -62,6 +62,83 @@ def confirm_ingest(
     Paso 2: confirma la carga. Crea un ingest_log y agrega las filas con ese
     ingest_id SIN sobrescribir cargas previas (cada carga queda separada).
     """
+    data_type = body.data_type or "sales"
+
+    # ── Stock snapshot ──────────────────────────────────────────────────────────
+    if data_type == "stock":
+        if not body.stock_records:
+            raise HTTPException(status_code=400, detail="No hay registros de stock para cargar.")
+        for rec in body.stock_records:
+            existing = db.query(StockLevel).filter(
+                StockLevel.business_id == body.business_id,
+                StockLevel.store_nbr == body.store_nbr,
+                StockLevel.family == rec.family,
+            ).first()
+            if existing:
+                existing.quantity = rec.quantity
+            else:
+                db.add(StockLevel(
+                    business_id=body.business_id,
+                    store_nbr=body.store_nbr,
+                    family=rec.family,
+                    quantity=rec.quantity,
+                ))
+        db.commit()
+        families = sorted(set(r.family for r in body.stock_records))
+        from datetime import date as date_type
+        today = date_type.today()
+        return IngestResponse(
+            store_nbr=body.store_nbr,
+            records_loaded=len(body.stock_records),
+            families=families,
+            date_range_start=today,
+            date_range_end=today,
+        )
+
+    # ── Products catalog ────────────────────────────────────────────────────────
+    if data_type == "products":
+        if not body.product_records:
+            raise HTTPException(status_code=400, detail="No hay registros de productos para cargar.")
+        for rec in body.product_records:
+            existing = db.query(Product).filter(
+                Product.business_id == body.business_id,
+                Product.store_nbr == body.store_nbr,
+                Product.family == rec.family,
+            ).first()
+            if existing:
+                if rec.unit_cost is not None:
+                    existing.unit_cost = rec.unit_cost
+                if rec.order_cost is not None:
+                    existing.order_cost = rec.order_cost
+                if rec.lead_time_days is not None:
+                    existing.lead_time_days = rec.lead_time_days
+                if rec.moq is not None:
+                    existing.min_order_qty = int(rec.moq)
+            else:
+                db.add(Product(
+                    business_id=body.business_id,
+                    sku_id=rec.family,
+                    name=rec.family.title(),
+                    family=rec.family,
+                    store_nbr=body.store_nbr,
+                    unit_cost=rec.unit_cost or 0.0,
+                    order_cost=rec.order_cost or 0.0,
+                    lead_time_days=rec.lead_time_days or 3,
+                    min_order_qty=int(rec.moq) if rec.moq else 1,
+                ))
+        db.commit()
+        families = sorted(set(r.family for r in body.product_records))
+        from datetime import date as date_type
+        today = date_type.today()
+        return IngestResponse(
+            store_nbr=body.store_nbr,
+            records_loaded=len(body.product_records),
+            families=families,
+            date_range_start=today,
+            date_range_end=today,
+        )
+
+    # ── Sales (default) ─────────────────────────────────────────────────────────
     if not body.records:
         raise HTTPException(status_code=400, detail="No hay registros para cargar.")
 
