@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from datetime import date as date_type
 
-from app.models.orm import SalesHistory
+from app.models.orm import IngestLog, SalesHistory
 from app.models.schemas import ForecastResponse, ForecastPoint
 
 # Agregar el root del repo al path para importar el módulo forecasting/
@@ -64,14 +64,18 @@ def _load_series_from_db(
 ) -> pd.Series:
     """
     Construye una serie diaria de ventas desde sales_history scoped por business_id.
+    Solo cuenta cargas activas (ingest_log.status='active'); las revertidas se excluyen.
+    Si dos cargas activas cubren el mismo dia, gana la mas reciente (mayor ingest_id).
     Devuelve un pd.Series indexado por fecha (frecuencia diaria, gaps en 0).
     """
     rows = (
-        db.query(SalesHistory.date, SalesHistory.sales)
+        db.query(SalesHistory.date, SalesHistory.sales, SalesHistory.ingest_id)
+        .join(IngestLog, IngestLog.id == SalesHistory.ingest_id)
         .filter(SalesHistory.business_id == business_id)
         .filter(SalesHistory.family == family)
         .filter(SalesHistory.store_nbr == store_nbr)
         .filter(SalesHistory.date <= date_type.today())
+        .filter(IngestLog.status == "active")
         .order_by(SalesHistory.date)
         .all()
     )
@@ -79,9 +83,14 @@ def _load_series_from_db(
     if not rows:
         raise InsufficientDataError(days_available=0)
 
-    df = pd.DataFrame([{"date": r.date, "sales": float(r.sales)} for r in rows])
+    df = pd.DataFrame([
+        {"date": r.date, "sales": float(r.sales), "ingest_id": r.ingest_id or 0}
+        for r in rows
+    ])
     df["date"] = pd.to_datetime(df["date"])
-    daily = df.groupby("date")["sales"].sum().sort_index()
+    # ultima gana: por fecha, conservar la fila de la carga mas reciente
+    df = df.sort_values(["date", "ingest_id"]).drop_duplicates("date", keep="last")
+    daily = df.set_index("date")["sales"].sort_index()
     daily = daily.asfreq("D", fill_value=0.0)
     return daily.clip(lower=0)
 
