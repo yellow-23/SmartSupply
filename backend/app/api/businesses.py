@@ -11,15 +11,24 @@ from app.models.schemas import BusinessCreate, BusinessResponse, StoreResponse
 router = APIRouter()
 
 
+def _can_access(biz: Business, user: User) -> bool:
+    """Un usuario accede a un negocio si lo creo (owner) o si es su negocio asignado.
+    Esto cubre negocios compartidos por varios usuarios (ej: la demo del equipo)."""
+    return biz.owner_user_id in (None, user.id) or biz.id == user.business_id
+
+
 @router.get("", response_model=list[BusinessResponse])
 def list_businesses(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ):
-    """Lista los negocios que pertenecen al usuario actual."""
+    """Lista los negocios del usuario: los que creo + su negocio asignado."""
     return (
         db.query(Business)
-        .filter(Business.owner_user_id == current_user.id)
+        .filter(
+            (Business.owner_user_id == current_user.id)
+            | (Business.id == current_user.business_id)
+        )
         .order_by(Business.id)
         .all()
     )
@@ -34,7 +43,7 @@ def get_business(
     biz = db.query(Business).filter(Business.id == business_id).first()
     if not biz:
         raise HTTPException(status_code=404, detail=f"Negocio {business_id} no encontrado")
-    if biz.owner_user_id not in (None, current_user.id):
+    if not _can_access(biz, current_user):
         raise HTTPException(status_code=403, detail="Este negocio no te pertenece")
     return biz
 
@@ -71,7 +80,7 @@ def list_business_stores(
     biz = db.query(Business).filter(Business.id == business_id).first()
     if not biz:
         raise HTTPException(status_code=404, detail=f"Negocio {business_id} no encontrado")
-    if biz.owner_user_id not in (None, current_user.id):
+    if not _can_access(biz, current_user):
         raise HTTPException(status_code=403, detail="Este negocio no te pertenece")
     return (
         db.query(Store)

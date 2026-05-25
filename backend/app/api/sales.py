@@ -148,7 +148,7 @@ def get_sales_summary(
 
 def _assert_record_owner(db: Session, record: SalesHistory, user: User):
     biz = db.query(Business).filter(Business.id == record.business_id).first()
-    if biz and biz.owner_user_id not in (None, user.id):
+    if biz and biz.owner_user_id not in (None, user.id) and biz.id != user.business_id:
         raise HTTPException(status_code=403, detail="Este registro no te pertenece")
 
 

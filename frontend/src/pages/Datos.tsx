@@ -41,9 +41,17 @@ export default function Datos() {
 
   return (
     <div className="p-6 space-y-6">
-      <header className="flex items-center gap-2">
-        <Database className="w-6 h-6 text-indigo-600" />
-        <h1 className="text-2xl font-bold">Datos</h1>
+      <header className="space-y-1">
+        <div className="flex items-center gap-2">
+          <Database className="w-6 h-6 text-indigo-600" />
+          <h1 className="text-2xl font-bold">Datos</h1>
+        </div>
+        <p className="text-sm text-gray-500 max-w-2xl">
+          Historial de cada carga de datos que subiste: de qué archivo viene, quién la subió y cuándo.
+          Aquí revisas, editas, reviertes o eliminas cargas. Para gestionar tus SKUs y costos usa
+          <span className="font-medium"> Productos</span>; para stock y reórdenes usa
+          <span className="font-medium"> Inventario</span>.
+        </p>
       </header>
 
       {/* Selector de negocio */}

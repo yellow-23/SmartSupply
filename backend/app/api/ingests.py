@@ -19,7 +19,8 @@ def _assert_owner(db: Session, business_id: int, user: User):
     biz = db.query(Business).filter(Business.id == business_id).first()
     if not biz:
         raise HTTPException(status_code=404, detail=f"Negocio {business_id} no encontrado")
-    if biz.owner_user_id not in (None, user.id):
+    # Accede el owner o quien tiene ese negocio asignado (negocios compartidos).
+    if biz.owner_user_id not in (None, user.id) and biz.id != user.business_id:
         raise HTTPException(status_code=403, detail="Este negocio no te pertenece")
 
 
