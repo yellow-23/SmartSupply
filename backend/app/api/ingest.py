@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.database import get_db
-from app.models.orm import Business, Product, SalesHistory, User
+from app.models.orm import Business, Product, SalesHistory, User, IngestLog
 from app.models.schemas import IngestConfirm, IngestPreview, IngestResponse, IngestChatRequest, IngestChatResponse
 from app.services.ingest_service import (
     SUPPORTED_EXCEL_TYPES,
@@ -53,10 +53,14 @@ async def preview_ingest(file: UploadFile = File(...)):
 
 
 @router.post("/confirm", response_model=IngestResponse)
-def confirm_ingest(body: IngestConfirm, db: Session = Depends(get_db)):
+def confirm_ingest(
+    body: IngestConfirm,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+):
     """
-    Paso 2: Confirma la carga de los registros extraidos por Claude a sales_history.
-    El usuario debe haber revisado el preview primero.
+    Paso 2: confirma la carga. Crea un ingest_log y agrega las filas con ese
+    ingest_id SIN sobrescribir cargas previas (cada carga queda separada).
     """
     if not body.records:
         raise HTTPException(status_code=400, detail="No hay registros para cargar.")
@@ -68,37 +72,38 @@ def confirm_ingest(body: IngestConfirm, db: Session = Depends(get_db)):
             detail="Ningun registro es cargable (fechas futuras o ventas en cero).",
         )
 
-    loaded = 0
-    for record in loadable:
-        existing = (
-            db.query(SalesHistory)
-            .filter(
-                SalesHistory.business_id == body.business_id,
-                SalesHistory.store_nbr == body.store_nbr,
-                SalesHistory.date == record.date,
-                SalesHistory.family == record.family,
-            )
-            .first()
-        )
-        if existing:
-            existing.sales = record.sales
-            existing.onpromotion = record.onpromotion
-            existing.sales_unit = body.sales_unit
-        else:
-            db.add(SalesHistory(
-                business_id=body.business_id,
-                store_nbr=body.store_nbr,
-                date=record.date,
-                family=record.family,
-                sales=record.sales,
-                onpromotion=record.onpromotion,
-                sales_unit=body.sales_unit,
-            ))
-        loaded += 1
+    dates = [r.date for r in loadable]
+    families = sorted(set(r.family for r in loadable))
 
-    # Auto-crear producto por cada familia nueva detectada
-    families_in_batch = set(r.family for r in loadable)
-    for family in families_in_batch:
+    log = IngestLog(
+        business_id=body.business_id,
+        store_nbr=body.store_nbr,
+        user_id=current_user.id,
+        filename=body.filename,
+        file_type=body.file_type,
+        records_loaded=len(loadable),
+        sales_unit=body.sales_unit,
+        date_range_start=min(dates),
+        date_range_end=max(dates),
+        families=families,
+        status="active",
+    )
+    db.add(log)
+    db.flush()  # asigna log.id sin cerrar la transaccion
+
+    for record in loadable:
+        db.add(SalesHistory(
+            business_id=body.business_id,
+            store_nbr=body.store_nbr,
+            date=record.date,
+            family=record.family,
+            sales=record.sales,
+            onpromotion=record.onpromotion,
+            sales_unit=body.sales_unit,
+            ingest_id=log.id,
+        ))
+
+    for family in families:
         exists = db.query(Product).filter(
             Product.business_id == body.business_id,
             Product.family == family,
@@ -116,11 +121,10 @@ def confirm_ingest(body: IngestConfirm, db: Session = Depends(get_db)):
 
     db.commit()
 
-    dates = [r.date for r in loadable]
     return IngestResponse(
         store_nbr=body.store_nbr,
-        records_loaded=loaded,
-        families=sorted(set(r.family for r in loadable)),
+        records_loaded=len(loadable),
+        families=families,
         date_range_start=min(dates),
         date_range_end=max(dates),
     )

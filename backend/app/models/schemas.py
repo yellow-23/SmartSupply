@@ -253,6 +253,8 @@ class IngestConfirm(BaseModel):
     store_nbr: int
     records: list[IngestRecord]
     sales_unit: Literal["CLP", "units"] = "units"
+    filename: str = "carga sin nombre"
+    file_type: Literal["image", "excel", "pdf", "historic"] = "excel"
 
 
 class IngestResponse(BaseModel):
