@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Forecast from "./pages/Forecast";
 import Inventory from "./pages/Inventory";
 import Ingest from "./pages/Ingest";
+import Datos from "./pages/Datos";
 import Orders from "./pages/Orders";
 import ProductsPage from "./pages/products/ProductsPage";
 import ProductDetailPage from "./pages/products/ProductDetailPage";
@@ -31,6 +32,7 @@ function App() {
                   <Route path="/forecasting"    element={<Forecast />} />
                   <Route path="/inventory"      element={<Inventory />} />
                   <Route path="/ingest"         element={<Ingest />} />
+                  <Route path="/datos"          element={<Datos />} />
                   <Route path="/orders"         element={<Orders />} />
                   <Route path="/products"       element={<ProductsPage />} />
                   <Route path="/products/:id"   element={<ProductDetailPage />} />

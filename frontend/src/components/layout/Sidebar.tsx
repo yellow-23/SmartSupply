@@ -4,6 +4,7 @@ import {
   TrendingUp,
   ShoppingBag,
   Sparkles,
+  Database,
   LogOut,
   BarChart3,
 } from "lucide-react";
@@ -13,6 +14,7 @@ import { cn } from "../../lib/utils";
 const navItems = [
   { name: "Inicio",            path: "/dashboard",   icon: LayoutDashboard },
   { name: "Subir ventas",      path: "/ingest",      icon: Sparkles },
+  { name: "Datos",             path: "/datos",       icon: Database },
   { name: "Predecir demanda",  path: "/forecasting", icon: TrendingUp },
   { name: "Mis productos",     path: "/products",    icon: ShoppingBag },
 ];
