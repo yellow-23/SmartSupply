@@ -182,6 +182,7 @@ class BusinessResponse(BaseModel):
     rut: Optional[str] = None
     city: Optional[str] = None
     type: Optional[str] = None
+    owner_user_id: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -276,3 +277,45 @@ class IngestChatRequest(BaseModel):
 class IngestChatResponse(BaseModel):
     reply: str
     trigger_confirm: bool = False
+
+
+# ─── Cargas (ingest_log) ────────────────────────────────────────────────────────
+
+class IngestLogResponse(BaseModel):
+    id: int
+    business_id: int
+    store_nbr: int
+    user_id: int
+    uploader_name: Optional[str] = None
+    filename: str
+    file_type: str
+    records_loaded: int
+    sales_unit: str
+    date_range_start: Optional[date] = None
+    date_range_end: Optional[date] = None
+    families: Optional[list[str]] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SalesRecordResponse(BaseModel):
+    id: int
+    date: date
+    family: str
+    sales: float
+    onpromotion: int
+    sales_unit: str
+    ingest_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SalesRecordUpdate(BaseModel):
+    date: Optional[date] = None
+    family: Optional[str] = None
+    sales: Optional[float] = Field(None, ge=0)
+    onpromotion: Optional[int] = Field(None, ge=0)
