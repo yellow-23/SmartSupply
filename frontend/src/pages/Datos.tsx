@@ -1,11 +1,13 @@
 // frontend/src/pages/Datos.tsx
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Database, ChevronDown, ChevronRight, RotateCcw, Trash2, Loader2 } from "lucide-react";
+import { Database, ChevronDown, ChevronRight, RotateCcw, Trash2, Loader2, Sparkles } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import {
   listBusinesses, listBusinessStores, listIngests, getIngestRecords,
   revertIngest, deleteIngest, updateRecord, deleteRecord,
 } from "../api/data";
+import { chatIngest } from "../api/ingest";
 
 export default function Datos() {
   const qc = useQueryClient();
@@ -141,6 +143,15 @@ function RowGroup({ log, open, onToggle, onRevert, onDelete }: {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ingest-records", log.id] }),
   });
 
+  const [stockyReply, setStockyReply] = useState<string | null>(null);
+  const askMut = useMutation({
+    mutationFn: () => chatIngest(
+      [{ role: "user", content: "Resume esta carga y dime si tiene huecos o ventas raras." }],
+      `Carga ${log.filename}: familias ${(log.families || []).join(", ")}, rango ${log.date_range_start} a ${log.date_range_end}, ${log.records_loaded} filas, unidad ${log.sales_unit}, estado ${log.status}.`,
+    ),
+    onSuccess: (res) => setStockyReply(res.reply),
+  });
+
   return (
     <>
       <tr className="border-t hover:bg-gray-50">
@@ -210,6 +221,26 @@ function RowGroup({ log, open, onToggle, onRevert, onDelete }: {
                 </tbody>
               </table>
             )}
+
+            <div className="mt-3">
+              <button
+                onClick={() => askMut.mutate()}
+                disabled={askMut.isPending}
+                className="flex items-center gap-1 text-indigo-600 text-xs disabled:opacity-50"
+              >
+                {askMut.isPending ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                Preguntar a Stocky
+              </button>
+              {stockyReply && (
+                <div className="mt-2 p-3 bg-indigo-50 rounded text-xs prose prose-sm max-w-none">
+                  <ReactMarkdown>{stockyReply}</ReactMarkdown>
+                </div>
+              )}
+            </div>
           </td>
         </tr>
       )}
