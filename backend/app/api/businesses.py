@@ -5,16 +5,17 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.database import get_db
-from app.models.orm import Business, Store, User
+from app.models.orm import Business, Store, User, UserBusiness
 from app.models.schemas import BusinessCreate, BusinessResponse, StoreResponse
 
 router = APIRouter()
 
 
-def _can_access(biz: Business, user: User) -> bool:
-    """Un usuario accede a un negocio si lo creo (owner) o si es su negocio asignado.
-    Esto cubre negocios compartidos por varios usuarios (ej: la demo del equipo)."""
-    return biz.owner_user_id in (None, user.id) or biz.id == user.business_id
+def _can_access(db: Session, business_id: int, user: User) -> bool:
+    return db.query(UserBusiness).filter(
+        UserBusiness.user_id == user.id,
+        UserBusiness.business_id == business_id,
+    ).first() is not None
 
 
 @router.get("", response_model=list[BusinessResponse])
@@ -22,13 +23,11 @@ def list_businesses(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ):
-    """Lista los negocios del usuario: los que creo + su negocio asignado."""
+    """Lista los negocios a los que el usuario pertenece."""
     return (
         db.query(Business)
-        .filter(
-            (Business.owner_user_id == current_user.id)
-            | (Business.id == current_user.business_id)
-        )
+        .join(UserBusiness, UserBusiness.business_id == Business.id)
+        .filter(UserBusiness.user_id == current_user.id)
         .order_by(Business.id)
         .all()
     )
@@ -43,8 +42,8 @@ def get_business(
     biz = db.query(Business).filter(Business.id == business_id).first()
     if not biz:
         raise HTTPException(status_code=404, detail=f"Negocio {business_id} no encontrado")
-    if not _can_access(biz, current_user):
-        raise HTTPException(status_code=403, detail="Este negocio no te pertenece")
+    if not _can_access(db, business_id, current_user):
+        raise HTTPException(status_code=403, detail="No tienes acceso a este negocio")
     return biz
 
 
@@ -54,7 +53,7 @@ def create_business(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ):
-    """Crea un negocio y lo asocia al usuario actual como owner."""
+    """Crea un negocio y agrega al usuario como owner en user_businesses."""
     if body.rut:
         existing = db.query(Business).filter(Business.rut == body.rut).first()
         if existing:
@@ -65,6 +64,8 @@ def create_business(
         owner_user_id=current_user.id,
     )
     db.add(biz)
+    db.flush()
+    db.add(UserBusiness(user_id=current_user.id, business_id=biz.id, role="owner"))
     db.commit()
     db.refresh(biz)
     return biz
@@ -80,8 +81,8 @@ def list_business_stores(
     biz = db.query(Business).filter(Business.id == business_id).first()
     if not biz:
         raise HTTPException(status_code=404, detail=f"Negocio {business_id} no encontrado")
-    if not _can_access(biz, current_user):
-        raise HTTPException(status_code=403, detail="Este negocio no te pertenece")
+    if not _can_access(db, business_id, current_user):
+        raise HTTPException(status_code=403, detail="No tienes acceso a este negocio")
     return (
         db.query(Store)
         .filter(Store.business_id == business_id)

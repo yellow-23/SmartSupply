@@ -54,10 +54,11 @@ export default function Dashboard() {
     isLoading: kpisLoading,
     isError: kpisError,
   } = useQuery<DashboardKPIs>({
-    queryKey: ["dashboard", "kpis"],
+    queryKey: ["dashboard", "kpis", user?.id],
     queryFn: fetchKPIs,
     staleTime: 300_000,
     refetchInterval: 300_000,
+    enabled: !!user,
   });
 
   const {
@@ -65,10 +66,11 @@ export default function Dashboard() {
     isLoading: chartLoading,
     isSuccess: chartLoaded,
   } = useQuery<ChartPoint[]>({
-    queryKey: ["dashboard", "chart-data"],
+    queryKey: ["dashboard", "chart-data", user?.id],
     queryFn: fetchChartData,
     staleTime: 300_000,
     refetchInterval: 300_000,
+    enabled: !!user,
   });
 
   const isEmptyState = chartLoaded && chartData.length === 0;

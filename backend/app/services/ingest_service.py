@@ -16,7 +16,7 @@ import anthropic
 import pandas as pd
 from dotenv import load_dotenv
 
-from app.models.schemas import IngestPreview, IngestRecord
+from app.models.schemas import IngestPreview, IngestRecord, StockRecord, ProductRecord
 from app.services.ingest_validator import validate_ingest_records
 
 load_dotenv(Path(__file__).parents[3] / "backend" / ".env")
@@ -141,6 +141,35 @@ class IngestService:
                 if is_csv
                 else pd.read_excel(pd.io.common.BytesIO(file_bytes), sheet_name=sheet_name)
             )
+            direct_headers = list(df_direct.columns)
+            detected_type = self._detect_data_type(df_direct, direct_headers)
+
+            if detected_type == "stock":
+                stock_recs = self._extract_stock_with_claude(df_direct)
+                return self._build_preview(
+                    "Tienda sin nombre", [], [],
+                    data_type="stock", stock_records=stock_recs,
+                )
+            elif detected_type == "products":
+                product_recs = self._extract_products_with_claude(df_direct)
+                return self._build_preview(
+                    "Tienda sin nombre", [], [],
+                    data_type="products", product_records=product_recs,
+                )
+            elif detected_type == "unknown":
+                return self._build_preview(
+                    "Desconocido", [], [],
+                    data_type="unknown",
+                    clarification_needed=True,
+                    clarification_message=(
+                        "No pude identificar el tipo de datos. "
+                        "¿Es un archivo de ventas, niveles de stock o catálogo de productos?"
+                    ),
+                )
+            elif detected_type == "mixed":
+                # Fall through to sales extraction — mixed handled as sales
+                pass
+
             direct = self._try_direct_mapping(df_direct)
             if direct:
                 return direct
@@ -336,6 +365,115 @@ class IngestService:
                 result = pd.to_datetime(val, dayfirst=False, errors="coerce")
         return result.date() if not pd.isna(result) else None
 
+    def _detect_data_type(self, df: pd.DataFrame, headers: list[str]) -> str:
+        """Classifies file type based on header keywords (case-insensitive, ES+EN)."""
+        cols = [str(h).lower().strip() for h in headers]
+
+        STOCK_KW = {"stock", "cantidad", "existencia", "inventario", "quantity", "on_hand", "disponible"}
+        PRODUCT_KW = {"costo", "precio", "cost", "price", "lead_time", "plazo", "holding", "reorder", "moq"}
+        SALES_KW = {"venta", "sale", "ingreso", "revenue", "familia", "family"}
+        DATE_KW = {"fecha", "date", "mes", "month", "periodo"}
+
+        has_stock = any(any(kw in c for kw in STOCK_KW) for c in cols)
+        has_product = any(any(kw in c for kw in PRODUCT_KW) for c in cols)
+        has_sales = any(any(kw in c for kw in SALES_KW) for c in cols)
+        has_date = any(any(kw in c for kw in DATE_KW) for c in cols)
+
+        # Sin fechas: si hay señales de costos/stock → es catálogo, no ventas
+        if not has_date:
+            if has_product:
+                return "products"
+            if has_stock:
+                return "stock"
+        # Con fechas: mixed solo si hay ambas señales
+        if has_date and has_stock and has_sales:
+            return "mixed"
+        if has_date and has_product and has_sales:
+            return "mixed"
+        if has_stock:
+            return "stock"
+        if has_product:
+            return "products"
+        if has_sales or has_date:
+            return "sales"
+        return "unknown"
+
+    def _extract_stock_with_claude(self, df: pd.DataFrame) -> list[StockRecord]:
+        """Asks Claude Haiku to identify family/SKU and quantity columns."""
+        sample = df.head(20).to_string()
+        prompt = (
+            "Eres un asistente de datos. Se te entrega una muestra de archivo tabular.\n"
+            "Identifica las columnas de familia/SKU y stock/cantidad disponible.\n"
+            "Devuelve UNICAMENTE un JSON array con esta estructura exacta:\n"
+            '[{"family": "NOMBRE_FAMILIA", "quantity": 123.45}]\n'
+            "Normaliza los nombres de familia a mayusculas. Si no encuentras datos validos, devuelve [].\n"
+            "No incluyas texto fuera del JSON.\n\n"
+            f"Muestra:\n{sample}"
+        )
+        try:
+            msg = self.client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = msg.content[0].text.strip()
+            if "```" in text:
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            data = json.loads(text.strip())
+            return [
+                StockRecord(
+                    family=str(r["family"]).upper().strip(),
+                    quantity=float(r["quantity"]),
+                )
+                for r in data
+                if r.get("family") and r.get("quantity") is not None
+            ]
+        except Exception as e:
+            print(f"[ingest_service] _extract_stock_with_claude failed: {e}")
+            return []
+
+    def _extract_products_with_claude(self, df: pd.DataFrame) -> list[ProductRecord]:
+        """Asks Claude Haiku to identify family, costs, lead_time, and MOQ columns."""
+        sample = df.head(20).to_string()
+        prompt = (
+            "Eres un asistente de datos. Se te entrega una muestra de un catalogo de productos.\n"
+            "Identifica las columnas de: familia/SKU, costo unitario, costo de pedido, "
+            "lead_time en dias, MOQ (cantidad minima de orden).\n"
+            "Devuelve UNICAMENTE un JSON array con esta estructura exacta:\n"
+            '[{"family": "NOMBRE", "unit_cost": 1500.0, "order_cost": 5000.0, "lead_time_days": 3, "moq": 10.0}]\n'
+            "Usa null para campos que no encuentres. Normaliza familia a mayusculas.\n"
+            "No incluyas texto fuera del JSON.\n\n"
+            f"Muestra:\n{sample}"
+        )
+        try:
+            msg = self.client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1500,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = msg.content[0].text.strip()
+            if "```" in text:
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            data = json.loads(text.strip())
+            return [
+                ProductRecord(
+                    family=str(r["family"]).upper().strip(),
+                    unit_cost=r.get("unit_cost"),
+                    order_cost=r.get("order_cost"),
+                    lead_time_days=r.get("lead_time_days"),
+                    moq=r.get("moq"),
+                )
+                for r in data
+                if r.get("family")
+            ]
+        except Exception as e:
+            print(f"[ingest_service] _extract_products_with_claude failed: {e}")
+            return []
+
     def _parse_promo(self, val) -> int:
         """Returns 1 if the value indicates a promotion, 0 otherwise."""
         if val is None:
@@ -479,20 +617,45 @@ AUTO-CONFIRMAR: Cuando el usuario indique que quiere proceder (ejemplos: "carga 
         reply = raw.replace("[CONFIRMAR]", "").strip()
         return reply, trigger
 
-    def _build_preview(self, store_name: str, records: list[IngestRecord], warnings: list[str]) -> IngestPreview:
+    def _build_preview(
+        self,
+        store_name: str,
+        records: list[IngestRecord],
+        warnings: list[str],
+        data_type: str = "sales",
+        stock_records: list | None = None,
+        product_records: list | None = None,
+        clarification_needed: bool = False,
+        clarification_message: str | None = None,
+    ) -> IngestPreview:
         dates = [r.date for r in records]
         quality_issues = validate_ingest_records(records)
         sales_unit_detected = (
             "CLP" if any(i.code == "LIKELY_CURRENCY" for i in quality_issues) else "units"
         )
+        # For non-sales types, use families from the specialized record lists
+        if data_type == "stock" and stock_records:
+            families = sorted(set(r.family for r in stock_records))
+        elif data_type == "products" and product_records:
+            families = sorted(set(r.family for r in product_records))
+        else:
+            families = sorted(set(r.family for r in records))
+
         return IngestPreview(
             store_name=store_name,
-            records_found=len(records),
+            records_found=len(records) if data_type == "sales" else (
+                len(stock_records) if stock_records else len(product_records or [])
+            ),
             date_range_start=min(dates) if dates else None,
             date_range_end=max(dates) if dates else None,
-            families_detected=sorted(set(r.family for r in records)),
+            families_detected=families,
             records=records,
             warnings=warnings,
             quality_issues=quality_issues,
             sales_unit_detected=sales_unit_detected,
+            data_type=data_type,
+            clarification_needed=clarification_needed,
+            clarification_message=clarification_message,
+            stock_records=stock_records or [],
+            product_records=product_records or [],
         )

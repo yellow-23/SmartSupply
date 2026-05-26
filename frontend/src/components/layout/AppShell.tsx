@@ -1,6 +1,7 @@
 import React from "react";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
+import StockyFloat from "../StockyFloat";
 
 const AppShell = ({ children }) => {
   return (
@@ -12,6 +13,7 @@ const AppShell = ({ children }) => {
           {children}
         </main>
       </div>
+      <StockyFloat />
     </div>
   );
 };
