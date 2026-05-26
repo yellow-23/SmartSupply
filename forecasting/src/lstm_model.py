@@ -2,43 +2,54 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
-import torch
-import torch.nn as nn
-
-
-class _LSTMNet(nn.Module):
-    def __init__(self, window_size: int):
-        super().__init__()
-        self.lstm1 = nn.LSTM(input_size=1, hidden_size=64, batch_first=True)
-        self.drop1 = nn.Dropout(0.2)
-        self.lstm2 = nn.LSTM(input_size=64, hidden_size=32, batch_first=True)
-        self.drop2 = nn.Dropout(0.2)
-        self.fc = nn.Linear(32, 1)
-
-    def forward(self, x):
-        out, _ = self.lstm1(x)
-        out = self.drop1(out)
-        out, _ = self.lstm2(out)
-        out = self.drop2(out)
-        return self.fc(out[:, -1, :])
+try:
+    import torch
+    import torch.nn as nn
+    _TORCH_AVAILABLE = True
+except ImportError:
+    _TORCH_AVAILABLE = False
 
 
 class LSTMModel:
     """
     Red LSTM con dos capas (64 → 32 unidades), Dropout 20% y capa densa
     de salida. Predicción iterativa multi-paso con ventana deslizante.
-    Implementada en PyTorch.
+    Implementada en PyTorch. Si torch no está instalado, lanza NotImplementedError
+    y el AMS lo descarta automáticamente.
     """
 
     def __init__(self, window_size: int = 30):
         self.window_size = window_size
-        self.net: _LSTMNet | None = None
+        self.net = None
         self.scaler = MinMaxScaler(feature_range=(0, 1))
         self._last_window: np.ndarray | None = None
         self._last_date: pd.Timestamp | None = None
-        self._device = torch.device("cpu")
+        self._device = None
+
+    def _build_net(self):
+        class _Net(nn.Module):
+            def __init__(self, window_size):
+                super().__init__()
+                self.lstm1 = nn.LSTM(input_size=1, hidden_size=64, batch_first=True)
+                self.drop1 = nn.Dropout(0.2)
+                self.lstm2 = nn.LSTM(input_size=64, hidden_size=32, batch_first=True)
+                self.drop2 = nn.Dropout(0.2)
+                self.fc = nn.Linear(32, 1)
+
+            def forward(self, x):
+                out, _ = self.lstm1(x)
+                out = self.drop1(out)
+                out, _ = self.lstm2(out)
+                out = self.drop2(out)
+                return self.fc(out[:, -1, :])
+
+        return _Net(self.window_size)
 
     def fit(self, series: pd.Series, epochs: int = 50):
+        if not _TORCH_AVAILABLE:
+            raise NotImplementedError("LSTM requiere PyTorch (pip install torch)")
+
+        self._device = torch.device("cpu")
         values = series.values.astype(float).reshape(-1, 1)
         scaled = self.scaler.fit_transform(values).flatten()
 
@@ -50,15 +61,14 @@ class LSTMModel:
         X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1).to(self._device)
         y_t = torch.tensor(np.array(y), dtype=torch.float32).unsqueeze(-1).to(self._device)
 
-        self.net = _LSTMNet(self.window_size).to(self._device)
+        self.net = self._build_net().to(self._device)
         optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
         loss_fn = nn.MSELoss()
 
         self.net.train()
         for _ in range(epochs):
             optimizer.zero_grad()
-            pred = self.net(X_t)
-            loss = loss_fn(pred, y_t)
+            loss = loss_fn(self.net(X_t), y_t)
             loss.backward()
             optimizer.step()
 
@@ -75,9 +85,8 @@ class LSTMModel:
             for _ in range(horizon):
                 x = torch.tensor(window[-self.window_size:], dtype=torch.float32)
                 x = x.unsqueeze(0).unsqueeze(-1).to(self._device)
-                val = float(self.net(x).item())
-                preds_scaled.append(val)
-                window.append(val)
+                preds_scaled.append(float(self.net(x).item()))
+                window.append(preds_scaled[-1])
 
         preds = self.scaler.inverse_transform(
             np.array(preds_scaled).reshape(-1, 1)
