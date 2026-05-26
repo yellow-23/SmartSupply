@@ -77,7 +77,7 @@ def list_families(business_id: int) -> list[tuple[str, int, int]]:
 
 # ── Estadísticas descriptivas ──────────────────────────────────────────────────
 
-DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+DAY_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"]
 
 def series_stats(s: pd.Series) -> dict:
     nonzero = s[s > 0]
@@ -108,27 +108,27 @@ def print_stats(st: dict):
     print(f"  Media    : {st['mean']:>14,.1f} {unit}    CV={st['cv']:.1f}%")
     print(f"  Mediana  : {st['median']:>14,.1f} {unit}")
     print(f"  Std      : {st['std']:>14,.1f} {unit}")
-    print(f"  Rango    : {st['min']:>14,.1f} – {st['max']:>14,.1f}")
+    print(f"  Rango    : {st['min']:>14,.1f} - {st['max']:>14,.1f}")
     print(f"  Patron semanal (media historica):")
     for day, mean, std in st["weekly"]:
-        bar = "█" * max(1, int(mean / st["mean"] * 20)) if st["mean"] > 0 else ""
-        print(f"    {day}  {mean:>14,.0f}  ±{std:>12,.0f}  {bar}")
+        bar = "#" * max(1, int(mean / st["mean"] * 20)) if st["mean"] > 0 else ""
+        print(f"    {day}  {mean:>14,.0f}  +/-{std:>12,.0f}  {bar}")
 
 
 def print_wape_table(wapes: dict[str, float | None], winner: str):
     print(f"\n  {'Modelo':<12} {'WAPE':>10}  Barra de error")
-    print(f"  {'─' * 12} {'─' * 10}  {'─' * 35}".replace('─', '-'))
+    print(f"  {'-'*12} {'-'*10}  {'-'*35}")
     sorted_w = sorted(
         wapes.items(),
         key=lambda x: x[1] if (x[1] is not None) else 9999,
     )
     for name, w in sorted_w:
-        tag = " ← GANADOR" if name == winner else ""
+        tag = " <- GANADOR" if name == winner else ""
         if w is not None:
-            bar = "█" * min(35, max(1, int(w / 3)))
+            bar = "#" * min(35, max(1, int(w / 3)))
             print(f"  {name.upper():<12} {w:>9.2f}%  {bar}{tag}")
         else:
-            print(f"  {name.upper():<12} {'N/A':>10}  (falló){tag}")
+            print(f"  {name.upper():<12} {'N/A':>10}  (fallo){tag}")
 
 
 def print_predictions(pred: pd.Series, hist_series: pd.Series, is_clp: bool, model: str):
@@ -184,7 +184,7 @@ def print_val_comparison(result: dict, is_clp: bool):
     for i, (d, actual) in enumerate(val_actual.items()):
         if i >= limit:
             if i == limit:
-                print(f"  … (y {len(val_actual) - limit} días más)")
+                print(f"  ... (y {len(val_actual) - limit} dias mas)")
             continue
         print(f"  {d.strftime('%Y-%m-%d'):<12} {actual:>14,.0f} ", end="")
         for name, pred_s in val_preds.items():
@@ -197,7 +197,7 @@ def print_val_comparison(result: dict, is_clp: bool):
 
 # ── Runner principal ───────────────────────────────────────────────────────────
 
-def run_analysis(business_id: int, family: str, store_nbr: int, horizon: int) -> dict | None:
+def run_analysis(business_id: int, family: str, store_nbr: int, horizon: int, cv: bool = False) -> dict | None:
     print_header(f"AMS  |  business={business_id}  |  SKU={family}  |  store={store_nbr}  |  h={horizon}d")
 
     # Cargar serie
@@ -217,10 +217,11 @@ def run_analysis(business_id: int, family: str, store_nbr: int, horizon: int) ->
         return None
 
     # Correr AMS
+    cv_label = f"walk-forward CV 3 folds" if cv else "split unico 70/15/15"
     print(f"\n{'-'*62}")
-    print(f"  Corriendo AMS (cv=False, split 70/15/15)...")
+    print(f"  Corriendo AMS ({cv_label})...")
     print(f"{'-'*62}")
-    ams = AutoModelSelector(horizon=horizon, cv=False)
+    ams = AutoModelSelector(horizon=horizon, cv=cv)
     t1 = time.time()
     result = ams.select(series, sku_id=family)
     elapsed = time.time() - t1
@@ -245,6 +246,7 @@ def main():
     parser.add_argument("--family",   type=str, default=None)
     parser.add_argument("--store",    type=int, default=None)
     parser.add_argument("--horizon",  type=int, default=30)
+    parser.add_argument("--cv",       action="store_true", help="Walk-forward CV de 3 folds")
     parser.add_argument("--list",     action="store_true")
     parser.add_argument("--all",      action="store_true")
     args = parser.parse_args()
@@ -255,9 +257,9 @@ def main():
         return
 
     if args.list:
-        print(f"\nFamilias — business_id={args.business}:")
-        print(f"  {'Familia':<35} {'Store':>5} {'Días':>6}")
-        print(f"  {'─'*35} {'─'*5} {'─'*6}")
+        print(f"\nFamilias - business_id={args.business}:")
+        print(f"  {'Familia':<35} {'Store':>5} {'Dias':>6}")
+        print(f"  {'-'*35} {'-'*5} {'-'*6}")
         for fam, store, n in families:
             print(f"  {fam:<35} {store:>5} {n:>6}")
         return
@@ -268,27 +270,27 @@ def main():
             if n < 91:
                 print(f"\n  SKIP {fam:<35} ({n} dias < 91)")
                 continue
-            r = run_analysis(args.business, fam, store, args.horizon)
+            r = run_analysis(args.business, fam, store, args.horizon, cv=args.cv)
             if r:
                 summary.append((fam, r["model"], r["wape"]))
 
         print_header(f"RESUMEN GLOBAL - business_id={args.business}")
         print(f"\n  {'Familia':<35} {'Ganador':<12} {'WAPE':>8}")
-        print(f"  {'─'*35} {'─'*12} {'─'*8}")
+        print(f"  {'-'*35} {'-'*12} {'-'*8}")
         counts: dict[str, int] = {}
         for fam, model, wape in sorted(summary, key=lambda x: x[2]):
             label = f"{wape:.2f}%" if wape is not None else "N/A"
             print(f"  {fam:<35} {model.upper():<12} {label:>8}")
             counts[model] = counts.get(model, 0) + 1
         if counts:
-            print(f"\n  Distribución ganadores:")
+            print(f"\n  Distribucion ganadores:")
             for model, cnt in sorted(counts.items(), key=lambda x: -x[1]):
                 pct = cnt / len(summary) * 100
                 print(f"    {model.upper():<12} {cnt} SKUs  ({pct:.0f}%)")
     else:
         fam   = args.family or families[0][0]
         store = args.store  or families[0][1]
-        run_analysis(args.business, fam, store, args.horizon)
+        run_analysis(args.business, fam, store, args.horizon, cv=args.cv)
 
 
 if __name__ == "__main__":
