@@ -132,6 +132,9 @@ export default function Ingest() {
       salesUnit ?? "units",
       fileName,
       inferFileType(fileName),
+      (preview!.data_type ?? "sales") as "sales" | "stock" | "products",
+      preview!.stock_records ?? [],
+      preview!.product_records ?? [],
     ),
     onSuccess: (data) => {
       setSuccessData({ loaded: data.records_loaded, families: data.families, start: data.date_range_start, end: data.date_range_end });
@@ -304,13 +307,13 @@ export default function Ingest() {
                   confirmMut.isPending ||
                   preview.records_found === 0 ||
                   preview.quality_issues.some(q => q.severity === "error") ||
-                  salesUnit === null ||
+                  (preview.data_type === "sales" && salesUnit === null) ||
                   destBusinessId == null
                 }
                 title={
                   destBusinessId == null
                     ? "Elige un negocio destino antes de confirmar la carga."
-                    : salesUnit === null
+                    : preview.data_type === "sales" && salesUnit === null
                     ? "Debes indicar si los valores son pesos CLP o unidades antes de confirmar."
                     : preview.quality_issues.some(q => q.severity === "error")
                     ? "Hay errores de calidad bloqueantes. Resuélvelos antes de cargar."
@@ -368,30 +371,44 @@ export default function Ingest() {
             </div>
           )}
 
-          <div className={`rounded-2xl border px-5 py-4 space-y-3 ${salesUnit === null ? "bg-amber-50 border-amber-300" : "bg-white border-gray-100"}`}>
-            <p className="text-sm font-semibold text-gray-800">
-              ¿Qué representan los valores de ventas en este archivo?
-            </p>
-            {salesUnit === null && (
-              <p className="text-xs text-amber-700 font-medium">
-                Stocky detectó que los valores parecen ser montos en pesos. Confirma el tipo antes de cargar.
+          {(!preview.data_type || preview.data_type === "sales") && (
+            <div className={`rounded-2xl border px-5 py-4 space-y-3 ${salesUnit === null ? "bg-amber-50 border-amber-300" : "bg-white border-gray-100"}`}>
+              <p className="text-sm font-semibold text-gray-800">
+                ¿Qué representan los valores de ventas en este archivo?
               </p>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setSalesUnit("units")}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${salesUnit === "units" ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
-              >
-                Unidades vendidas
-              </button>
-              <button
-                onClick={() => setSalesUnit("CLP")}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${salesUnit === "CLP" ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
-              >
-                Monto en pesos (CLP)
-              </button>
+              {salesUnit === null && (
+                <p className="text-xs text-amber-700 font-medium">
+                  Stocky detectó que los valores parecen ser montos en pesos. Confirma el tipo antes de cargar.
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setSalesUnit("units")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${salesUnit === "units" ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+                >
+                  Unidades vendidas
+                </button>
+                <button
+                  onClick={() => setSalesUnit("CLP")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${salesUnit === "CLP" ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+                >
+                  Monto en pesos (CLP)
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+          {preview.data_type === "products" && (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4">
+              <p className="text-sm font-semibold text-blue-800">Catálogo de parámetros detectado</p>
+              <p className="text-xs text-blue-600 mt-1">Se actualizarán los costos y tiempos de entrega en la tabla de productos.</p>
+            </div>
+          )}
+          {preview.data_type === "stock" && (
+            <div className="rounded-2xl border border-green-200 bg-green-50 px-5 py-4">
+              <p className="text-sm font-semibold text-green-800">Niveles de stock detectados</p>
+              <p className="text-xs text-green-600 mt-1">Se actualizará el stock actual por familia en el módulo de inventario.</p>
+            </div>
+          )}
 
           {/* Stocky chat */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

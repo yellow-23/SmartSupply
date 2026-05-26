@@ -118,7 +118,7 @@ class PurchaseOrder(Base):
     quantity = Column(Numeric(12, 2), nullable=False)
     trigger_stock = Column(Numeric(12, 2), nullable=True)
     reorder_point_s = Column(Numeric(12, 2), nullable=True)
-    order_up_to_S = Column(Numeric(12, 2), nullable=True)
+    order_up_to_S = Column("order_up_to_s", Numeric(12, 2), nullable=True)
     policy_used = Column(String(10), default="s_s")
     status = Column(String(20), default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -141,6 +141,16 @@ class IngestLog(Base):
     date_range_end = Column(Date)
     families = Column(JSON)
     status = Column(String(10), nullable=False, default="active")  # active | reverted
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class UserBusiness(Base):
+    __tablename__ = "user_businesses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, index=True)
+    role = Column(String(20), nullable=False, default="member")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

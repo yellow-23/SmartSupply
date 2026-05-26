@@ -9,19 +9,20 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.database import get_db
-from app.models.orm import Business, IngestLog, SalesHistory, User
+from app.models.orm import Business, IngestLog, SalesHistory, User, UserBusiness
 from app.models.schemas import IngestLogResponse, SalesRecordResponse
 
 router = APIRouter()
 
 
 def _assert_owner(db: Session, business_id: int, user: User):
-    biz = db.query(Business).filter(Business.id == business_id).first()
-    if not biz:
+    if not db.query(Business).filter(Business.id == business_id).first():
         raise HTTPException(status_code=404, detail=f"Negocio {business_id} no encontrado")
-    # Accede el owner o quien tiene ese negocio asignado (negocios compartidos).
-    if biz.owner_user_id not in (None, user.id) and biz.id != user.business_id:
-        raise HTTPException(status_code=403, detail="Este negocio no te pertenece")
+    if not db.query(UserBusiness).filter(
+        UserBusiness.user_id == user.id,
+        UserBusiness.business_id == business_id,
+    ).first():
+        raise HTTPException(status_code=403, detail="No tienes acceso a este negocio")
 
 
 @router.get("", response_model=list[IngestLogResponse])

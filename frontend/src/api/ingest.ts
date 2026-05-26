@@ -16,6 +16,19 @@ export interface QualityIssue {
   message: string;
 }
 
+export interface StockRecord {
+  family: string;
+  quantity: number;
+}
+
+export interface ProductRecord {
+  family: string;
+  unit_cost?: number | null;
+  order_cost?: number | null;
+  lead_time_days?: number | null;
+  moq?: number | null;
+}
+
 export interface IngestPreview {
   store_name: string;
   records_found: number;
@@ -26,6 +39,11 @@ export interface IngestPreview {
   warnings: string[];
   quality_issues: QualityIssue[];
   sales_unit_detected: "CLP" | "units" | null;
+  data_type: "sales" | "stock" | "products" | "unknown";
+  clarification_needed: boolean;
+  clarification_message: string | null;
+  stock_records: StockRecord[];
+  product_records: ProductRecord[];
 }
 
 export interface IngestResponse {
@@ -52,9 +70,13 @@ export async function confirmIngest(
   sales_unit: "CLP" | "units" = "units",
   filename: string = "carga sin nombre",
   file_type: "image" | "excel" | "pdf" = "excel",
+  data_type: "sales" | "stock" | "products" = "sales",
+  stock_records: StockRecord[] = [],
+  product_records: ProductRecord[] = [],
 ): Promise<IngestResponse> {
   const { data } = await api.post("/ingest/confirm", {
     records, store_nbr, business_id, sales_unit, filename, file_type,
+    data_type, stock_records, product_records,
   });
   return data;
 }

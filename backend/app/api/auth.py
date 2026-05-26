@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.orm import Business, PasswordResetToken, Store, User
+from app.models.orm import Business, PasswordResetToken, Store, User, UserBusiness
 
 router = APIRouter()
 
@@ -152,6 +152,8 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         business_id=business.id,
     )
     db.add(user)
+    db.flush()
+    db.add(UserBusiness(user_id=user.id, business_id=business.id, role="owner"))
     db.commit()
     db.refresh(user)
     return TokenResponse(

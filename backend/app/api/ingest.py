@@ -113,19 +113,22 @@ def confirm_ingest(
                 if rec.lead_time_days is not None:
                     existing.lead_time_days = rec.lead_time_days
                 if rec.moq is not None:
-                    existing.min_order_qty = int(rec.moq)
+                    existing.moq = rec.moq
             else:
-                db.add(Product(
-                    business_id=body.business_id,
-                    sku_id=rec.family,
-                    name=rec.family.title(),
-                    family=rec.family,
-                    store_nbr=body.store_nbr,
-                    unit_cost=rec.unit_cost or 0.0,
-                    order_cost=rec.order_cost or 0.0,
-                    lead_time_days=rec.lead_time_days or 3,
-                    min_order_qty=int(rec.moq) if rec.moq else 1,
-                ))
+                kwargs: dict = {
+                    "business_id": body.business_id,
+                    "store_nbr": body.store_nbr,
+                    "family": rec.family,
+                }
+                if rec.unit_cost is not None:
+                    kwargs["unit_cost"] = rec.unit_cost
+                if rec.order_cost is not None:
+                    kwargs["order_cost"] = rec.order_cost
+                if rec.lead_time_days is not None:
+                    kwargs["lead_time_days"] = rec.lead_time_days
+                if rec.moq is not None:
+                    kwargs["moq"] = rec.moq
+                db.add(Product(**kwargs))
         db.commit()
         families = sorted(set(r.family for r in body.product_records))
         from datetime import date as date_type
@@ -189,11 +192,8 @@ def confirm_ingest(
         if not exists:
             db.add(Product(
                 business_id=body.business_id,
-                sku_id=family,
-                name=family.title(),
                 family=family,
                 store_nbr=body.store_nbr,
-                unit_cost=0.0,
             ))
 
     db.commit()

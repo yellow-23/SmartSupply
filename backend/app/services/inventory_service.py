@@ -214,21 +214,35 @@ class InventoryService:
         self, db: Session, business_id: int, store_nbr: int
     ) -> list[dict]:
         """
-        Retorna todos los SKUs (family+store) del negocio cuyo stock <= s.
+        Retorna todos los SKUs cuyo stock actual <= punto de reorden (s).
+        Deriva familias desde sales_history; stock desde stock_levels (0 si no existe).
         """
-        stock_rows = (
-            db.query(StockLevel)
-            .filter(
+        families = [
+            row[0]
+            for row in (
+                db.query(SalesHistory.family)
+                .join(IngestLog, IngestLog.id == SalesHistory.ingest_id)
+                .filter(
+                    SalesHistory.business_id == business_id,
+                    SalesHistory.store_nbr == store_nbr,
+                    IngestLog.status == "active",
+                )
+                .distinct()
+                .all()
+            )
+        ]
+
+        stock_map = {
+            sl.family: float(sl.quantity) if sl.quantity is not None else 0.0
+            for sl in db.query(StockLevel).filter(
                 StockLevel.business_id == business_id,
                 StockLevel.store_nbr == store_nbr,
-            )
-            .all()
-        )
+            ).all()
+        }
 
         critical = []
-        for sl in stock_rows:
-            family = sl.family
-            current_stock = float(sl.quantity) if sl.quantity is not None else 0.0
+        for family in families:
+            current_stock = stock_map.get(family, 0.0)
             series = _load_demand_series(db, business_id, store_nbr, family, days=90)
             params = _get_product_params(db, business_id, store_nbr, family)
             s, S, eoq = _calc_s_S(series, params)

@@ -379,9 +379,16 @@ class IngestService:
         has_sales = any(any(kw in c for kw in SALES_KW) for c in cols)
         has_date = any(any(kw in c for kw in DATE_KW) for c in cols)
 
-        if has_stock and has_sales:
+        # Sin fechas: si hay señales de costos/stock → es catálogo, no ventas
+        if not has_date:
+            if has_product:
+                return "products"
+            if has_stock:
+                return "stock"
+        # Con fechas: mixed solo si hay ambas señales
+        if has_date and has_stock and has_sales:
             return "mixed"
-        if has_product and has_sales:
+        if has_date and has_product and has_sales:
             return "mixed"
         if has_stock:
             return "stock"

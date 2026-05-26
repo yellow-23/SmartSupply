@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -7,6 +8,8 @@ import {
   Database,
   LogOut,
   BarChart3,
+  Package,
+  ClipboardList,
 } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { cn } from "../../lib/utils";
@@ -16,12 +19,15 @@ const navItems = [
   { name: "Subir ventas",      path: "/ingest",      icon: Sparkles },
   { name: "Datos",             path: "/datos",       icon: Database },
   { name: "Predecir demanda",  path: "/forecasting", icon: TrendingUp },
+  { name: "Inventario",        path: "/inventory",   icon: Package },
+  { name: "Ordenes",           path: "/orders",      icon: ClipboardList },
   { name: "Mis productos",     path: "/products",    icon: ShoppingBag },
 ];
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore((s) => ({ user: s.user, logout: s.logout }));
+  const queryClient = useQueryClient();
 
   return (
     <aside className="w-64 bg-slate-950 text-white flex flex-col flex-shrink-0 h-screen">
@@ -61,7 +67,7 @@ export default function Sidebar() {
           <p className="text-xs text-white/40 mt-0.5 capitalize">{user?.role === "admin" ? "Administrador" : "Analista"}</p>
         </div>
         <button
-          onClick={() => { logout(); navigate("/login"); }}
+          onClick={() => { queryClient.clear(); logout(); navigate("/login"); }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
         >
           <LogOut className="w-4 h-4" />

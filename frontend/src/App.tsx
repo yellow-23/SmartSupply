@@ -9,8 +9,7 @@ import Inventory from "./pages/Inventory";
 import Ingest from "./pages/Ingest";
 import Datos from "./pages/Datos";
 import Orders from "./pages/Orders";
-import ProductsPage from "./pages/products/ProductsPage";
-import ProductDetailPage from "./pages/products/ProductDetailPage";
+import Products from "./pages/Products";
 import AppShell from "./components/layout/AppShell";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 
@@ -34,8 +33,7 @@ function App() {
                   <Route path="/ingest"         element={<Ingest />} />
                   <Route path="/datos"          element={<Datos />} />
                   <Route path="/orders"         element={<Orders />} />
-                  <Route path="/products"       element={<ProductsPage />} />
-                  <Route path="/products/:id"   element={<ProductDetailPage />} />
+                  <Route path="/products"       element={<Products />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </AppShell>
