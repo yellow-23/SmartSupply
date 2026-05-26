@@ -51,7 +51,7 @@ export interface PurchaseOrder {
 }
 
 export const fetchAlerts = (businessId: number, storeNbr = 1) =>
-  api.get<{ alerts: InventoryAlert[]; count: number }>(
+  api.get<{ alerts: InventoryAlert[]; count: number; has_clp_skus: boolean }>(
     `/inventory/alerts?business_id=${businessId}&store_nbr=${storeNbr}`
   ).then(r => r.data)
 

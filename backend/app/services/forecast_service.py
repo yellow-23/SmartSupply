@@ -39,6 +39,16 @@ _CACHE_TTL = int(os.getenv("FORECAST_CACHE_TTL", "3600"))  # override con env va
 _cache: dict[str, tuple] = {}
 _cache_lock = threading.Lock()
 
+# Cache de WAPE por SKU: (business_id, store_nbr, family) -> wape
+# Se llena cada vez que el usuario corre un forecast. Leído por el dashboard.
+_wape_cache: dict[tuple, float] = {}
+
+
+def get_business_wapes(business_id: int) -> list[float]:
+    """Retorna todos los WAPEs almacenados para un business. Vacío si aún no corrió ningún forecast."""
+    with _cache_lock:
+        return [v for (bid, _, _), v in _wape_cache.items() if bid == business_id]
+
 
 class InsufficientDataError(Exception):
     """Se levanta cuando la serie no tiene los 90 días mínimos para el AMS."""
@@ -204,4 +214,6 @@ class ForecastService:
         )
         with _cache_lock:
             _cache[key] = (response, time.monotonic())
+            if wape_used is not None:
+                _wape_cache[(business_id, store_nbr, sku_id)] = wape_used
         return response

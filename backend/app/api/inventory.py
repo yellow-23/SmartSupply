@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.database import get_db
-from app.models.orm import User
+from app.models.orm import IngestLog, SalesHistory, User
 from app.models.schemas import InventoryMetrics, InventoryStatus
 from app.services.inventory_service import InventoryService
 
@@ -48,7 +48,24 @@ async def get_stock_alerts(
         if sort_by == "urgency":
             alerts.sort(key=lambda x: _urgency_rank.get(x["urgency"], 2))
 
-        return {"store_nbr": store_nbr, "alerts": alerts[:limit], "count": len(alerts)}
+        has_clp = (
+            db.query(SalesHistory.sales_unit)
+            .join(IngestLog, IngestLog.id == SalesHistory.ingest_id)
+            .filter(
+                SalesHistory.business_id == business_id,
+                SalesHistory.store_nbr == store_nbr,
+                IngestLog.status == "active",
+                SalesHistory.sales_unit == "CLP",
+            )
+            .first()
+            is not None
+        )
+        return {
+            "store_nbr": store_nbr,
+            "alerts": alerts[:limit],
+            "count": len(alerts),
+            "has_clp_skus": has_clp,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

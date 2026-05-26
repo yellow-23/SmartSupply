@@ -60,7 +60,7 @@ export default function Inventory() {
   });
 
   const alerts = alertsQuery.data?.alerts ?? [];
-  const hasCLPSkus = false; // placeholder — conectar cuando backend exponga sales_unit
+  const hasCLPSkus = alertsQuery.data?.has_clp_skus ?? false;
 
   if (!businessId) {
     return (
