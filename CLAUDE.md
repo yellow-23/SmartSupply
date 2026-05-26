@@ -53,51 +53,67 @@ Rango temporal: 2013-01-01 a 2017-08-15. 54 tiendas, 33 familias de productos.
 ```
 SmartSupply/
 ├── backend/app/
-│   ├── main.py              # FastAPI + CORS + 7 routers registrados (incluye auth)
+│   ├── main.py              # FastAPI + CORS + 9 routers (auth, forecast, inventory, products, orders, sales, ingest, ingests, businesses, stocky)
 │   ├── database.py          # SQLAlchemy engine + sesion + get_db
 │   ├── models/
 │   │   ├── schemas.py       # Pydantic models
-│   │   └── orm.py           # SQLAlchemy ORM (User, Business, SalesHistory, Store, OilPrice, Holiday)
+│   │   └── orm.py           # ORM: User, Business, UserBusiness, SalesHistory, Store, IngestLog, Product, StockLevel, PurchaseOrder, ...
 │   ├── api/
-│   │   ├── auth.py          # POST /login, POST /register + get_current_user dependency
-│   │   ├── forecast.py      # Prediccion de demanda
-│   │   ├── inventory.py     # Estado e inventario
-│   │   ├── products.py      # SKUs
-│   │   ├── orders.py        # Ordenes de compra
+│   │   ├── auth.py          # POST /login, POST /register, forgot/reset-password + get_current_user
+│   │   ├── forecast.py      # Prediccion de demanda (AMS real)
+│   │   ├── inventory.py     # GET /alerts, GET /{family}, GET /{family}/metrics
+│   │   ├── products.py      # CRUD de productos/SKUs por negocio
+│   │   ├── orders.py        # Ordenes de compra + generacion automatica
 │   │   ├── sales.py         # Datos historicos reales desde Supabase
-│   │   └── ingest.py        # Ingesta IA - sube archivo, Claude extrae, carga a BD
+│   │   ├── ingest.py        # Ingesta IA: /preview, /confirm, /chat
+│   │   ├── ingests.py       # Gestion de cargas: listar, revertir, eliminar
+│   │   ├── businesses.py    # Negocios scoped por user_businesses
+│   │   └── stocky.py        # POST /stocky/chat - asistente global con herramientas
 │   └── services/
-│       ├── forecast_service.py   # Mock hasta que Int.1 implemente modelos
-│       ├── inventory_service.py  # Mock hasta que Int.2 implemente logica
-│       └── ingest_service.py     # Claude API - extrae datos de cualquier archivo
+│       ├── forecast_service.py   # AMS real: ARIMA/Prophet/XGBoost + last-wins por ingest_id
+│       ├── inventory_service.py  # EOQ + politica (s,S) + simulador desde sales_history real
+│       ├── ingest_service.py     # Claude API - extrae datos de imagen/Excel/PDF
+│       ├── ingest_validator.py   # Validador de calidad antes de cargar
+│       └── stocky_service.py     # Loop agentivo Claude Haiku con 5 herramientas de BD
 ├── backend/scripts/
-│   └── create_user.py       # Crea usuario admin manualmente (usar python3.11)
+│   ├── create_user.py            # Crea usuario admin manualmente (usar python3.11)
+│   ├── migrate_s3_ingest_log.sql # Migracion S3: ingest_log, sales_history.ingest_id
+│   ├── migrate_s4_inventory.sql  # Migracion S4: products, stock_levels, purchase_orders, user_businesses
+│   ├── backfill_s3_ingest_log.py # Backfill cargas historicas para businesses existentes
+│   └── migrate_s2f.sql           # Migracion S2-F: sales_history.sales_unit
 ├── etl/scripts/
 │   ├── 01_download_kaggle.py  # Descomprime el zip (hecho)
 │   ├── 02_clean.py            # Limpieza y feature engineering (hecho)
 │   └── 03_load_supabase.py    # Carga a Supabase via REST (hecho)
-├── forecasting/src/         # arima, prophet, xgboost, lstm + selector.py (esqueletos)
-├── inventory/src/           # eoq, s_s_policy, order_generator, simulator (esqueletos)
+├── forecasting/src/         # arima, prophet, xgboost (DIRMO), lstm + selector.py (AMS operativo)
+├── inventory/src/           # eoq, s_s_policy, order_generator, simulator (operativos)
 ├── frontend/src/
 │   ├── api/
 │   │   ├── axios.instance.ts  # Axios con interceptor JWT + redirect 401
-│   │   └── client.ts          # Re-exporta axios.instance.ts
+│   │   ├── data.ts            # Negocios, ubicaciones, cargas, registros
+│   │   ├── forecast.ts        # fetchForecast, fetchSalesHistory
+│   │   ├── inventory.ts       # fetchAlerts, fetchInventoryStatus, fetchInventoryMetrics, generateOrders
+│   │   ├── ingest.ts          # preview, confirm, chat con tipos QualityIssue
+│   │   ├── products.ts        # CRUD productos
+│   │   └── stocky.ts          # chatStocky
 │   ├── store/
-│   │   └── authStore.ts       # Zustand persist - login/logout reales, sin mocks
-│   ├── components/layout/
-│   │   ├── ProtectedRoute.tsx # Redirect a /login si no autenticado
-│   │   ├── Sidebar.tsx        # Muestra nombre y rol del usuario real
-│   │   ├── AppShell.tsx
-│   │   └── TopBar.tsx
+│   │   └── authStore.ts       # Zustand persist - login/logout reales
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── ProtectedRoute.tsx
+│   │   │   ├── Sidebar.tsx        # queryClient.clear() en logout
+│   │   │   └── AppShell.tsx       # Incluye StockyFloat global
+│   │   ├── StockyFloat.tsx        # Asistente flotante bottom-right con historial
+│   │   └── ui/AlertsSummaryPanel.tsx
 │   └── pages/
-│       ├── Login.tsx          # Conectado a POST /api/auth/login
-│       ├── Register.tsx       # Conectado a POST /api/auth/register
-│       ├── Dashboard.tsx      # UI completa, datos mockeados (pendiente S2-B)
-│       ├── Forecast.tsx       # UI completa, datos mockeados (pendiente S3)
-│       ├── Inventory.tsx      # UI completa, datos mockeados (pendiente S4)
-│       ├── Orders.tsx         # UI completa, datos mockeados (pendiente S4)
-│       ├── Products.tsx       # UI completa, datos mockeados (pendiente S2-C)
-│       └── Ingest.tsx         # UI completa, sin conectar (pendiente S3)
+│       ├── Login.tsx / Register.tsx / ForgotPassword.tsx / ResetPassword.tsx
+│       ├── Dashboard.tsx      # KPIs + chart reales, queryKey con user.id
+│       ├── Forecast.tsx       # AMS real, labels CLP/uds dinamicos
+│       ├── Datos.tsx          # Drill-down negocio->ubicacion->cargas->registros
+│       ├── Inventory.tsx      # Alertas reales desde sales_history, politica (s,S)
+│       ├── Orders.tsx         # Ordenes reales con cambio de estado
+│       ├── Products.tsx       # Selector de negocio dinamico, sin defaults
+│       └── Ingest.tsx         # Preview+validacion+selector destino+Stocky
 └── datasets/raw/            # CSVs del dataset (en .gitignore)
 ```
 
@@ -127,9 +143,15 @@ JWT_EXPIRE_HOURS=8
 
 ## Schema de base de datos
 
-- **`users`**: `(id, name, email, hashed_password, role, business_id, is_active, created_at)` - creada manualmente en Supabase public schema
-- **`businesses`**: `(id, name, rut, city, type, created_at)`
-- **`sales_history`**: `(id, date, store_nbr, family, sales, onpromotion, lag_7, lag_14, rolling_mean_7, day_of_week, month)`
+- **`users`**: `(id, name, email, hashed_password, role, business_id, is_active, created_at)`
+- **`businesses`**: `(id, name, rut, city, type, owner_user_id, created_at)`
+- **`user_businesses`**: `(id, user_id, business_id, role)` - many-to-many; role: owner|member. Controla acceso en businesses.py, ingests.py
+- **`sales_history`**: `(id, business_id, date, store_nbr, family, sales, onpromotion, sales_unit, ingest_id, ...)`
+- **`ingest_log`**: `(id, business_id, store_nbr, user_id, filename, file_type, records_loaded, sales_unit, date_range_start, date_range_end, families JSONB, status active|reverted, created_at)`
+- **`products`**: `(id, business_id, store_nbr, family, unit_cost, order_cost, holding_rate, lead_time_days, moq)` - todos opcionales; Stocky los completa
+- **`stock_levels`**: `(id, business_id, store_nbr, family, quantity, updated_at)`
+- **`purchase_orders`**: `(id, business_id, store_nbr, family, quantity, trigger_stock, reorder_point_s, order_up_to_S, policy_used, status, created_at, expected_delivery, received_at)`
+- **`password_reset_tokens`**: `(id, user_id, token, expires_at, used)`
 - **`stores`**: `(store_nbr, city, state, type, cluster)`
 - **`oil_prices`**: `(date, dcoilwtico)`
 - **`holidays`**: `(date, type, locale, locale_name, description, transferred)`
@@ -175,7 +197,43 @@ ln -sf python3.11 venv/bin/python3
 ```
 Verificar: `python --version` debe decir `Python 3.11.x`
 
-## Estado actual (2026-05-25)
+## Estado actual (2026-05-26)
+
+### Completado - Sprint 4 Inventario + Ordenes + Stocky global (2026-05-26, mergeado a dev)
+
+Rama `feature/s4-inventario-ordenes` mergeada a `dev`. Tambien mergeado `feature/xgboost-direct-forecast` (Int.1: XGBoost DIRMO + tests AMS reales).
+
+**Base de datos (migracion `backend/scripts/migrate_s4_inventory.sql` — aplicar en Supabase):**
+- [x] `user_businesses (id, user_id, business_id, role)` - many-to-many; reemplaza modelo owner-unico
+- [x] `products (id, business_id, store_nbr, family, unit_cost, order_cost, holding_rate, lead_time_days, moq)` - todos opcionales
+- [x] `stock_levels (id, business_id, store_nbr, family, quantity, updated_at)`
+- [x] `purchase_orders (id, business_id, store_nbr, family, quantity, ...)` con estados pending/confirmed/in_transit/received/cancelled
+
+**Backend:**
+- [x] `GET /api/inventory/alerts?business_id=&store_nbr=` - deriva familias desde `sales_history` (no requiere stock_levels previo); stock=0 si no hay nivel configurado
+- [x] `GET /api/inventory/{family}` y `GET /api/inventory/{family}/metrics` - EOQ + (s,S) + simulador reales
+- [x] `POST /api/orders/generate` - crea `purchase_orders` para todos los SKUs criticos (stock <= s)
+- [x] `PATCH /api/orders/{id}/status` - transiciones de estado con validacion
+- [x] `POST /api/stocky/chat` - loop agentivo Claude Haiku con herramientas: `list_products`, `list_stock_levels`, `list_orders`, `update_product`, `update_stock_level`
+- [x] `user_businesses` integrado en `auth.py` (register), `businesses.py` (list/create), `ingests.py` (_assert_owner)
+- [x] Fix `ingest.py`: `Product()` ya no usa campos obsoletos `sku_id`/`name`; solo `business_id`, `store_nbr`, `family`
+
+**Frontend:**
+- [x] `Inventory.tsx` conectado: alertas reales, detalle (s,S,EOQ), metricas 30 dias, boton generar ordenes
+- [x] `Orders.tsx` conectado: tabla real con filtros, cambio de estado inline, contador por estado
+- [x] `Products.tsx`: selector de negocio dinamico (sin defaults hardcodeados), CRUD completo
+- [x] `StockyFloat.tsx`: boton flotante bottom-right, panel de chat 384px, chips de sugerencia, historial de mensajes
+- [x] `AppShell.tsx`: incluye `<StockyFloat />` global en todas las paginas
+- [x] `Dashboard.tsx`: queryKeys con `user.id` para evitar contaminacion entre usuarios
+- [x] `Sidebar.tsx`: `queryClient.clear()` en logout
+
+**Comportamiento clave:**
+- Inventario funciona desde el primer dia: sin stock_levels, todas las familias con ventas aparecen como "critico" (stock=0 <= s calculado). Usuario configura stock real via Stocky o manualmente.
+- Parametros de producto (unit_cost, lead_time, etc.) todos opcionales con defaults en `inventory_service.py`. Stocky los completa a pedido del usuario.
+- Multi-negocio: un usuario puede pertenecer a varios negocios via `user_businesses`. `GET /api/businesses` devuelve solo los del usuario autenticado.
+
+**Verificacion end-to-end (pancho gonzales, business_id=22, 5 familias):**
+- Carga Excel 720 filas OK → inventario muestra 5 alertas criticas OK → generar ordenes crea 5 purchase_orders OK → Orders page muestra tabla OK → Stocky global responde con contexto de BD OK
 
 ### Completado - Sprint 3 Gestion de datos y cargas (2026-05-24, mergeado a dev 2026-05-25)
 
@@ -329,20 +387,23 @@ Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec
 ### Pendiente
 
 **Proximo (top priority):**
-- [ ] **S4: Inventario + Ordenes + Simulador (s,S)** — Int.2; conectar `hasCLPSkus` en `Inventory.tsx` una vez que haya datos reales de inventario
-- [ ] S5: Reportes + Admin + Notificaciones + recuperacion contrasena por email real (SMTP)
-- [ ] S6: QA + Deploy Render/Cloudflare + Tesis
+- [ ] S5: Reportes exportables (PDF/Excel), Admin panel, recuperacion contrasena por email real (SMTP/Resend)
+- [ ] S6: QA final + Deploy Render/Cloudflare + merge `dev -> main` + Tesis
 
 **Mejoras tecnicas acumuladas:**
 - [ ] Cache de predicciones por SKU+tienda+horizonte (reducir latencia 30-90s a <1s en hit)
 - [ ] LSTM: migrar lstm_model.py de tensorflow a torch (ya instalado en venv)
 - [ ] Dashboard: poblar `mape_global` y `nivel_servicio` cuando Int.1 e Int.2 expongan sus metricas
 - [ ] Dashboard: poblar serie `forecast` en chart-data integrando el AMS
+- [ ] `hasCLPSkus` en Inventory.tsx: conectar al `sales_unit` real de los productos del negocio
 - [ ] DEBUG=false en produccion para no exponer debug_token en forgot-password
-- [ ] RLS en Supabase para garantizar aislamiento por business_id (defensa en profundidad mas alla de filtros en queries)
-- [ ] Tests automatizados de `_parse_date` y `validate_ingest_records` (proyecto no tiene infraestructura de testing aun)
+- [ ] RLS en Supabase para garantizar aislamiento por business_id (defensa en profundidad)
+- [ ] Tests automatizados de `_parse_date` y `validate_ingest_records`
 
 **Bugs conocidos / deuda:**
 - [x] ~~El UI de Forecast etiqueta valores en "uds" sin chequear si la data es CLP~~ RESUELTO en S2-F
-- [x] ~~No hay endpoint para editar/eliminar registros de `sales_history`~~ RESUELTO en S3: `PATCH/DELETE /api/sales/record/{id}` + revert/delete de cargas completas via `/api/ingests`
+- [x] ~~No hay endpoint para editar/eliminar registros de `sales_history`~~ RESUELTO en S3
 - [x] ~~Tabla `ingest_log` (auditoria de cargas)~~ RESUELTO en S3
+- [x] ~~S4: Inventario + Ordenes mockeados~~ RESUELTO en S4
+- [x] ~~Un usuario solo podia tener un negocio (business_id en users)~~ RESUELTO en S4: user_businesses many-to-many
+- [x] ~~Product() en ingest.py usaba campos obsoletos sku_id/name~~ RESUELTO en S4
