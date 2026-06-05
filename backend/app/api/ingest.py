@@ -152,8 +152,22 @@ def confirm_ingest(
             detail="Ningun registro es cargable (fechas futuras o ventas en cero).",
         )
 
-    dates = [r.date for r in loadable]
-    families = sorted(set(r.family for r in loadable))
+    # Aggregate by (date, family) to avoid unique constraint violations when
+    # the source file has one row per product transaction within the same family.
+    agg: dict[tuple, dict] = {}
+    for r in loadable:
+        key = (r.date, r.family)
+        if key not in agg:
+            agg[key] = {"sales": 0.0, "revenue": None, "onpromotion": r.onpromotion}
+        agg[key]["sales"] += r.sales
+        if r.revenue is not None:
+            agg[key]["revenue"] = (agg[key]["revenue"] or 0.0) + r.revenue
+        if r.onpromotion:
+            agg[key]["onpromotion"] = 1
+
+    aggregated = list(agg.items())
+    dates = [k[0] for k in agg]
+    families = sorted(set(k[1] for k in agg))
 
     log = IngestLog(
         business_id=body.business_id,
@@ -161,7 +175,7 @@ def confirm_ingest(
         user_id=current_user.id,
         filename=body.filename,
         file_type=body.file_type,
-        records_loaded=len(loadable),
+        records_loaded=len(aggregated),
         sales_unit=body.sales_unit,
         date_range_start=min(dates),
         date_range_end=max(dates),
@@ -171,14 +185,15 @@ def confirm_ingest(
     db.add(log)
     db.flush()  # asigna log.id sin cerrar la transaccion
 
-    for record in loadable:
+    for (date_val, family_val), vals in aggregated:
         db.add(SalesHistory(
             business_id=body.business_id,
             store_nbr=body.store_nbr,
-            date=record.date,
-            family=record.family,
-            sales=record.sales,
-            onpromotion=record.onpromotion,
+            date=date_val,
+            family=family_val,
+            sales=vals["sales"],
+            revenue=vals["revenue"],
+            onpromotion=vals["onpromotion"],
             sales_unit=body.sales_unit,
             ingest_id=log.id,
         ))
@@ -200,7 +215,7 @@ def confirm_ingest(
 
     return IngestResponse(
         store_nbr=body.store_nbr,
-        records_loaded=len(loadable),
+        records_loaded=len(aggregated),
         families=families,
         date_range_start=min(dates),
         date_range_end=max(dates),

@@ -95,11 +95,12 @@ class AutoModelSelector:
     y produce la predicción final sobre ``horizon`` días.
     """
 
-    def __init__(self, horizon: int = 30, cv: bool = False, n_splits: int = 3):
+    def __init__(self, horizon: int = 30, cv: bool = False, n_splits: int = 3, include_lstm: bool = False):
         self.horizon = horizon
         self.cv = cv
         self.n_splits = n_splits
         self.results: dict = {}
+        self._models = {k: v for k, v in MODELS.items() if k != "lstm" or include_lstm}
 
     def select(self, series: pd.Series, sku_id: str = "SKU") -> dict:
         """
@@ -125,7 +126,7 @@ class AutoModelSelector:
         wapes_cv: dict[str, float] = {}
         val_preds: dict[str, pd.Series] = {}
 
-        for name, ModelClass in MODELS.items():
+        for name, ModelClass in self._models.items():
             # ── Split único (siempre se calcula) ───────────────────────────
             try:
                 m = ModelClass()
@@ -161,7 +162,7 @@ class AutoModelSelector:
         )
 
         # Reentrenar ganador sobre la serie COMPLETA (100%) y predecir horizonte futuro
-        winner = MODELS[best_name]()
+        winner = self._models[best_name]()
         fit_kwargs = {"epochs": 50} if best_name == "lstm" else {}
         winner.fit(series, **fit_kwargs)
         final_pred = winner.predict(self.horizon)

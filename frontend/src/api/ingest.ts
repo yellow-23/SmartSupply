@@ -5,6 +5,7 @@ export interface IngestRecord {
   family: string;
   sales: number;
   onpromotion: number;
+  revenue?: number | null;
 }
 
 export type IssueSeverity = "error" | "warning" | "info";

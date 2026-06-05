@@ -65,7 +65,8 @@ Tu tarea es detectar la estructura y devolver ÚNICAMENTE un JSON válido con es
   "header_row": 2,
   "date_col": "Fecha",
   "family_col": "Familia",
-  "sales_col": "Monto Neto ($)",
+  "sales_col": "Unidades Vendidas",
+  "revenue_col": "Total Venta",
   "promo_col": "Con Oferta",
   "store_name": "Distribuidora XYZ - Sucursal Norte",
   "number_format": "european",
@@ -76,14 +77,15 @@ Definiciones de cada campo:
 - header_row: índice 0-based de la fila que contiene los NOMBRES de las columnas (no datos). Si los datos empiezan en la fila 0 sin encabezado, devuelve -1.
 - date_col: nombre EXACTO (mismo case y caracteres) de la columna de fecha.
 - family_col: nombre EXACTO de la columna de producto, familia, categoría, SKU, ítem o descripción.
-- sales_col: nombre EXACTO de la columna de ventas, monto, cantidad, unidades o ingresos. Si hay varias opciones elige la más representativa (preferir monto total sobre unidades).
+- sales_col: nombre EXACTO de la columna de cantidad/unidades vendidas. Si no hay columna de unidades y solo hay monto, usar esa columna aquí y dejar revenue_col en null.
+- revenue_col: nombre EXACTO de la columna de monto total en pesos (CLP), ingreso o valor total. Si no existe columna de monto, devolver null.
 - promo_col: nombre EXACTO de la columna de promoción/oferta, o null si no existe.
 - store_name: nombre de tienda o distribuidora si aparece en los metadatos. Si no, "Tienda sin nombre".
 - number_format: "european" si usa punto como separador de miles y coma como decimal (ej: 1.234,56), "american" si es al revés (ej: 1,234.56), "plain" si no hay separadores de miles.
 - warnings: lista de advertencias sobre datos ambiguos, columnas con doble significado, etc.
 
 Reglas importantes:
-- Los nombres de columna en date_col/family_col/sales_col/promo_col deben ser EXACTAMENTE como aparecen en la fila header_row, sin modificar.
+- Los nombres de columna deben ser EXACTAMENTE como aparecen en la fila header_row, sin modificar.
 - Si hay filas de totales, subtotales o resumen al final, anótalas en warnings.
 - No incluyas texto fuera del JSON."""
 
@@ -194,6 +196,7 @@ class IngestService:
         date_col = mapping.get("date_col")
         family_col = mapping.get("family_col")
         sales_col = mapping.get("sales_col")
+        revenue_col = mapping.get("revenue_col")
         promo_col = mapping.get("promo_col")
         store_name = mapping.get("store_name", "Tienda sin nombre")
         number_format = mapping.get("number_format", "plain")
@@ -243,12 +246,16 @@ class IngestService:
                 sales_val = self._parse_number(row.get(sales_col), number_format)
                 if sales_val is None:
                     continue
+                revenue_val = None
+                if revenue_col:
+                    revenue_val = self._parse_number(row.get(revenue_col), number_format)
                 promo_val = self._parse_promo(row.get(promo_col) if promo_col else None)
                 records.append(IngestRecord(
                     date=date_val,
                     family=family_val,
                     sales=sales_val,
                     onpromotion=promo_val,
+                    revenue=revenue_val,
                 ))
             except Exception:
                 pass

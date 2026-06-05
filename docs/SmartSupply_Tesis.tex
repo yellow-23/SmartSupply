@@ -9,7 +9,14 @@
 % ── Paquetes ─────────────────────────────────────────────────
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{babel}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\AtBeginDocument{%
+  \renewcommand{\contentsname}{Índice de Contenidos}
+  \renewcommand{\listfigurename}{Índice de Figuras}
+  \renewcommand{\listtablename}{Índice de Tablas}
+  \renewcommand{\tablename}{Tabla}
+  \renewcommand{\figurename}{Figura}
+}
 \usepackage{geometry}
 \usepackage{graphicx}
 \usepackage{hyperref}
@@ -81,50 +88,39 @@
   \centering
   \vspace*{1cm}
 
-  {\Large \textbf{Facultad de Ingeniería}}\\[0.4cm]
-  {\large Ingeniería Civil Informática}\\[2cm]
+  % Logo UNAB: descargar desde repositorio.unab.cl y guardar como figuras/logo_unab.png
+  % \includegraphics[width=0.30\textwidth]{figuras/logo_unab.png}\\[0.5cm]
+
+  {\Large \textbf{Facultad de Ingeniería}}\\[0.2cm]
+  {\large Ingeniería Civil Informática}
+
+  \vfill
 
   {\LARGE \textbf{\color{unabblue}
     PLATAFORMA DE PREDICCIÓN DE DEMANDA Y\\[0.3cm]
     REABASTECIMIENTO AUTOMÁTICO PARA\\[0.3cm]
-    DISTRIBUIDORAS CHILENAS MEDIANTE\\[0.3cm]
-    SELECCIÓN AUTOMÁTICA DE MODELOS (AMS)
-  }}\\[2.5cm]
+    EMPRENDIMIENTOS Y NEGOCIOS EN CRECIMIENTO\\[0.3cm]
+    MEDIANTE SELECCIÓN AUTOMÁTICA DE MODELOS (AMS)
+  }}\\[1cm]
 
-  \textbf{Autores:}\\[0.3cm]
+  {\normalsize Tesis para optar al título de Ingeniero Civil en Informática}
+
+  \vfill
+
+  \textbf{Autores:}\\[0.2cm]
   Matias Muñoz Parraguirre\\
   Ignacio Duarte Miranda\\
-  Cristóbal Flores Villegas\\[1.5cm]
+  Cristóbal Flores Villegas\\[0.8cm]
 
-  \textbf{Profesor:}\\[0.3cm]
-  Paulo Luis Francisco Quinsacara Jofré\\[2cm]
+  \textbf{Profesor guía:}\\[0.2cm]
+  Paulo Luis Francisco Quinsacara Jofré
 
-  Santiago, Chile\\
+  \vfill
+
+  Santiago, Chile\\[0.1cm]
   \today
 \end{titlepage}
 
-% ── Declaración de Originalidad ──────────────────────────────
-\chapter*{Declaración de Originalidad}
-\addcontentsline{toc}{chapter}{Declaración de Originalidad}
-
-Declaramos que este trabajo de tesis ha sido desarrollado de forma íntegra y original por
-los autores indicados en la portada. Todo el material bibliográfico utilizado ha sido
-debidamente referenciado según las normas APA 7.ª edición. No se ha hecho uso de
-inteligencia artificial generativa para producir contenidos sustantivos del documento sin
-su declaración explícita, conforme a las directrices de la Facultad de Ingeniería de la
-Universidad Andrés Bello.
-
-\vspace{2cm}
-\noindent
-\rule{5cm}{0.4pt}\hfill\rule{5cm}{0.4pt}\\[0.2cm]
-\noindent
-Integrante 1\hfill Integrante 2\\[1.5cm]
-\noindent
-\rule{5cm}{0.4pt}\\[0.2cm]
-\noindent
-Cristóbal Flores Villegas
-
-\newpage
 
 % ── Índices ──────────────────────────────────────────────────
 \tableofcontents
@@ -138,30 +134,37 @@ Cristóbal Flores Villegas
 \chapter*{Resumen}
 \addcontentsline{toc}{chapter}{Resumen}
 
-La gestión eficiente del inventario es uno de los desafíos más críticos para las
-distribuidoras chilenas, donde la variabilidad estacional de la demanda y la diversidad de
-productos dificultan la aplicación de un único modelo de predicción. El presente proyecto
-propone \textbf{SmartSupply}, una plataforma de predicción de demanda y
-reabastecimiento automático que implementa un mecanismo de Selección Automática de
-Modelos (AMS) por SKU, evaluando cuatro algoritmos —ARIMA, Prophet, XGBoost y
-LSTM— y seleccionando aquel con menor error de predicción (MAPE) para cada familia
-de productos.
+La gestión del inventario y la predicción de demanda representan uno de los mayores
+desafíos operacionales para emprendimientos y negocios en crecimiento. Las soluciones
+existentes —como SAP o Oracle— son costosas y requieren implementaciones largas,
+quedando fuera del alcance de la mayoría de las pequeñas y medianas empresas. A su vez,
+la diversidad de comportamientos de demanda entre productos dificulta la aplicación de un
+único modelo de predicción para todos los SKUs.
+
+El presente proyecto propone \textbf{SmartSupply}, una plataforma SaaS de predicción de
+demanda y reabastecimiento automático que implementa un mecanismo de Selección
+Automática de Modelos (AMS) por SKU, evaluando cuatro algoritmos —ARIMA, Prophet,
+XGBoost y LSTM— y seleccionando aquel con menor error de predicción (WAPE) para
+cada familia de productos. La hipótesis central plantea que esta selección automática
+reduce el error de predicción y el capital inmovilizado frente al uso de un modelo único.
 
 La plataforma integra un pipeline ETL sobre el dataset público \textit{Store Sales — Corporación
-Favorita} (Kaggle, 2017), una API REST construida con FastAPI, un módulo de gestión de
-inventario basado en las políticas EOQ y $(s,S)$, y un dashboard web desarrollado en
-React. Adicionalmente, el sistema incorpora un \textbf{módulo de ingesta inteligente} que
-utiliza el modelo de lenguaje Claude (Anthropic) con capacidades de visión para extraer,
-interpretar y normalizar datos de ventas desde cualquier formato — imágenes de cuadernos,
-planillas Excel o PDFs — permitiendo que distribuidoras chilenas sin sistemas digitalizados
-incorporen sus datos al pipeline de forecasting. La arquitectura es \textbf{multi-tenant}: cada
-negocio registrado opera de forma aislada sobre la misma base de datos mediante un
-identificador único (\texttt{business\_id}). La metodología de desarrollo sigue el framework
-ágil Scrum y el proceso CRISP-DM para el tratamiento de los datos.
+Favorita} (Kaggle, 2017) para benchmarking, una API REST construida con FastAPI, un módulo
+de gestión de inventario basado en las políticas EOQ y $(s,S)$, y un dashboard web en React.
+El sistema incorpora un \textbf{módulo de ingesta inteligente} que utiliza el modelo Claude
+(Anthropic) con capacidades de visión para extraer y normalizar datos de ventas desde
+imágenes, planillas Excel o PDFs, eliminando la barrera de entrada para negocios sin
+sistemas digitalizados. La arquitectura es \textbf{multi-tenant} y escalable: cada negocio
+opera de forma aislada sobre la misma infraestructura mediante \texttt{business\_id}.
 
-\textbf{Palabras clave:} predicción de demanda, selección automática de modelos, MAPE,
+Los resultados obtenidos sobre datos reales muestran que el AMS selecciona el modelo
+óptimo por SKU de forma consistente, con errores WAPE por debajo del 15\,\% en series con
+patrones regulares. La metodología de desarrollo sigue el framework ágil Scrum en 5
+sprints y el proceso CRISP-DM para el tratamiento de datos.
+
+\textbf{Palabras clave:} predicción de demanda, selección automática de modelos, WAPE,
 inventario, EOQ, política $(s,S)$, ARIMA, Prophet, XGBoost, LSTM, FastAPI, React,
-ingesta IA, multi-tenancy, Claude, visión por computador.
+ingesta IA, multi-tenancy, emprendimientos, SaaS.
 
 \newpage
 
@@ -169,29 +172,38 @@ ingesta IA, multi-tenancy, Claude, visión por computador.
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-Efficient inventory management is one of the most critical challenges for Chilean
-distributors, where seasonal demand variability and product diversity make it difficult to
-apply a single forecasting model. This project proposes \textbf{SmartSupply}, a demand
-forecasting and automatic restocking platform that implements an Automatic Model
-Selection (AMS) mechanism per SKU, evaluating four algorithms —ARIMA, Prophet,
-XGBoost, and LSTM— and selecting the one with the lowest forecasting error (MAPE) for
-each product family.
+Inventory management and demand forecasting represent one of the greatest operational
+challenges for startups and growing businesses. Existing enterprise solutions —such as SAP
+or Oracle— are cost-prohibitive and require lengthy implementations, placing them out of
+reach for most small and medium-sized enterprises. Furthermore, the diversity of demand
+behaviors across product families makes it difficult to apply a single forecasting model
+to all SKUs.
+
+This project proposes \textbf{SmartSupply}, a SaaS platform for demand forecasting and
+automatic restocking that implements an Automatic Model Selection (AMS) mechanism per
+SKU, evaluating four algorithms —ARIMA, Prophet, XGBoost and LSTM— and selecting the
+one with the lowest forecasting error (WAPE) for each product family. The central
+hypothesis is that this per-SKU automatic selection reduces forecasting error and
+tied-up capital compared to using a single model for all products.
 
 The platform integrates an ETL pipeline over the public dataset \textit{Store Sales —
-Corporación Favorita} (Kaggle, 2017), a REST API built with FastAPI, an inventory
-management module based on EOQ and $(s,S)$ policies, and a web dashboard developed
-in React. Additionally, the system incorporates an \textbf{intelligent ingestion module}
-that uses the Claude language model (Anthropic) with vision capabilities to extract,
-interpret, and normalize sales data from any format — handwritten notebook photos, Excel
-spreadsheets, or PDFs — enabling Chilean distributors without digital systems to incorporate
-their data into the forecasting pipeline. The architecture is \textbf{multi-tenant}: each
-registered business operates in isolation on the same database through a unique identifier
-(\texttt{business\_id}). The development methodology follows the Scrum agile framework and the
-CRISP-DM process for data treatment.
+Corporación Favorita} (Kaggle, 2017) for benchmarking, a REST API built with FastAPI, an
+inventory management module based on EOQ and $(s,S)$ policies, and a React web
+dashboard. The system incorporates an \textbf{intelligent ingestion module} that uses the
+Claude language model (Anthropic) with vision capabilities to extract and normalize sales
+data from images, Excel files or PDFs, eliminating the digital barrier for businesses
+without ERP systems. The architecture is \textbf{multi-tenant} and scalable: each
+business operates in isolation on the same infrastructure through a unique
+\texttt{business\_id}.
 
-\textbf{Keywords:} demand forecasting, automatic model selection, MAPE, inventory, EOQ,
+Results obtained on real ingested data show that the AMS consistently selects the
+optimal model per SKU, achieving WAPE values below 15\,\% on series with regular
+patterns. The development methodology follows the Scrum agile framework across 5 sprints
+and the CRISP-DM process for data treatment.
+
+\textbf{Keywords:} demand forecasting, automatic model selection, WAPE, inventory, EOQ,
 $(s,S)$ policy, ARIMA, Prophet, XGBoost, LSTM, FastAPI, React, AI ingestion,
-multi-tenancy, Claude, computer vision.
+multi-tenancy, startups, SaaS.
 
 \newpage
 
@@ -202,99 +214,157 @@ multi-tenancy, Claude, computer vision.
 
 \section{Contexto}
 
-Las distribuidoras chilenas operan en un entorno de alta competitividad donde el control
-del inventario determina directamente la rentabilidad del negocio. Un quiebre de stock
-implica ventas perdidas y deterioro de la relación con el cliente, mientras que un exceso
-de inventario inmoviliza capital de trabajo. Ambos escenarios son consecuencia de
-predicciones de demanda imprecisas o metodologías de reabastecimiento estáticas.
+En el ecosistema actual de emprendimientos y pequeñas y medianas empresas (PyMEs),
+la gestión eficiente del inventario y la predicción de demanda representan desafíos
+operacionales críticos. Un quiebre de stock implica ventas perdidas y deterioro de la
+relación con el cliente, mientras que un exceso de inventario inmoviliza capital de trabajo
+que un emprendimiento en crecimiento no puede permitirse desperdiciar. Ambos escenarios
+son consecuencia directa de predicciones de demanda imprecisas o metodologías de
+reabastecimiento estáticas.
+
+Las herramientas empresariales existentes para abordar este problema —como SAP,
+Oracle NetSuite o Microsoft Dynamics— presentan barreras de entrada significativas en
+términos de costo, tiempo de implementación y complejidad técnica, quedando fuera del
+alcance de la mayoría de los emprendimientos y negocios en etapa de crecimiento
+(Ramírez \& Concha, 2021). Esto genera una brecha tecnológica: mientras las grandes
+corporaciones optimizan su inventario con algoritmos avanzados, las empresas más
+pequeñas siguen tomando decisiones de compra de forma intuitiva o con hojas de cálculo.
+
+Adicionalmente, muchos emprendimientos no cuentan con datos de ventas en formato
+digital estructurado. Sus registros históricos existen en cuadernos, planillas Excel
+desordenadas o comprobantes físicos, lo que impide aplicar cualquier modelo predictivo
+sin un proceso previo de digitalización y normalización de datos.
 
 La proliferación de algoritmos de \textit{machine learning} y series de tiempo ofrece hoy
 múltiples alternativas para el pronóstico de ventas, pero la elección del modelo óptimo
 varía según las características de cada producto (estacionalidad, tendencia, presencia de
-ceros) y el horizonte de predicción requerido.
+ceros) y el horizonte de predicción requerido. No existe un único modelo que funcione
+bien para todos los SKUs de un mismo negocio.
+
+\section{Planteamiento del Problema}
+
+Los emprendimientos y negocios en crecimiento carecen de herramientas accesibles que
+les permitan: (1) digitalizar su historial de ventas desde cualquier formato, (2) predecir
+la demanda futura con el modelo estadístico más adecuado para cada producto, y (3)
+generar automáticamente políticas de reabastecimiento basadas en esas predicciones.
+
+La pregunta de investigación que guía este proyecto es:
+
+\begin{quote}
+\textit{¿En qué medida la selección automática del mejor modelo de forecasting por SKU
+reduce el error de predicción y el capital inmovilizado frente al uso de un modelo único
+para todos los productos en emprendimientos y negocios en crecimiento?}
+\end{quote}
+
+\section{Hipótesis}
+
+La selección automática del mejor modelo de forecasting por SKU (AMS) mediante
+validación \textit{walk-forward} reduce el error de predicción global (WAPE) y, en
+consecuencia, el capital inmovilizado en inventario, en comparación con el uso de un
+modelo único aplicado a todos los productos de un mismo negocio, independientemente
+del rubro o tamaño de la empresa.
 
 \section{Importancia del Proyecto}
 
 La selección inadecuada del modelo de forecasting es una de las causas más frecuentes
 de error en los sistemas de reabastecimiento. Un modelo que funciona bien para productos
-de alta rotación puede ser completamente inadecuado para artículos con demanda
-esporádica. Automatizar esta selección por SKU permite:
+de alta rotación con estacionalidad semanal puede ser completamente inadecuado para
+artículos con demanda esporádica o con tendencias de largo plazo. Automatizar esta
+selección por SKU, de forma transparente y sin requerir conocimiento técnico por parte
+del usuario, permite:
 
 \begin{itemize}
-  \item Reducir el MAPE global de predicción respecto a un modelo único.
-  \item Disminuir el capital inmovilizado en inventario.
-  \item Generar órdenes de compra oportunas y calibradas a la demanda real.
-  \item Entregar a los gestores una herramienta visual de monitoreo en tiempo real.
+  \item Reducir el error de predicción global (WAPE) respecto al uso de un modelo único.
+  \item Disminuir el capital inmovilizado en inventario al calibrar mejor los puntos de
+        reorden.
+  \item Generar órdenes de compra oportunas y calibradas a la demanda real de cada
+        producto.
+  \item Eliminar la barrera de digitalización de datos mediante ingesta IA.
+  \item Entregar a emprendedores y gestores una herramienta visual accesible, sin
+        necesidad de conocimiento en ciencia de datos o sistemas ERP.
+  \item Escalar desde un emprendimiento unipersonal hasta una cadena con múltiples
+        sucursales, gracias a la arquitectura multi-tenant.
 \end{itemize}
 
 \section{Contribución del Proyecto}
 
-SmartSupply aporta:
+SmartSupply realiza los siguientes aportes:
 
 \begin{enumerate}
   \item Un \textbf{módulo AMS} que selecciona automáticamente el mejor modelo de
-        forecasting por SKU mediante validación walk-forward (70\,/\,15\,/\,15).
+        forecasting por SKU mediante validación walk-forward (70\,/\,15\,/\,15),
+        evaluando ARIMA, Prophet, XGBoost y LSTM.
   \item Un \textbf{módulo de inventario} que aplica EOQ y política $(s,S)$ sobre los
-        pronósticos generados por AMS.
-  \item Una \textbf{API REST} (FastAPI) que expone los resultados a cualquier cliente,
-        documentada automáticamente via OpenAPI/Swagger.
+        pronósticos generados por AMS, calculando puntos de reorden y cantidades óptimas
+        de pedido.
+  \item Una \textbf{API REST} (FastAPI) documentada automáticamente via OpenAPI/Swagger,
+        consumible por cualquier sistema externo.
   \item Un \textbf{dashboard web} (React + Recharts) para visualización de pronósticos,
-        alertas y órdenes de compra.
-  \item Un \textbf{pipeline ETL} reproducible sobre un dataset real de ventas minoristas.
-  \item Un \textbf{módulo de ingesta IA} que utiliza Claude (Anthropic) para extraer y
-        normalizar datos de ventas desde imágenes, planillas Excel y PDFs, permitiendo
-        incorporar al sistema a distribuidoras sin datos estructurados.
-  \item Una \textbf{arquitectura multi-tenant} que aísla los datos de cada negocio
-        mediante \texttt{business\_id} y Row Level Security (RLS) en PostgreSQL,
-        habilitando el despliegue como plataforma SaaS.
+        alertas de inventario, órdenes de compra y KPIs operacionales en tiempo real.
+  \item Un \textbf{pipeline ETL} reproducible sobre el dataset Store Sales — Corporación
+        Favorita (Kaggle, 2017) para benchmarking y validación de la hipótesis.
+  \item Un \textbf{módulo de ingesta inteligente} que utiliza Claude (Anthropic) con
+        capacidades de visión y procesamiento de documentos para extraer y normalizar
+        datos de ventas desde imágenes, planillas Excel y PDFs, eliminando la barrera
+        de entrada para negocios sin sistemas digitalizados.
+  \item Una \textbf{arquitectura multi-tenant escalable} que aísla los datos de cada
+        negocio mediante \texttt{business\_id}, habilitando el despliegue como plataforma
+        SaaS accesible desde un emprendimiento hasta una empresa con múltiples sucursales.
 \end{enumerate}
 
 \section{Objetivos}
 
 \subsection{Objetivo General}
 
-Desarrollar una plataforma de predicción de demanda y reabastecimiento automático para
-distribuidoras chilenas que, mediante la selección automática del mejor modelo de
-forecasting por SKU, reduzca el error de predicción y el capital inmovilizado respecto al
-uso de un modelo único para todos los productos.
+Desarrollar una plataforma SaaS de predicción de demanda y reabastecimiento automático
+para emprendimientos y negocios en crecimiento que, mediante la selección automática del
+mejor modelo de forecasting por SKU, reduzca el error de predicción y el capital
+inmovilizado respecto al uso de un modelo único para todos los productos.
 
 \subsection{Objetivos Específicos}
 
 \begin{enumerate}
   \item Implementar y evaluar cuatro modelos de predicción de series de tiempo (ARIMA,
-        Prophet, XGBoost, LSTM) sobre el dataset Store Sales — Corporación Favorita.
-  \item Desarrollar el mecanismo AMS que selecciona el modelo de menor MAPE por SKU
-        mediante validación cruzada temporal (walk-forward).
-  \item Implementar las políticas de gestión de inventario EOQ y $(s,S)$ alimentadas por
-        los pronósticos del AMS.
+        Prophet, XGBoost y LSTM) sobre el dataset Store Sales — Corporación Favorita,
+        como conjunto de benchmarking representativo de negocios con múltiples SKUs.
+  \item Desarrollar el mecanismo AMS que selecciona el modelo de menor WAPE por SKU
+        mediante validación cruzada temporal (walk-forward con partición 70/15/15).
+  \item Implementar las políticas de gestión de inventario EOQ y $(s,S)$ alimentadas
+        por los pronósticos del AMS, generando parámetros de reorden por SKU.
   \item Construir una API REST con FastAPI que exponga los módulos de forecasting e
-        inventario a clientes externos.
+        inventario, con autenticación JWT y arquitectura multi-tenant por
+        \texttt{business\_id}.
   \item Desarrollar un dashboard web interactivo en React para la visualización de
-        pronósticos, métricas de inventario y generación de órdenes de compra.
+        pronósticos, métricas de inventario, gestión de órdenes de compra y KPIs
+        operacionales del negocio.
   \item Diseñar e implementar un pipeline ETL que cargue, limpie y normalice el dataset
-        de entrenamiento en una base de datos PostgreSQL.
+        de benchmarking en una base de datos PostgreSQL alojada en Supabase.
   \item Desarrollar un módulo de ingesta inteligente basado en IA (Claude, Anthropic) que
-        permita a distribuidoras chilenas incorporar sus datos históricos de ventas desde
-        cualquier formato digital (imágenes, Excel, PDF), eliminando la barrera de entrada
-        para negocios sin sistemas ERP.
+        permita a cualquier negocio incorporar sus datos históricos de ventas desde
+        cualquier formato digital (imágenes, Excel, PDF), con validación de calidad
+        previa a la carga.
 \end{enumerate}
 
 \section{Limitaciones del Proyecto}
 
 \begin{itemize}
-  \item El sistema se valida sobre el dataset Store Sales — Corporación Favorita
-        (Ecuador), que actúa como negocio de demostración (\texttt{business\_id=1}).
-        El módulo de ingesta IA permite incorporar datos de distribuidoras chilenas reales
-        en producción.
-  \item El AMS evalúa únicamente cuatro modelos de forecasting; existen alternativas
-        (SARIMA, N-BEATS, etc.) no contempladas en este alcance.
-  \item El módulo de inventario no implementa restricciones de capacidad de bodega ni
-        descuentos por volumen.
+  \item La validación cuantitativa de la hipótesis se realiza sobre el dataset Store Sales
+        — Corporación Favorita (Ecuador, 2013--2017), que actúa como negocio de
+        demostración. El módulo de ingesta IA permite incorporar datos reales de cualquier
+        negocio en producción.
+  \item El AMS evalúa cuatro modelos de forecasting; existen alternativas (SARIMA,
+        N-BEATS, Temporal Fusion Transformer) no contempladas en este alcance pero
+        integrables en versiones futuras.
+  \item El módulo de inventario asume demanda independiente por SKU; no modela
+        restricciones de capacidad de bodega ni descuentos por volumen.
   \item La calidad de la extracción del módulo de ingesta IA depende de la legibilidad
         del documento fuente; imágenes de muy baja resolución pueden producir resultados
         incompletos.
-  \item La integración con sistemas ERP o WMS externos queda fuera del alcance de esta
-        tesis.
+  \item La integración bidireccional con sistemas ERP o WMS externos queda fuera del
+        alcance de esta tesis; la API REST está disponible para integraciones futuras.
+  \item El sistema ha sido validado principalmente con datos de retail y distribución;
+        rubros con demanda muy irregular (servicios bajo pedido, proyectos) pueden
+        requerir ajustes en los modelos.
 \end{itemize}
 
 % ============================================================
@@ -304,12 +374,19 @@ uso de un modelo único para todos los productos.
 
 \section{Metodologías de Trabajo}
 
+Una metodología de trabajo es un conjunto de técnicas, reglas y procedimientos que
+estructuran la forma en que un equipo desarrolla un proyecto. Al adoptar una metodología
+bien definida se mejora la eficiencia, la calidad de los entregables y la comunicación
+interna del equipo.
+
 \subsection{Metodología Scrum}
 
 Scrum es un framework ágil para el desarrollo iterativo e incremental de productos
 complejos (Schwaber \& Sutherland, 2020). Se organiza en ciclos de trabajo llamados
-\textit{Sprints} de duración fija (en este proyecto, dos semanas), al final de los cuales se
-entrega un incremento potencialmente funcional del sistema.
+\textit{Sprints} de duración fija —en este proyecto, dos semanas— al final de los cuales se
+entrega un incremento potencialmente funcional del sistema. Scrum permite que los
+equipos se autogestionen, aprendan de la experiencia y se adapten a los cambios del
+entorno, características esenciales en proyectos de software con requerimientos evolutivos.
 
 \subsection{¿Cómo funciona Scrum?}
 
@@ -323,32 +400,73 @@ se realiza la \textit{Sprint Review} (demo) y la \textit{Sprint Retrospective} (
   \centering
   % \includegraphics[width=0.75\textwidth]{figuras/scrum_proceso.png}
   \fbox{\parbox{0.75\textwidth}{\centering[Diagrama del proceso Scrum]}}
-  \caption{Metodología Scrum}
+  \caption{Proceso Scrum — ciclo de sprints}
   \label{fig:scrum}
 \end{figure}
 
 \subsection{Roles de Scrum}
 
+Para aplicar la metodología Scrum se definen tres roles esenciales: el Product Owner,
+el Scrum Master y el Equipo de Desarrollo. Cada uno tiene responsabilidades específicas
+descritas en The Scrum Guide (Schwaber \& Sutherland, 2020).
+
 \begin{table}[H]
   \centering
   \caption{Roles Scrum — SmartSupply}
   \label{tab:roles_scrum}
-  \begin{tabular}{lll}
-    \toprule
+  \begin{tabular}{|l|l|l|}
+    \hline
     \textbf{Rol} & \textbf{Responsabilidad} & \textbf{Integrante} \\
-    \midrule
+    \hline
     Product Owner & Priorizar Product Backlog, validar entregables & Paulo Quinsacara Jofré \\
-    Scrum Master  & Facilitar ceremonias, remover impedimentos & Integrante 1 \\
-    Dev Team      & Diseño, implementación, pruebas & Los 3 integrantes \\
-    \bottomrule
+    Scrum Master  & Facilitar ceremonias, remover impedimentos     & Matias Muñoz Parraguirre \\
+    Dev Team      & Diseño, implementación, pruebas                & Los 3 integrantes \\
+    \hline
   \end{tabular}
 \end{table}
 
 \subsection{Fases de una Metodología Scrum}
 
 Las fases principales son: Planificación del Sprint, Ejecución del Sprint (con Daily Scrums),
-Sprint Review y Sprint Retrospective. Este ciclo se repite durante los 6 Sprints planificados
-para SmartSupply.
+Sprint Review y Sprint Retrospective. Este ciclo se repite durante los sprints planificados.
+En SmartSupply se ejecutaron 5 sprints de desarrollo más un sprint final de QA y despliegue.
+
+\subsection{Arquitectura de Software y Modelo de Vistas 4+1}
+
+El modelo de vistas 4+1 (Kruchten, 1995) describe la arquitectura de un sistema de
+software a través de cinco perspectivas complementarias:
+
+\begin{itemize}
+  \item \textbf{Vista Lógica}: estructura de clases y componentes del dominio.
+  \item \textbf{Vista de Procesos}: comportamiento dinámico del sistema en tiempo de
+        ejecución (diagramas de secuencia y actividad).
+  \item \textbf{Vista de Desarrollo}: organización del código fuente en módulos,
+        paquetes y capas (diagrama de componentes).
+  \item \textbf{Vista Física}: infraestructura de despliegue, servidores y redes
+        (diagrama de despliegue).
+  \item \textbf{Vista de Escenarios (``+1'')}: casos de uso que integran las cuatro
+        vistas anteriores desde la perspectiva del usuario.
+\end{itemize}
+
+SmartSupply aplica este modelo en el Capítulo 5, documentando cada vista con los
+diagramas UML correspondientes.
+
+\subsection{Lenguaje de Modelado Gráfico (UML)}
+
+UML (\textit{Unified Modeling Language}) es un estándar de la industria para la
+visualización, especificación y documentación de sistemas de software orientados a
+objetos (Booch, Rumbaugh \& Jacobson, 1999). En este proyecto se utilizan los
+diagramas de clases, secuencia, componentes y despliegue para documentar la
+arquitectura del sistema.
+
+\subsection{BPMN}
+
+BPMN (\textit{Business Process Model and Notation}) es un estándar para el modelado
+de procesos de negocio mediante una notación gráfica estandarizada (OMG, 2011).
+Permite representar flujos de trabajo con participantes, eventos, actividades y
+decisiones, facilitando la comunicación entre equipos técnicos y de negocio.
+En SmartSupply se utiliza BPMN para modelar el flujo completo del proceso de
+ingesta inteligente de datos.
 
 \section{Proceso CRISP-DM}
 
@@ -356,89 +474,203 @@ CRISP-DM (\textit{Cross Industry Standard Process for Data Mining}) es un proces
 para proyectos de ciencia de datos que consta de seis fases (Shearer, 2000):
 
 \begin{enumerate}
-  \item \textbf{Business Understanding}: definir el problema de negocio.
-  \item \textbf{Data Understanding}: exploración y calidad de los datos.
-  \item \textbf{Data Preparation}: limpieza, transformación e integración.
-  \item \textbf{Modeling}: selección y entrenamiento de modelos.
-  \item \textbf{Evaluation}: validación contra métricas de negocio.
-  \item \textbf{Deployment}: puesta en producción del modelo.
+  \item \textbf{Business Understanding}: definir el problema de negocio y los criterios
+        de éxito. En SmartSupply, esto corresponde a reducir el error de predicción y el
+        capital inmovilizado.
+  \item \textbf{Data Understanding}: exploración y análisis de calidad de los datos.
+        Se analizó el dataset Store Sales — Corporación Favorita y los datos reales
+        ingestados por cada negocio.
+  \item \textbf{Data Preparation}: limpieza, transformación e ingeniería de
+        características. Implementado en \texttt{02\_clean.py} del pipeline ETL.
+  \item \textbf{Modeling}: selección y entrenamiento de modelos. Corresponde al módulo
+        AMS con los cuatro algoritmos de forecasting.
+  \item \textbf{Evaluation}: validación contra métricas de negocio mediante WAPE en
+        ventana walk-forward.
+  \item \textbf{Deployment}: despliegue del sistema en Render (backend) y Cloudflare
+        Pages (frontend).
 \end{enumerate}
 
 \section{Modelos de Forecasting}
 
 \subsection{ARIMA}
 
-ARIMA (\textit{Autoregressive Integrated Moving Average}) es un modelo estadístico clásico
-para series de tiempo estacionarias (Box \& Jenkins, 1976). Se define por tres parámetros
-$(p, d, q)$: orden autorregresivo, grado de diferenciación y orden de media móvil.
+ARIMA (\textit{Autoregressive Integrated Moving Average}) es un modelo estadístico
+clásico para series de tiempo estacionarias (Box \& Jenkins, 1976). Se define por tres
+parámetros $(p, d, q)$: orden autorregresivo, grado de diferenciación y orden de media
+móvil. En su variante SARIMA se agrega un componente estacional $(P, D, Q)_m$ que
+captura ciclos de periodo $m$. En SmartSupply, el AMS realiza una búsqueda en grilla
+sobre 144 combinaciones de parámetros, incluyendo componente estacional semanal
+($m=7$) cuando la serie cuenta con al menos 21 observaciones.
 
 \subsection{Prophet}
 
 Prophet es un modelo de forecasting desarrollado por Meta (Taylor \& Letham, 2018),
-diseñado para manejar estacionalidades múltiples, efectos de feriados y valores atípicos.
-Descompone la serie en tendencia, estacionalidad y calendario.
+diseñado para manejar estacionalidades múltiples, efectos de feriados y valores
+atípicos. Descompone la serie en tendencia, estacionalidad y calendario. En SmartSupply,
+la estacionalidad anual se activa dinámicamente solo cuando la serie tiene 730 o más
+días de historia, evitando el sobreajuste en series cortas.
 
 \subsection{XGBoost}
 
 XGBoost (\textit{Extreme Gradient Boosting}) es un algoritmo de ensamble basado en
 árboles de decisión (Chen \& Guestrin, 2016). Para series de tiempo se aplica mediante
-ingeniería de características: lags, medias móviles, variables de calendario y features
-exógenas (precio del petróleo, feriados).
+ingeniería de características temporales: lags de ventas, medias móviles, variables de
+calendario (día de semana, mes) y features exógenas (feriados). En SmartSupply se
+implementa con la estrategia DIRMO (\textit{Direct Multi-Output}), donde se entrena un
+modelo independiente por cada horizonte de predicción, evitando la acumulación de
+error en predicciones multi-paso.
 
 \subsection{LSTM}
 
-Las redes LSTM (\textit{Long Short-Term Memory}) son una variante de las redes neuronales
-recurrentes que resuelven el problema del gradiente desvanecido mediante compuertas de
-entrada, olvido y salida (Hochreiter \& Schmidhuber, 1997). Son especialmente efectivas
-para capturar dependencias de largo plazo en series temporales.
+Las redes LSTM (\textit{Long Short-Term Memory}) son una variante de las redes
+neuronales recurrentes que resuelven el problema del gradiente desvanecido mediante
+compuertas de entrada, olvido y salida (Hochreiter \& Schmidhuber, 1997). Son
+especialmente efectivas para capturar dependencias de largo plazo en series temporales.
+En SmartSupply, el modelo LSTM está implementado en PyTorch con la estrategia DIRMO
+y utiliza seis \textit{features} de entrada: ventas históricas, componentes seno/coseno del
+día de semana y del mes, e indicador de feriado chileno. Incluye corrección automática
+de días de cierre basada en el historial de demanda cero por día de semana.
 
 \section{Selección Automática de Modelos (AMS)}
 
-El AMS implementa validación \textit{walk-forward}: el dataset se divide en 70\,\% entrenamiento,
-15\,\% validación y 15\,\% prueba. Para cada SKU, todos los modelos se entrenan y evalúan
-sobre la ventana de validación; el de menor MAPE se designa como modelo activo para
-ese SKU. La fórmula del MAPE es:
+El AMS (\textit{Automatic Model Selection}) implementa validación \textit{walk-forward}:
+el historial de ventas de cada SKU se divide en 70\,\% entrenamiento, 15\,\% validación
+y 15\,\% prueba. Para cada SKU, los cuatro modelos se entrenan y evalúan sobre la
+ventana de validación; el de menor WAPE se designa como modelo activo para ese SKU
+y genera las predicciones del horizonte solicitado.
+
+Se utiliza el WAPE (\textit{Weighted Absolute Percentage Error}) en lugar del MAPE
+clásico, ya que el MAPE es inestable cuando la demanda real $y_t$ se acerca a cero —
+condición frecuente en series de ventas con días sin actividad. La fórmula del WAPE es:
 
 \[
-  \text{MAPE} = \frac{100\,\%}{n} \sum_{t=1}^{n}
-  \left| \frac{y_t - \hat{y}_t}{y_t} \right|
+  \text{WAPE} = \frac{\displaystyle\sum_{t=1}^{n} |y_t - \hat{y}_t|}
+                     {\displaystyle\sum_{t=1}^{n} y_t} \times 100\,\%
 \]
+
+donde $y_t$ es el valor real y $\hat{y}_t$ el valor predicho. Al ponderar el error por
+el volumen total de ventas, el WAPE es más robusto ante valores nulos y refleja mejor
+el impacto económico del error de predicción.
 
 \section{Gestión de Inventario}
 
 \subsection{Modelo EOQ}
 
 El \textit{Economic Order Quantity} (EOQ) determina la cantidad óptima de pedido que
-minimiza los costos totales de inventario (Harris, 1913):
+minimiza los costos totales de inventario, combinando el costo de hacer un pedido y el
+costo de mantener unidades en stock (Harris, 1913):
 
 \[
   Q^* = \sqrt{\frac{2 D K}{h}}
 \]
 
-donde $D$ es la demanda anual, $K$ el costo fijo de pedido y $h$ el costo de mantención
-por unidad por año.
+donde $D$ es la demanda anual proyectada por el AMS, $K$ el costo fijo por orden de
+compra y $h$ el costo de mantención por unidad por año.
 
 \subsection{Política $(s,S)$}
 
 La política de inventario $(s,S)$ establece dos parámetros: el punto de reorden $s$ (nivel
-mínimo que dispara un pedido) y el nivel objetivo $S$ (nivel al que se sube el inventario
-tras el pedido). Cuando el inventario cae por debajo de $s$, se genera una orden por
-$Q = S - \text{inventario actual}$ unidades.
+mínimo de stock que dispara un pedido) y el nivel objetivo $S$ (nivel al que se repone
+el inventario tras el pedido). Cuando el stock cae por debajo de $s$, se genera una
+orden por $Q = S - \text{stock actual}$ unidades (Silver, Pyke \& Peterson, 1998).
+Los parámetros se calculan como:
+
+\[
+  s = \bar{d} \cdot L + z_\alpha \cdot \sigma_d \cdot \sqrt{L}
+  \qquad
+  S = s + Q^*
+\]
+
+donde $\bar{d}$ es la demanda media diaria del AMS, $L$ el \textit{lead time} en días,
+$\sigma_d$ la desviación estándar de la demanda y $z_\alpha$ el factor de servicio.
+
+\section{Herramientas de Desarrollo}
+
+\subsection{Python 3.11}
+
+Python es el lenguaje principal del proyecto, utilizado en el backend, ETL y módulos
+de forecasting. Se emplea la versión 3.11 por su compatibilidad con las bibliotecas
+de machine learning utilizadas. Las dependencias se gestionan mediante un entorno
+virtual (\texttt{venv}).
+
+\subsection{FastAPI}
+
+FastAPI es un framework web moderno para Python que genera automáticamente
+documentación OpenAPI/Swagger a partir de las anotaciones de tipo del código
+(Ramírez, 2018). Ofrece validación automática de datos mediante Pydantic y rendimiento
+comparable a frameworks asíncronos de Node.js.
+
+\subsection{React y Vite}
+
+React es una biblioteca JavaScript para construir interfaces de usuario basadas en
+componentes reutilizables (Meta, 2013). Vite actúa como bundler de desarrollo con
+recarga en caliente. En SmartSupply el frontend utiliza React 18 con TanStack Query
+para gestión de estado del servidor, Recharts para visualizaciones y Zustand para
+estado de autenticación.
+
+\subsection{PostgreSQL y Supabase}
+
+PostgreSQL es el sistema de gestión de base de datos relacional del proyecto.
+Supabase provee PostgreSQL como servicio gestionado en la nube, incluyendo
+autenticación, Row Level Security (RLS) y una API REST automática. SmartSupply
+utiliza la capa de conexión directa vía SQLAlchemy 2.0 sobre el \textit{connection pooler}
+de Supabase.
+
+\subsection{Claude API (Anthropic)}
+
+Claude es un modelo de lenguaje grande (LLM) desarrollado por Anthropic con
+capacidades de visión y procesamiento de documentos. En SmartSupply se utilizan
+dos variantes: \texttt{claude-haiku-4-5} para extracción de imágenes y PDFs (menor
+latencia) y \texttt{claude-sonnet-4-6} para mapeo de columnas en planillas Excel con
+nomenclatura ambigua (mayor razonamiento). La integración se realiza mediante el
+SDK oficial de Anthropic para Python.
+
+\subsection{PyTorch}
+
+PyTorch es una biblioteca de aprendizaje profundo de código abierto desarrollada por
+Meta AI. En SmartSupply se utiliza para implementar el modelo LSTM, aprovechando
+su API dinámica de grafos de cómputo y facilidad de depuración respecto a alternativas
+basadas en grafos estáticos.
+
+\subsection{Pandas y Bibliotecas Científicas}
+
+Pandas es la biblioteca central para manipulación de datos tabulares en Python. Se
+complementa con \texttt{statsmodels} (ARIMA/SARIMA), \texttt{prophet} (Meta Prophet),
+\texttt{xgboost} (algoritmo de ensamble) y \texttt{scikit-learn} (métricas y utilidades
+de validación).
+
+\section{Multi-tenancy y Arquitectura SaaS}
+
+Una arquitectura \textit{multi-tenant} permite que múltiples clientes (tenants) compartan
+la misma infraestructura de software manteniendo sus datos completamente aislados
+(Curino et al., 2010). Este modelo es la base de las plataformas SaaS
+(\textit{Software as a Service}), donde el proveedor opera un único sistema y cada cliente
+accede a su instancia lógica mediante credenciales y un identificador único.
+
+En SmartSupply, cada negocio registrado recibe un \texttt{business\_id} único. Todas las
+tablas de la base de datos (\texttt{sales\_history}, \texttt{products}, \texttt{stock\_levels},
+\texttt{purchase\_orders}, \texttt{ingest\_log}) incluyen \texttt{business\_id} como clave
+de partición lógica. Los endpoints de la API filtran automáticamente los datos por el
+negocio del usuario autenticado, garantizando el aislamiento. Esta arquitectura permite
+que SmartSupply escale desde un emprendimiento unipersonal hasta una cadena con
+múltiples sucursales sin cambios en la infraestructura.
 
 \section{Dataset: Store Sales — Corporación Favorita}
 
-El dataset público Store Sales — Corporación Favorita (Kaggle, 2017) contiene datos reales
-de ventas de 54 tiendas en Ecuador durante el período 2013--2017. Sus características
-principales se resumen en la Tabla~\ref{tab:dataset}.
+El dataset público Store Sales — Corporación Favorita (Kaggle, 2017) contiene datos
+reales de ventas de 54 tiendas en Ecuador durante el período 2013--2017. Se utiliza en
+SmartSupply como conjunto de benchmarking para entrenar y evaluar el AMS sobre un
+volumen de datos representativo de un negocio con múltiples SKUs y sucursales. Sus
+características se resumen en la Tabla~\ref{tab:dataset}.
 
 \begin{table}[H]
   \centering
   \caption{Características del Dataset Store Sales — Corporación Favorita}
   \label{tab:dataset}
-  \begin{tabular}{ll}
-    \toprule
+  \begin{tabular}{|l|l|}
+    \hline
     \textbf{Característica} & \textbf{Valor} \\
-    \midrule
+    \hline
     Período          & 2013-01-01 a 2017-08-15 \\
     Filas (train)    & 3.000.888 \\
     Tiendas          & 54 \\
@@ -446,7 +678,7 @@ principales se resumen en la Tabla~\ref{tab:dataset}.
     Columnas         & id, date, store\_nbr, family, sales, onpromotion \\
     Demanda cero     & \textasciitilde 31,3\,\% de los registros \\
     Archivos extra   & stores.csv, oil.csv, holidays\_events.csv, transactions.csv \\
-    \bottomrule
+    \hline
   \end{tabular}
 \end{table}
 
@@ -461,28 +693,42 @@ principales se resumen en la Tabla~\ref{tab:dataset}.
   \centering
   \caption{Stakeholders de SmartSupply}
   \label{tab:stakeholders}
-  \begin{tabular}{lll}
-    \toprule
+  \begin{tabular}{|l|l|l|}
+    \hline
     \textbf{Stakeholder} & \textbf{Interés} & \textbf{Influencia} \\
-    \midrule
-    Jefe de Bodega       & Reducir quiebres de stock            & Alta \\
-    Gerente de Compras   & Optimizar órdenes de compra          & Alta \\
-    Analista de Datos    & Acceso a métricas de predicción      & Media \\
-    Dirección Empresa    & Reducir capital inmovilizado         & Alta \\
-    Equipo de TI         & Integración con sistemas existentes  & Media \\
-    \bottomrule
+    \hline
+    Emprendedor / Dueño del negocio & Controlar inventario, reducir capital inmovilizado & Alta \\
+    Encargado de Operaciones        & Gestionar órdenes de compra, evitar quiebres de stock & Alta \\
+    Analista / Supervisor           & Monitorear métricas de predicción y nivel de servicio & Media \\
+    Inversionistas / Dirección      & Reducir costos operacionales y mejorar rentabilidad   & Alta \\
+    Equipo de TI (si existe)        & Integración con sistemas existentes vía API REST       & Media \\
+    \hline
   \end{tabular}
 \end{table}
 
 \section{Usuarios}
 
-Los usuarios directos del sistema son el \textbf{Jefe de Bodega} (consulta alertas y genera
-órdenes) y el \textbf{Analista de Datos} (monitorea métricas de forecasting e inventario).
+Los usuarios directos del sistema son:
+
+\begin{itemize}
+  \item \textbf{Administrador} (dueño o fundador del negocio): registra el negocio,
+        carga datos históricos de ventas, gestiona productos y parámetros de inventario,
+        y tiene acceso completo a todas las funciones del sistema.
+  \item \textbf{Operador} (encargado de operaciones o bodega): consulta alertas de
+        inventario, genera órdenes de compra, monitorea el estado de los pedidos y
+        utiliza el asistente Stocky para consultas en lenguaje natural.
+\end{itemize}
 
 \section{Roles}
 
-Los roles del sistema son: \textbf{Administrador} (gestión de productos y configuración) y
-\textbf{Analista} (visualización de dashboards, forecasts y órdenes).
+Los roles del sistema son:
+
+\begin{itemize}
+  \item \textbf{Administrador}: acceso completo — gestión de negocios, productos,
+        datos, forecasting, inventario e ingesta IA.
+  \item \textbf{Analista}: visualización de dashboards, forecasts, alertas y órdenes
+        de compra; sin acceso a configuración de parámetros del sistema.
+\end{itemize}
 
 \section{Requisitos del Sistema}
 
@@ -490,116 +736,160 @@ A continuación se describen los requisitos funcionales principales del sistema.
 
 \begin{table}[H]
   \centering
-  \caption{Requisito RF-01: Ejecutar Predicción de Demanda por SKU}
+  \caption{Requisito RF-01: Autenticación de Usuarios}
   \label{tab:rf01}
-  \begin{tabular}{lp{9cm}}
-    \toprule
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
     \textbf{Campo} & \textbf{Descripción} \\
-    \midrule
-    ID              & RF-01 \\
-    Nombre          & Ejecutar Predicción de Demanda por SKU \\
-    Descripción     & El sistema debe generar una predicción de demanda para un SKU
-                      dado, seleccionando automáticamente el modelo con menor MAPE. \\
-    Actor           & Analista de Datos \\
-    Prioridad       & Alta \\
-    \bottomrule
+    \hline
+    ID          & RF-01 \\
+    Nombre      & Autenticación de Usuarios \\
+    Descripción & El sistema debe permitir el registro e inicio de sesión mediante
+                  correo y contraseña, generando un token JWT con expiración configurable.
+                  Los endpoints protegidos deben rechazar solicitudes sin token válido. \\
+    Actor       & Todos los usuarios \\
+    Prioridad   & Alta \\
+    \hline
   \end{tabular}
 \end{table}
 
 \begin{table}[H]
   \centering
-  \caption{Requisito RF-02: Generar Alerta de Reabastecimiento}
+  \caption{Requisito RF-02: Registrar Negocio en el Sistema}
   \label{tab:rf02}
-  \begin{tabular}{lp{9cm}}
-    \toprule
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
     \textbf{Campo} & \textbf{Descripción} \\
-    \midrule
-    ID              & RF-02 \\
-    Nombre          & Generar Alerta de Reabastecimiento \\
-    Descripción     & El sistema debe detectar SKUs cuyo nivel de inventario está por
-                      debajo del punto de reorden $s$ y generar una alerta visible en el
-                      dashboard. \\
-    Actor           & Jefe de Bodega \\
-    Prioridad       & Alta \\
-    \bottomrule
+    \hline
+    ID          & RF-02 \\
+    Nombre      & Registrar Negocio en el Sistema \\
+    Descripción & El sistema debe permitir registrar un emprendimiento o negocio con
+                  nombre, RUT y ciudad, asignándole un \texttt{business\_id} único que
+                  aísla sus datos del resto de los negocios en la plataforma. \\
+    Actor       & Administrador \\
+    Prioridad   & Alta \\
+    \hline
   \end{tabular}
 \end{table}
 
 \begin{table}[H]
   \centering
-  \caption{Requisito RF-03: Crear Orden de Compra Automática}
+  \caption{Requisito RF-03: Ingestar Datos de Ventas mediante IA}
   \label{tab:rf03}
-  \begin{tabular}{lp{9cm}}
-    \toprule
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
     \textbf{Campo} & \textbf{Descripción} \\
-    \midrule
-    ID              & RF-03 \\
-    Nombre          & Crear Orden de Compra Automática \\
-    Descripción     & El sistema debe generar automáticamente una orden de compra
-                      para los SKUs en alerta, calculando la cantidad óptima según EOQ
-                      y la política $(s,S)$. \\
-    Actor           & Jefe de Bodega \\
-    Prioridad       & Alta \\
-    \bottomrule
+    \hline
+    ID          & RF-03 \\
+    Nombre      & Ingestar Datos de Ventas mediante IA \\
+    Descripción & El sistema debe aceptar archivos en formato imagen (JPG, PNG),
+                  planilla Excel/CSV o PDF, extraer automáticamente los registros
+                  de ventas usando Claude (Anthropic), mostrar un preview con
+                  indicadores de calidad al usuario para revisión, y confirmar la
+                  carga a \texttt{sales\_history} bajo el \texttt{business\_id}
+                  del negocio destino. \\
+    Actor       & Administrador \\
+    Prioridad   & Alta \\
+    \hline
   \end{tabular}
 \end{table}
 
 \begin{table}[H]
   \centering
-  \caption{Requisito RF-04: Visualizar Dashboard de Métricas}
+  \caption{Requisito RF-04: Ejecutar Predicción de Demanda por SKU}
   \label{tab:rf04}
-  \begin{tabular}{lp{9cm}}
-    \toprule
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
     \textbf{Campo} & \textbf{Descripción} \\
-    \midrule
-    ID              & RF-04 \\
-    Nombre          & Visualizar Dashboard de Métricas \\
-    Descripción     & El sistema debe mostrar gráficos de demanda histórica y
-                      predicha, MAPE por modelo y SKU, nivel de inventario y estado
-                      de órdenes. \\
-    Actor           & Analista de Datos / Jefe de Bodega \\
-    Prioridad       & Media \\
-    \bottomrule
+    \hline
+    ID          & RF-04 \\
+    Nombre      & Ejecutar Predicción de Demanda por SKU \\
+    Descripción & El sistema debe generar una predicción de demanda para un SKU
+                  dado, seleccionando automáticamente el modelo con menor WAPE
+                  mediante validación walk-forward, y retornar el historial real
+                  más la predicción para el horizonte solicitado (7, 14 o 30 días). \\
+    Actor       & Operador / Administrador \\
+    Prioridad   & Alta \\
+    \hline
   \end{tabular}
 \end{table}
 
 \begin{table}[H]
   \centering
-  \caption{Requisito RF-05: Registrar Negocio en el Sistema}
+  \caption{Requisito RF-05: Generar Alerta de Reabastecimiento}
   \label{tab:rf05}
-  \begin{tabular}{lp{9cm}}
-    \toprule
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
     \textbf{Campo} & \textbf{Descripción} \\
-    \midrule
-    ID              & RF-05 \\
-    Nombre          & Registrar Negocio en el Sistema \\
-    Descripción     & El sistema debe permitir registrar una distribuidora o tienda
-                      con nombre, RUT y ciudad, asignándole un \texttt{business\_id}
-                      único que aísla sus datos del resto de los negocios. \\
-    Actor           & Administrador \\
-    Prioridad       & Alta \\
-    \bottomrule
+    \hline
+    ID          & RF-05 \\
+    Nombre      & Generar Alerta de Reabastecimiento \\
+    Descripción & El sistema debe detectar SKUs cuyo nivel de inventario está por
+                  debajo del punto de reorden $s$ calculado por EOQ y $(s,S)$, y
+                  generar una alerta visible en el dashboard con severidad crítica. \\
+    Actor       & Operador \\
+    Prioridad   & Alta \\
+    \hline
   \end{tabular}
 \end{table}
 
 \begin{table}[H]
   \centering
-  \caption{Requisito RF-06: Ingestar Datos de Ventas mediante IA}
+  \caption{Requisito RF-06: Crear Orden de Compra Automática}
   \label{tab:rf06}
-  \begin{tabular}{lp{9cm}}
-    \toprule
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
     \textbf{Campo} & \textbf{Descripción} \\
-    \midrule
-    ID              & RF-06 \\
-    Nombre          & Ingestar Datos de Ventas mediante IA \\
-    Descripción     & El sistema debe aceptar archivos en formato imagen (JPG, PNG),
-                      planilla Excel/CSV o PDF, extraer automáticamente los registros
-                      de ventas usando Claude (Anthropic), mostrar un preview al usuario
-                      para revisión y confirmar la carga a \texttt{sales\_history}
-                      bajo el \texttt{business\_id} del negocio. \\
-    Actor           & Administrador / Jefe de Bodega \\
-    Prioridad       & Alta \\
-    \bottomrule
+    \hline
+    ID          & RF-06 \\
+    Nombre      & Crear Orden de Compra Automática \\
+    Descripción & El sistema debe generar automáticamente órdenes de compra para
+                  todos los SKUs en alerta, calculando la cantidad óptima según EOQ
+                  y la política $(s,S)$, y permitir el seguimiento de estado
+                  (pendiente, confirmada, en tránsito, recibida, cancelada). \\
+    Actor       & Operador \\
+    Prioridad   & Alta \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Requisito RF-07: Visualizar Dashboard de KPIs}
+  \label{tab:rf07}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Descripción} \\
+    \hline
+    ID          & RF-07 \\
+    Nombre      & Visualizar Dashboard de KPIs \\
+    Descripción & El sistema debe mostrar en tiempo real: SKUs en alerta, órdenes
+                  pendientes, WAPE promedio del AMS, nivel de servicio (porcentaje
+                  de SKUs con stock positivo) y gráfico de ventas de las últimas
+                  4 semanas. \\
+    Actor       & Administrador / Operador \\
+    Prioridad   & Media \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Requisito RF-08: Asistente Conversacional (Stocky)}
+  \label{tab:rf08}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Descripción} \\
+    \hline
+    ID          & RF-08 \\
+    Nombre      & Asistente Conversacional Stocky \\
+    Descripción & El sistema debe ofrecer un asistente de IA accesible desde cualquier
+                  página, capaz de responder preguntas sobre el inventario, órdenes y
+                  productos del negocio en lenguaje natural, utilizando herramientas
+                  de consulta a la base de datos en tiempo real. \\
+    Actor       & Todos los usuarios \\
+    Prioridad   & Media \\
+    \hline
   \end{tabular}
 \end{table}
 
@@ -607,19 +897,19 @@ A continuación se describen los requisitos funcionales principales del sistema.
 
 \begin{table}[H]
   \centering
-  \caption{Planificación de Sprints}
+  \caption{Planificación de Sprints — SmartSupply}
   \label{tab:sprints}
-  \begin{tabular}{clll}
-    \toprule
+  \begin{tabular}{|c|l|l|p{4cm}|}
+    \hline
     \textbf{Sprint} & \textbf{Período} & \textbf{Objetivo} & \textbf{Responsable} \\
-    \midrule
-    1 & Sem 1--2  & Setup del entorno, ETL base, estructura repo      & Cristóbal \\
-    2 & Sem 3--4  & Modelos ARIMA y Prophet, API /forecast (mock)     & Int.1 + Cristóbal \\
-    3 & Sem 5--6  & XGBoost, LSTM y AMS walk-forward                  & Int.1 \\
-    4 & Sem 7--8  & EOQ, política $(s,S)$, generador de órdenes       & Int.2 \\
-    5 & Sem 9--10 & API conectada a BD real, ingesta IA, multi-tenancy, dashboard     & Cristóbal \\
-    6 & Sem 11--12& Pruebas, métricas, retrospectiva, entrega final   & Todos \\
-    \bottomrule
+    \hline
+    1 & Sem 1--2  & Setup del entorno, ETL base, estructura del repositorio & Cristóbal \\
+    2 & Sem 3--4  & Auth JWT, modelos ARIMA/Prophet/XGBoost/LSTM, AMS walk-forward & Int.1 + Cristóbal \\
+    3 & Sem 5--6  & Gestión de cargas, ingest\_log, validador de calidad, Datos.tsx & Cristóbal \\
+    4 & Sem 7--8  & EOQ, política $(s,S)$, órdenes de compra, Stocky agentivo & Int.2 + Cristóbal \\
+    5 & Sem 9--10 & LSTM DIRMO PyTorch, Dashboard KPIs reales, config deploy & Int.1 + Cristóbal \\
+    6 & Sem 11--12& QA final, deploy Render + Cloudflare, merge a main, tesis & Todos \\
+    \hline
   \end{tabular}
 \end{table}
 
@@ -630,7 +920,7 @@ A continuación se describen los requisitos funcionales principales del sistema.
 
 \section{Product Backlog}
 
-\begin{longtable}{clp{6cm}cc}
+\begin{longtable}{clp{5.5cm}cc}
   \caption{Product Backlog — SmartSupply} \label{tab:backlog} \\
   \toprule
   \textbf{ID} & \textbf{Rol} & \textbf{Historia de Usuario} & \textbf{Pts} & \textbf{Sprint} \\
@@ -642,87 +932,268 @@ A continuación se describen los requisitos funcionales principales del sistema.
   \endhead
   \bottomrule
   \endfoot
-  US-01 & Analista    & Quiero ejecutar una predicción de demanda por SKU para planificar compras. & 8 & 2 \\
-  US-02 & Jefe Bodega & Quiero recibir alertas de quiebre de stock para actuar a tiempo.           & 8 & 4 \\
-  US-03 & Jefe Bodega & Quiero generar una orden de compra automática desde la alerta.            & 5 & 4 \\
-  US-04 & Analista    & Quiero ver el dashboard con gráficos de demanda y stock.                  & 8 & 5 \\
-  US-05 & Analista    & Quiero comparar el MAPE de los modelos por SKU.                          & 5 & 3 \\
-  US-06 & Admin       & Quiero registrar nuevos productos con sus parámetros de inventario.      & 3 & 1 \\
-  US-07 & Admin       & Quiero cargar datos históricos de ventas via ETL.                        & 8 & 1 \\
-  US-08 & Analista    & Quiero ver la evolución histórica de ventas de un SKU.                   & 5 & 5 \\
-  US-09 & Jefe Bodega & Quiero consultar el historial de órdenes de compra generadas.            & 3 & 4 \\
-  US-10 & Admin       & Quiero configurar los parámetros EOQ por SKU.                            & 3 & 4 \\
-  US-11 & Analista    & Quiero descargar el reporte de predicciones en formato CSV.              & 2 & 5 \\
-  US-12 & Analista    & Quiero ver el nivel de servicio y la tasa de quiebre por período.        & 5 & 6 \\
-  US-13 & Admin       & Quiero simular el impacto de cambiar los parámetros $(s,S)$.             & 5 & 6 \\
-  US-14 & Admin       & Quiero registrar mi negocio en el sistema para aislar mis datos.         & 3 & 5 \\
-  US-15 & Admin       & Quiero subir una foto o Excel con mis ventas y que el sistema las cargue automáticamente. & 13 & 5 \\
+  US-01 & Admin    & Quiero registrar mi negocio en el sistema para aislar mis datos. & 3 & 1 \\
+  US-02 & Admin    & Quiero cargar datos históricos de ventas via ETL automatizado.    & 8 & 1 \\
+  US-03 & Admin    & Quiero iniciar sesión con usuario y contraseña para proteger mis datos. & 5 & 2 \\
+  US-04 & Operador & Quiero ejecutar una predicción de demanda por SKU para planificar compras. & 8 & 2 \\
+  US-05 & Operador & Quiero comparar el WAPE de los modelos por SKU. & 5 & 2 \\
+  US-06 & Admin    & Quiero subir una foto o Excel con mis ventas y que el sistema las cargue automáticamente. & 13 & 3 \\
+  US-07 & Admin    & Quiero ver el historial de cargas y poder revertirlas si me equivoco. & 5 & 3 \\
+  US-08 & Operador & Quiero recibir alertas de quiebre de stock para actuar a tiempo. & 8 & 4 \\
+  US-09 & Operador & Quiero generar una orden de compra automática desde la alerta.   & 5 & 4 \\
+  US-10 & Operador & Quiero consultar el historial de órdenes de compra generadas.    & 3 & 4 \\
+  US-11 & Admin    & Quiero configurar los parámetros EOQ por SKU con ayuda del asistente. & 3 & 4 \\
+  US-12 & Admin    & Quiero preguntarle al sistema sobre mi inventario en lenguaje natural. & 8 & 4 \\
+  US-13 & Operador & Quiero ver el dashboard con KPIs reales de mi negocio en tiempo real. & 8 & 5 \\
+  US-14 & Operador & Quiero ver la evolución histórica de ventas de un SKU.           & 5 & 5 \\
+  US-15 & Admin    & Quiero que el sistema funcione en producción desde cualquier navegador. & 8 & 6 \\
 \end{longtable}
+
+\section{Casos de Uso}
+
+A continuación se describen los principales casos de uso del sistema.
+
+\begin{table}[H]
+  \centering
+  \caption{Caso de Uso CU-01: Acceder al Sistema}
+  \label{tab:cu01}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Descripción} \\
+    \hline
+    ID            & CU-01 \\
+    Nombre        & Acceder al Sistema \\
+    Actor         & Todos los usuarios \\
+    Precondición  & Usuario registrado en el sistema. \\
+    Flujo normal  & 1. Usuario ingresa correo y contraseña. 2. Sistema valida credenciales.
+                    3. Sistema emite token JWT. 4. Usuario accede al dashboard. \\
+    Flujo alternativo & Si las credenciales son incorrectas, el sistema muestra error y
+                        bloquea tras 5 intentos fallidos (15 min). \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Caso de Uso CU-02: Cargar Datos de Ventas mediante IA}
+  \label{tab:cu02}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Descripción} \\
+    \hline
+    ID            & CU-02 \\
+    Nombre        & Cargar Datos de Ventas mediante IA \\
+    Actor         & Administrador \\
+    Precondición  & Negocio registrado. Usuario autenticado. \\
+    Flujo normal  & 1. Usuario sube archivo (imagen, Excel o PDF). 2. Sistema envía a
+                    Claude para extracción. 3. Sistema muestra preview con indicadores
+                    de calidad. 4. Usuario selecciona negocio destino y confirma.
+                    5. Sistema carga registros a \texttt{sales\_history}. \\
+    Flujo alternativo & Si hay errores de calidad bloqueantes, el botón confirmar
+                        permanece deshabilitado hasta resolver el problema. \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Caso de Uso CU-03: Consultar Predicción de Demanda}
+  \label{tab:cu03}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Descripción} \\
+    \hline
+    ID            & CU-03 \\
+    Nombre        & Consultar Predicción de Demanda \\
+    Actor         & Operador / Administrador \\
+    Precondición  & Negocio con datos en \texttt{sales\_history}. \\
+    Flujo normal  & 1. Usuario selecciona SKU, tienda y horizonte (7/14/30 días).
+                    2. Sistema ejecuta AMS: entrena ARIMA, Prophet, XGBoost y LSTM.
+                    3. Sistema selecciona el modelo de menor WAPE. 4. Sistema retorna
+                    historial real + predicción en gráfico. \\
+    Flujo alternativo & Si la serie tiene menos de 30 días, LSTM y Prophet se
+                        descartan automáticamente. \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Caso de Uso CU-04: Generar Órdenes de Compra Automáticas}
+  \label{tab:cu04}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Descripción} \\
+    \hline
+    ID            & CU-04 \\
+    Nombre        & Generar Órdenes de Compra Automáticas \\
+    Actor         & Operador \\
+    Precondición  & Al menos un SKU con stock por debajo del punto de reorden $s$. \\
+    Flujo normal  & 1. Usuario accede a la vista de Inventario y ve alertas críticas.
+                    2. Usuario pulsa ``Generar Órdenes''. 3. Sistema crea una
+                    \texttt{PurchaseOrder} por cada SKU en alerta con cantidad $Q = S - \text{stock}$.
+                    4. Sistema muestra tabla de órdenes generadas con estado \textit{pendiente}. \\
+    Flujo alternativo & Usuario puede cambiar el estado de cada orden manualmente
+                        (confirmada, en tránsito, recibida, cancelada). \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Caso de Uso CU-05: Consultar Asistente Stocky}
+  \label{tab:cu05}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Descripción} \\
+    \hline
+    ID            & CU-05 \\
+    Nombre        & Consultar Asistente Stocky \\
+    Actor         & Todos los usuarios \\
+    Precondición  & Usuario autenticado con negocio activo. \\
+    Flujo normal  & 1. Usuario abre el panel flotante de Stocky. 2. Usuario escribe
+                    una consulta en lenguaje natural (ej: ``¿cuánto stock tengo de
+                    LÁCTEOS?''). 3. Stocky ejecuta herramientas de consulta a la BD.
+                    4. Stocky responde con información real del negocio. \\
+    Flujo alternativo & Si el usuario pide configurar un producto (ej: ``actualiza
+                        el costo de BEBIDAS a \$500''), Stocky invoca la herramienta
+                        de actualización y confirma el cambio. \\
+    \hline
+  \end{tabular}
+\end{table}
 
 \section{Sprint Backlog — Sprint 1}
 
 \begin{table}[H]
   \centering
-  \caption{Sprint Backlog — Sprint 1: Setup y ETL Base}
+  \caption{Sprint Backlog — Sprint 1: Setup, ETL y Estructura Base}
   \label{tab:sprint1}
-  \begin{tabular}{lp{6.5cm}lc}
-    \toprule
+  \begin{tabular}{|l|p{6cm}|l|c|}
+    \hline
     \textbf{Tarea} & \textbf{Descripción} & \textbf{Estado} & \textbf{Horas} \\
-    \midrule
-    T-01 & Configurar repositorio GitHub y estructura de carpetas & Completado & 3 \\
-    T-02 & Implementar ETL: descompresión del dataset Kaggle      & Completado & 2 \\
-    T-03 & Implementar ETL: limpieza y normalización (02\_clean.py) & En progreso & 8 \\
-    T-04 & Configurar base de datos PostgreSQL en Supabase         & Pendiente  & 4 \\
-    T-05 & Implementar ETL: carga a Supabase (03\_load\_supabase.py) & Pendiente & 6 \\
-    T-06 & Crear estructura base del backend FastAPI               & Completado & 4 \\
-    \bottomrule
+    \hline
+    T-01 & Configurar repositorio GitHub y estructura de carpetas    & Completado & 3 \\
+    T-02 & Implementar ETL: descompresión del dataset Kaggle         & Completado & 2 \\
+    T-03 & Implementar ETL: limpieza y normalización (02\_clean.py)  & Completado & 8 \\
+    T-04 & Configurar base de datos PostgreSQL en Supabase           & Completado & 4 \\
+    T-05 & Implementar ETL: carga a Supabase (03\_load\_supabase.py) & Completado & 6 \\
+    T-06 & Crear estructura base del backend FastAPI con routers     & Completado & 4 \\
+    \hline
   \end{tabular}
 \end{table}
 
-% ============================================================
-%  CAPÍTULO 5 — ARQUITECTURA DEL SISTEMA
-% ============================================================
-\chapter{Arquitectura del Sistema}
-
-\section{Visión General}
-
-SmartSupply sigue una arquitectura de cuatro capas:
+\section{Sprint Backlog — Sprint 2}
 
 \begin{table}[H]
   \centering
-  \caption{Arquitectura en Cuatro Capas}
-  \label{tab:arquitectura}
-  \begin{tabular}{lll}
-    \toprule
-    \textbf{Capa} & \textbf{Tecnología} & \textbf{Responsabilidad} \\
-    \midrule
-    Presentación  & React 18 + Vite + Recharts      & Dashboard web, visualización, ingesta \\
-    Lógica        & FastAPI 0.111 + Python           & API REST, forecasting, inventario \\
-    Inteligencia  & Claude API (Anthropic)           & Extracción e interpretación de datos no estructurados \\
-    Datos         & PostgreSQL via Supabase          & Almacenamiento multi-tenant con RLS \\
-    \bottomrule
+  \caption{Sprint Backlog — Sprint 2: Auth JWT + Forecasting Real}
+  \label{tab:sprint2}
+  \begin{tabular}{|l|p{6cm}|l|c|}
+    \hline
+    \textbf{Tarea} & \textbf{Descripción} & \textbf{Estado} & \textbf{Horas} \\
+    \hline
+    T-07 & Implementar autenticación JWT (login, register, reset)      & Completado & 6 \\
+    T-08 & Implementar modelo ARIMA con búsqueda en grilla estacional  & Completado & 10 \\
+    T-09 & Implementar modelo Prophet con estacionalidad dinámica      & Completado & 8 \\
+    T-10 & Implementar modelo XGBoost con features calendario (DIRMO)  & Completado & 10 \\
+    T-11 & Implementar modelo LSTM con PyTorch (DIRMO, 6 features)     & Completado & 16 \\
+    T-12 & Implementar mecanismo AMS walk-forward (70/15/15, WAPE)     & Completado & 10 \\
+    T-13 & Conectar Forecast.tsx a la API real con gráfico histórico   & Completado & 6 \\
+    \hline
   \end{tabular}
 \end{table}
 
-\section{Diagrama de Componentes (Vista de Desarrollo)}
+\section{Sprint Backlog — Sprint 3}
+
+\begin{table}[H]
+  \centering
+  \caption{Sprint Backlog — Sprint 3: Gestión de Datos y Cargas}
+  \label{tab:sprint3}
+  \begin{tabular}{|l|p{6cm}|l|c|}
+    \hline
+    \textbf{Tarea} & \textbf{Descripción} & \textbf{Estado} & \textbf{Horas} \\
+    \hline
+    T-14 & Diseñar e implementar tabla \texttt{ingest\_log}             & Completado & 4 \\
+    T-15 & Implementar ingests.py (listar, revertir, eliminar cargas)   & Completado & 8 \\
+    T-16 & Refactorizar confirm: inserción por carga sin sobreescribir  & Completado & 6 \\
+    T-17 & Implementar validador de calidad (ingest\_validator.py)      & Completado & 8 \\
+    T-18 & Implementar modo CLP vs unidades con detección automática    & Completado & 6 \\
+    T-19 & Desarrollar Datos.tsx con drill-down negocio/carga/registros & Completado & 10 \\
+    T-20 & Backfill histórico de cargas anteriores en Supabase          & Completado & 3 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{Sprint Backlog — Sprint 4}
+
+\begin{table}[H]
+  \centering
+  \caption{Sprint Backlog — Sprint 4: Inventario, Órdenes y Stocky}
+  \label{tab:sprint4}
+  \begin{tabular}{|l|p{6cm}|l|c|}
+    \hline
+    \textbf{Tarea} & \textbf{Descripción} & \textbf{Estado} & \textbf{Horas} \\
+    \hline
+    T-21 & Implementar inventory\_service.py (EOQ + política $s,S$)    & Completado & 12 \\
+    T-22 & Implementar endpoints alertas, métricas e inventario         & Completado & 8 \\
+    T-23 & Implementar generador de órdenes y cambio de estado          & Completado & 6 \\
+    T-24 & Implementar tabla \texttt{user\_businesses} (multi-negocio)  & Completado & 4 \\
+    T-25 & Implementar stocky\_service.py con loop agentivo y 5 tools   & Completado & 12 \\
+    T-26 & Desarrollar Inventory.tsx y Orders.tsx conectados a API      & Completado & 10 \\
+    T-27 & Desarrollar StockyFloat.tsx (panel flotante global)          & Completado & 8 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{Sprint Backlog — Sprint 5}
+
+\begin{table}[H]
+  \centering
+  \caption{Sprint Backlog — Sprint 5: Dashboard KPIs + LSTM DIRMO + Deploy}
+  \label{tab:sprint5}
+  \begin{tabular}{|l|p{6cm}|l|c|}
+    \hline
+    \textbf{Tarea} & \textbf{Descripción} & \textbf{Estado} & \textbf{Horas} \\
+    \hline
+    T-28 & Actualizar dashboard con KPIs reales desde BD               & Completado & 6 \\
+    T-29 & Migrar LSTM a PyTorch con DIRMO y 6 features calendario      & Completado & 16 \\
+    T-30 & Implementar corrección de días de cierre en LSTM             & Completado & 4 \\
+    T-31 & Configurar render.yaml para deploy en Render.com             & Completado & 3 \\
+    T-32 & Configurar \_redirects para SPA en Cloudflare Pages          & Completado & 2 \\
+    T-33 & Conectar \texttt{has\_clp\_skus} al tipo de dato real        & Completado & 3 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+% ============================================================
+%  CAPÍTULO 5 — MODELOS DE VISTAS 4+1
+% ============================================================
+\chapter{Modelos de Vistas 4+1}
+
+SmartSupply documenta su arquitectura mediante el modelo de vistas 4+1 (Kruchten, 1995),
+cubriendo las perspectivas lógica, de procesos, de desarrollo y física, integradas
+por los casos de uso descritos en el Capítulo 3.
+
+\section{Vista Lógica — Diagrama de Clases}
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth]{figuras/componentes_uml.pdf}
-  \caption{Arquitectura de componentes de SmartSupply}
-  \label{fig:componentes}
+  \fbox{\parbox{0.85\textwidth}{\centering\vspace{2cm}[Diagrama de Clases — pendiente]\vspace{2cm}}}
+  \caption{Diagrama de Clases de SmartSupply}
+  \label{fig:clases}
 \end{figure}
 
-\section{Diagrama de Base de Datos (Vista Lógica)}
+\section{Vista Lógica — Diagrama de Base de Datos}
 
-El esquema relacional de SmartSupply consta de cinco tablas. La tabla central es
+El esquema relacional de SmartSupply consta de diez tablas. La tabla central es
 \texttt{businesses}, que registra cada negocio con un identificador único
-(\texttt{business\_id}). Las tablas \texttt{sales\_history} y \texttt{stores}
-referencian \texttt{businesses} mediante llave foránea, garantizando el aislamiento
-de datos entre negocios (multi-tenancy por fila). Row Level Security (RLS) de Supabase
-refuerza este aislamiento a nivel de base de datos. El sistema no depende de variables
-exógenas externas fijas: cualquier feature adicional (feriados, eventos, precios)
-puede ser incorporada por cada negocio a través del módulo de ingesta IA.
+(\texttt{business\_id}). La tabla \texttt{user\_businesses} implementa la relación
+muchos-a-muchos entre usuarios y negocios, permitiendo que un usuario pertenezca
+a múltiples negocios con distintos roles. Las tablas \texttt{sales\_history},
+\texttt{products}, \texttt{stock\_levels} y \texttt{purchase\_orders} referencian
+\texttt{businesses} mediante llave foránea. La tabla \texttt{ingest\_log} registra
+cada carga de datos con auditoría completa. Row Level Security (RLS) de Supabase
+refuerza el aislamiento a nivel de base de datos.
 
 \begin{figure}[H]
   \centering
@@ -731,14 +1202,14 @@ puede ser incorporada por cada negocio a través del módulo de ingesta IA.
   \label{fig:base_datos}
 \end{figure}
 
-\section{Diagrama de Secuencia — Predicción de Demanda}
+\section{Vista de Procesos — Diagrama de Secuencia}
 
 La Figura~\ref{fig:secuencia_forecast} muestra el flujo completo de una solicitud
 de predicción. El usuario selecciona un SKU en el dashboard, el cual invoca el
-endpoint \texttt{POST /forecast/predict}. La API consulta el historial de ventas
-y las \textit{features} exógenas en PostgreSQL, luego delega al módulo AMS que
-entrena y evalúa los cuatro modelos en un ciclo \textit{loop}, retornando la
-predicción del modelo con menor MAPE.
+endpoint \texttt{GET /api/forecast/predict}. La API consulta el historial de ventas
+en PostgreSQL filtrando solo las cargas activas y aplica la regla ``última gana''
+por fecha. Luego delega al módulo AMS que entrena y evalúa los cuatro modelos,
+retornando la predicción del modelo con menor WAPE.
 
 \begin{figure}[H]
   \centering
@@ -747,54 +1218,28 @@ predicción del modelo con menor MAPE.
   \label{fig:secuencia_forecast}
 \end{figure}
 
-\section{Diagrama de Despliegue (Vista Física)}
+\section{Vista de Desarrollo — Diagrama de Componentes}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{figuras/componentes_uml.pdf}
+  \caption{Diagrama de componentes de SmartSupply}
+  \label{fig:componentes}
+\end{figure}
+
+\section{Vista Física — Diagrama de Despliegue}
+
+SmartSupply se despliega en tres servicios en la nube: el frontend estático en
+Cloudflare Pages, el backend Python en Render.com, y la base de datos PostgreSQL
+en Supabase. La comunicación entre frontend y backend se realiza via HTTPS con
+autenticación JWT en cada request.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.92\textwidth]{figuras/despliegue.pdf}
-  \caption{Infraestructura de despliegue de SmartSupply (Cloudflare Pages + Render + Supabase)}
+  \caption{Diagrama de despliegue de SmartSupply (Cloudflare Pages + Render + Supabase)}
   \label{fig:despliegue}
 \end{figure}
-
-\section{Módulo de Ingesta Inteligente}
-
-Una de las barreras de entrada más frecuentes para las distribuidoras chilenas es la
-ausencia de datos históricos en formato digital estructurado. SmartSupply resuelve este
-problema mediante un módulo de ingesta basado en inteligencia artificial que acepta
-cualquier formato de entrada.
-
-\subsection{Flujo de Ingesta}
-
-\begin{enumerate}
-  \item El usuario sube un archivo (imagen, Excel o PDF) via el endpoint
-        \texttt{POST /api/ingest/preview}.
-  \item El backend detecta el tipo de archivo y selecciona la estrategia de extracción:
-        \begin{itemize}
-          \item \textbf{Imagen} (JPG, PNG, WEBP): se envía a Claude Opus 4.7 con capacidades
-                de visión mediante la API de Anthropic.
-          \item \textbf{Excel/CSV}: si las columnas son reconocibles (fecha, producto,
-                ventas), se mapean directamente con pandas. Si son ambiguas, se envía
-                una muestra en texto a Claude Sonnet 4.6.
-          \item \textbf{PDF}: se envía a Claude Opus 4.7 usando el tipo de contenido
-                \texttt{document} de la API.
-        \end{itemize}
-  \item Claude devuelve un JSON normalizado con registros del tipo
-        \texttt{\{date, family, sales, onpromotion\}}.
-  \item El sistema retorna un \textbf{preview} al usuario: número de registros encontrados,
-        rango de fechas, familias detectadas y advertencias.
-  \item El usuario revisa el preview y confirma la carga via \texttt{POST /api/ingest/confirm},
-        especificando el \texttt{business\_id} y \texttt{store\_nbr} destino.
-  \item Los registros se insertan en \texttt{sales\_history} con upsert (actualiza si ya existe,
-        inserta si no).
-\end{enumerate}
-
-\subsection{Prompt de Extracción}
-
-El prompt enviado a Claude instruye al modelo a identificar columnas de fecha, producto
-y cantidad vendida, normalizar fechas al formato ISO 8601, y estandarizar los nombres
-de categoría en mayúsculas. El modelo devuelve \textbf{únicamente} un JSON válido,
-evitando texto adicional que dificulte el parseo. En caso de datos ambiguos o ilegibles,
-Claude los documenta en el campo \texttt{warnings} del JSON de respuesta.
 
 % ============================================================
 %  CAPÍTULO 6 — DESARROLLO
@@ -803,87 +1248,191 @@ Claude los documenta en el campo \texttt{warnings} del JSON de respuesta.
 
 \section{Pipeline ETL}
 
-El pipeline ETL consta de tres etapas implementadas como scripts Python:
+El pipeline ETL de benchmarking consta de tres etapas implementadas como scripts Python
+en \texttt{etl/scripts/}:
 
 \begin{enumerate}
-  \item \texttt{01\_download\_kaggle.py}: descomprime el archivo \texttt{.zip} descargado
-        de Kaggle en \texttt{forecasting/data/}.
-  \item \texttt{02\_clean.py}: elimina valores negativos de ventas, genera features
-        temporales (lags, medias móviles, día de semana, mes) y produce
-        \texttt{train\_clean.csv}.
+  \item \texttt{01\_download\_kaggle.py}: descomprime el archivo \texttt{.zip} del dataset
+        Store Sales — Corporación Favorita en \texttt{datasets/raw/}.
+  \item \texttt{02\_clean.py}: elimina valores negativos de ventas, filtra registros
+        futuros, genera features temporales (día de semana, mes, lags) y produce
+        \texttt{train\_clean.csv}. Aplica \texttt{ON CONFLICT DO NOTHING} para re-runs
+        idempotentes.
   \item \texttt{03\_load\_supabase.py}: carga el CSV limpio a la tabla
-        \texttt{sales\_history} de PostgreSQL usando SQLAlchemy, con
-        \texttt{ON CONFLICT DO NOTHING} para re-runs idempotentes.
+        \texttt{sales\_history} de PostgreSQL usando SQLAlchemy, bajo
+        \texttt{business\_id=1} (negocio de benchmarking).
 \end{enumerate}
 
 \section{Módulo de Forecasting}
 
-Cada modelo implementa la interfaz común:
+Cada modelo implementa la interfaz común \texttt{fit(series)} / \texttt{predict(horizon)},
+lo que permite al AMS evaluarlos de forma uniforme. El AMS ejecuta los cuatro modelos
+sobre la ventana de validación (15\,\% de la serie), calcula el WAPE de cada uno, y
+designa el de menor error como modelo activo para ese SKU.
 
-\begin{verbatim}
-class BaseModel:
-    def fit(self, series: pd.Series) -> None: ...
-    def predict(self, horizon: int) -> pd.Series: ...
-\end{verbatim}
-
-El AMS itera sobre los cuatro modelos, calcula el MAPE en la ventana de validación y
-retorna el modelo de menor error junto con sus predicciones para el horizonte requerido.
+El resultado incluye: nombre del modelo ganador, WAPE obtenido, predicciones para el
+horizonte solicitado, e indicador de la unidad de medida (\texttt{CLP} o \texttt{units})
+detectada desde la columna \texttt{sales\_unit} de la base de datos.
 
 \section{Módulo de Inventario}
 
-El módulo de inventario recibe las predicciones del AMS y calcula:
+El módulo de inventario (\texttt{inventory\_service.py}) recibe la demanda proyectada
+por el AMS y calcula para cada SKU:
 
 \begin{itemize}
-  \item $Q^*$ (EOQ) para determinar la cantidad óptima de pedido.
-  \item $s$ (punto de reorden) = demanda durante lead time + stock de seguridad.
-  \item $S$ (nivel objetivo) = $s + Q^*$.
-  \item Genera una \texttt{PurchaseOrder} cuando el inventario cae bajo $s$.
+  \item $Q^*$ (EOQ): cantidad óptima de pedido que minimiza costos de orden y mantención.
+  \item $s$ (punto de reorden): demanda esperada durante el lead time más stock de
+        seguridad basado en la desviación estándar histórica.
+  \item $S$ (nivel objetivo): $s + Q^*$.
+  \item Nivel de servicio: porcentaje de días con stock positivo en los últimos 30 días.
 \end{itemize}
+
+Si el negocio no ha configurado parámetros de costo, el servicio utiliza defaults
+conservadores ($K = 50$, $h = 0.25$, $L = 7$ días) para garantizar que el sistema
+sea funcional desde el primer uso, sin requerir configuración previa.
+
+\section{Módulo de Ingesta Inteligente}
+
+Una de las principales barreras para los emprendimientos es la ausencia de datos de
+ventas en formato digital estructurado. SmartSupply resuelve esto con un módulo de
+ingesta basado en IA que acepta cualquier formato de entrada.
+
+\subsection{Flujo de Ingesta}
+
+\begin{enumerate}
+  \item El usuario sube un archivo (imagen, Excel o PDF) vía \texttt{POST /api/ingest/preview}.
+  \item El backend selecciona la estrategia de extracción según el tipo de archivo:
+        \begin{itemize}
+          \item \textbf{Imagen} (JPG, PNG, WEBP): se envía a \texttt{claude-haiku-4-5}
+                con capacidades de visión.
+          \item \textbf{Excel/CSV}: columnas reconocibles se mapean con pandas; columnas
+                ambiguas se envían a \texttt{claude-sonnet-4-6} para inferencia semántica.
+          \item \textbf{PDF}: se envía a \texttt{claude-haiku-4-5} usando el tipo de
+                contenido \texttt{document} de la API de Anthropic.
+        \end{itemize}
+  \item Claude retorna un JSON normalizado con registros \texttt{\{date, family, sales\}}.
+  \item El validador de calidad (\texttt{ingest\_validator.py}) analiza el resultado y
+        genera indicadores de severidad: \texttt{LIKELY\_CURRENCY} (probable son pesos
+        CLP), \texttt{MIXED\_GRANULARITY} (mezcla diario/mensual, bloquea la carga),
+        \texttt{FUTURE\_DATES}, \texttt{SCALE\_SHIFT}.
+  \item El sistema muestra un \textbf{preview} al usuario con los indicadores de calidad.
+        Si hay errores bloqueantes, el botón confirmar se deshabilita.
+  \item El usuario elige el negocio y sucursal destino, y confirma vía
+        \texttt{POST /api/ingest/confirm}. Cada carga queda registrada en
+        \texttt{ingest\_log} con auditoría completa.
+\end{enumerate}
+
+\subsection{Resolución de Solapamiento entre Cargas}
+
+A diferencia de un sistema UPSERT clásico, SmartSupply permite múltiples cargas sobre
+el mismo período. El solapamiento se resuelve al momento de \textbf{consultar}, no al
+cargar: el \texttt{forecast\_service} une \texttt{sales\_history} con
+\texttt{ingest\_log}, excluye las cargas revertidas, y aplica la regla
+``última gana'' (mayor \texttt{ingest\_id}) por fecha. Esto garantiza que los datos
+originales sean siempre auditables y reversibles.
+
+\section{Asistente Conversacional Stocky}
+
+Stocky es un asistente de IA accesible desde un panel flotante en todas las páginas
+del dashboard. Está implementado sobre \texttt{claude-haiku-4-5} con un loop agentivo
+que puede invocar cinco herramientas de consulta y modificación a la base de datos:
+
+\begin{enumerate}
+  \item \texttt{list\_products}: lista los productos y parámetros del negocio activo.
+  \item \texttt{list\_stock\_levels}: consulta niveles de stock actuales.
+  \item \texttt{list\_orders}: lista órdenes de compra con filtros de estado.
+  \item \texttt{update\_product}: actualiza parámetros (costo, lead time, MOQ).
+  \item \texttt{update\_stock\_level}: registra el stock físico actual de un SKU.
+\end{enumerate}
+
+El loop agentivo permite que Stocky realice múltiples consultas encadenadas antes de
+responder, garantizando que las respuestas estén basadas en datos reales del negocio
+y no en suposiciones del modelo de lenguaje.
 
 \section{API REST}
 
-La API expone siete routers organizados por dominio funcional. Todos los endpoints
-están documentados automáticamente via OpenAPI en \texttt{/docs}.
+La API expone diez routers organizados por dominio funcional, con autenticación JWT
+en todos los endpoints excepto \texttt{/api/auth}. La documentación OpenAPI/Swagger
+está disponible en \texttt{/docs}.
 
 \begin{table}[H]
   \centering
-  \caption{Endpoints de la API REST}
+  \caption{Principales endpoints de la API REST}
   \label{tab:endpoints}
-  \begin{tabular}{lll}
-    \toprule
+  \begin{tabular}{|l|l|p{5.5cm}|}
+    \hline
     \textbf{Método} & \textbf{Ruta} & \textbf{Descripción} \\
-    \midrule
-    POST & \texttt{/api/forecast/predict}            & Predice demanda via AMS \\
-    GET  & \texttt{/api/forecast/models}              & Lista modelos disponibles \\
-    GET  & \texttt{/api/inventory/alerts}             & SKUs bajo punto de reorden \\
-    GET  & \texttt{/api/inventory/\{sku\}/metrics}    & EOQ, $s$, $S$, rotación \\
-    GET  & \texttt{/api/products/}                    & Lista de productos \\
-    POST & \texttt{/api/orders/generate}              & Genera órdenes automáticas \\
-    GET  & \texttt{/api/sales/date-range}             & Rango de fechas disponible del negocio \\
-    GET  & \texttt{/api/sales/families}               & Categorías de productos del negocio \\
-    GET  & \texttt{/api/sales/history}                & Historial de ventas por categoría \\
-    GET  & \texttt{/api/sales/summary}                & Resumen de ventas agregado por categoría \\
-    GET  & \texttt{/api/sales/stores}                 & Tiendas de un negocio \\
-    POST & \texttt{/api/businesses/}                  & Registra un nuevo negocio \\
-    GET  & \texttt{/api/businesses/}                  & Lista negocios registrados \\
-    POST & \texttt{/api/ingest/preview}               & Extrae datos de archivo via Claude IA \\
-    POST & \texttt{/api/ingest/confirm}               & Confirma y carga los datos a BD \\
-    \bottomrule
+    \hline
+    POST   & \texttt{/api/auth/login}               & Autenticación, retorna JWT \\
+    POST   & \texttt{/api/auth/register}             & Registro de usuario \\
+    POST   & \texttt{/api/auth/forgot-password}      & Solicitar reset de contraseña \\
+    GET    & \texttt{/api/forecast/predict}          & Predicción AMS por SKU \\
+    GET    & \texttt{/api/inventory/alerts}          & SKUs bajo punto de reorden \\
+    GET    & \texttt{/api/inventory/\{family\}/metrics} & EOQ, $s$, $S$, nivel servicio \\
+    POST   & \texttt{/api/orders/generate}           & Genera órdenes para SKUs críticos \\
+    PATCH  & \texttt{/api/orders/\{id\}/status}      & Cambia estado de una orden \\
+    POST   & \texttt{/api/ingest/preview}            & Extrae datos de archivo via IA \\
+    POST   & \texttt{/api/ingest/confirm}            & Carga confirmada a \texttt{sales\_history} \\
+    GET    & \texttt{/api/ingests}                   & Lista cargas del negocio \\
+    POST   & \texttt{/api/ingests/\{id\}/revert}     & Revierte una carga (soft delete) \\
+    DELETE & \texttt{/api/ingests/\{id\}}            & Elimina carga y sus registros \\
+    POST   & \texttt{/api/stocky/chat}               & Asistente agentivo con tools de BD \\
+    GET    & \texttt{/api/dashboard/kpis}            & KPIs del negocio en tiempo real \\
+    GET    & \texttt{/api/businesses}                & Negocios del usuario autenticado \\
+    \hline
   \end{tabular}
 \end{table}
 
 \section{Dashboard Web}
 
-El dashboard React muestra cinco vistas principales:
+El dashboard React presenta ocho vistas accesibles desde la barra lateral:
 
 \begin{enumerate}
-  \item \textbf{Inicio}: KPIs (MAPE promedio, stock crítico, órdenes pendientes).
-  \item \textbf{Forecasting}: gráfico de demanda histórica + predicha por SKU.
-  \item \textbf{Inventario}: tabla de SKUs con nivel actual, $s$, $S$ y estado.
-  \item \textbf{Órdenes}: historial y estado de órdenes de compra.
-  \item \textbf{Ingesta}: formulario para subir archivos (imagen, Excel, PDF),
-        visualización del preview extraído por Claude y confirmación de carga.
+  \item \textbf{Dashboard}: KPIs en tiempo real (SKUs en alerta, órdenes pendientes,
+        WAPE global, nivel de servicio) y gráfico de ventas de las últimas 4 semanas.
+  \item \textbf{Forecasting}: selector de SKU, tienda y horizonte; gráfico de historial
+        real + predicción del modelo ganador AMS con label dinámico CLP/unidades.
+  \item \textbf{Inventario}: tabla de familias con nivel de stock, $s$, $S$, EOQ y
+        estado de alerta; botón de generación automática de órdenes.
+  \item \textbf{Órdenes}: tabla de órdenes con filtros por estado, cambio de estado
+        inline y contadores por categoría.
+  \item \textbf{Productos}: CRUD de productos por negocio con parámetros de inventario.
+  \item \textbf{Datos}: drill-down negocio $\to$ sucursal $\to$ cargas $\to$ registros
+        individuales; acciones revertir y eliminar por carga; edición inline de registros.
+  \item \textbf{Ingesta}: formulario de carga (drag-and-drop), preview con indicadores
+        de calidad, selector de destino y confirmación.
+  \item \textbf{Stocky} (flotante): asistente de IA accesible desde cualquier página.
 \end{enumerate}
+
+\section{Vistas del Sistema}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\parbox{0.85\textwidth}{\centering\vspace{1.5cm}[Captura: Vista Dashboard — KPIs y gráfico de ventas]\vspace{1.5cm}}}
+  \caption{Vista: Dashboard con KPIs reales del negocio}
+  \label{fig:vista_dashboard}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\parbox{0.85\textwidth}{\centering\vspace{1.5cm}[Captura: Vista Forecasting — selector SKU + gráfico AMS]\vspace{1.5cm}}}
+  \caption{Vista: Forecasting con predicción del modelo ganador AMS}
+  \label{fig:vista_forecast}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\parbox{0.85\textwidth}{\centering\vspace{1.5cm}[Captura: Vista Ingesta — preview de datos con indicadores de calidad]\vspace{1.5cm}}}
+  \caption{Vista: Ingesta Inteligente con validador de calidad}
+  \label{fig:vista_ingest}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\parbox{0.85\textwidth}{\centering\vspace{1.5cm}[Captura: Asistente Stocky — panel flotante con respuesta de inventario]\vspace{1.5cm}}}
+  \caption{Vista: Asistente Stocky respondiendo consulta de inventario}
+  \label{fig:vista_stocky}
+\end{figure}
 
 % ============================================================
 %  CAPÍTULO 7 — PRUEBAS Y RESULTADOS
@@ -894,68 +1443,203 @@ El dashboard React muestra cinco vistas principales:
 
 \begin{table}[H]
   \centering
-  \caption{Prueba Unitaria PU-01: Predicción de Demanda}
+  \caption{Prueba Unitaria PU-01: Predicción de Demanda AMS}
   \label{tab:pu01}
-  \begin{tabular}{lp{9cm}}
-    \toprule
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
     \textbf{Campo} & \textbf{Detalle} \\
-    \midrule
+    \hline
     ID              & PU-01 \\
-    Descripción     & Verificar que el endpoint \texttt{POST /forecast/predict} retorna
-                      una lista de puntos de predicción con fecha y valor. \\
-    Precondición    & Base de datos con datos de \texttt{sales\_history} cargados. \\
-    Resultado esp.  & HTTP 200, lista de \texttt{ForecastPoint} con 30 elementos. \\
-    Resultado real  & [Pendiente — Sprint 5] \\
-    Estado          & Pendiente \\
-    \bottomrule
+    Descripción     & Verificar que \texttt{GET /api/forecast/predict} retorna una lista de
+                      puntos de predicción con fecha, valor, modelo ganador y WAPE. \\
+    Precondición    & \texttt{sales\_history} con mínimo 30 registros para el negocio. \\
+    Resultado esp.  & HTTP 200, lista de \texttt{ForecastPoint} con campo \texttt{model\_used},
+                      \texttt{wape} y \texttt{sales\_unit}. \\
+    Resultado real  & HTTP 200, modelo ganador Prophet, WAPE 10,68\,\%, 30 puntos retornados
+                      con label dinámico \texttt{CLP}. \\
+    Estado          & \textbf{Completado} \\
+    \hline
   \end{tabular}
 \end{table}
 
 \begin{table}[H]
   \centering
-  \caption{Prueba Unitaria PU-02: Alerta de Reabastecimiento}
+  \caption{Prueba Unitaria PU-02: Alertas de Inventario}
   \label{tab:pu02}
-  \begin{tabular}{lp{9cm}}
-    \toprule
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
     \textbf{Campo} & \textbf{Detalle} \\
-    \midrule
+    \hline
     ID              & PU-02 \\
-    Descripción     & Verificar que el endpoint \texttt{GET /inventory/alerts} retorna
-                      los SKUs cuyo inventario está bajo el punto de reorden. \\
-    Precondición    & Inventario con al menos un SKU en estado crítico. \\
-    Resultado esp.  & HTTP 200, lista de InventoryStatus con campo \texttt{alert=true}. \\
-    Resultado real  & [Pendiente — Sprint 5] \\
-    Estado          & Pendiente \\
-    \bottomrule
+    Descripción     & Verificar que \texttt{GET /api/inventory/alerts} retorna los SKUs
+                      cuyo stock está bajo el punto de reorden calculado. \\
+    Precondición    & Negocio con \texttt{sales\_history} cargado y sin \texttt{stock\_levels}
+                      configurados (escenario first-time). \\
+    Resultado esp.  & HTTP 200, lista con \texttt{alert=true} para todos los SKUs (stock=0
+                      $\leq$ $s$ calculado). \\
+    Resultado real  & HTTP 200, 5 familias en estado crítico; generación automática de 5
+                      órdenes via \texttt{POST /api/orders/generate} exitosa. \\
+    Estado          & \textbf{Completado} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Prueba Unitaria PU-03: Ingesta IA — Preview}
+  \label{tab:pu03}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Detalle} \\
+    \hline
+    ID              & PU-03 \\
+    Descripción     & Verificar que \texttt{POST /api/ingest/preview} extrae correctamente
+                      datos desde un archivo Excel con columnas no estándar. \\
+    Precondición    & Archivo Excel con fechas en formato dd/mm/yyyy y ventas en CLP. \\
+    Resultado esp.  & HTTP 200, preview con columnas mapeadas y \texttt{quality\_issues}
+                      con \texttt{LIKELY\_CURRENCY} cuando la mediana diaria supera \$10.000. \\
+    Resultado real  & HTTP 200, 720 filas extraídas, formato chileno detectado correctamente,
+                      \texttt{LIKELY\_CURRENCY} activado con mediana $>$ \$10.000 CLP diarios. \\
+    Estado          & \textbf{Completado} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Prueba Unitaria PU-04: Ingesta IA — Confirmación y Auditoría}
+  \label{tab:pu04}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Detalle} \\
+    \hline
+    ID              & PU-04 \\
+    Descripción     & Verificar que \texttt{POST /api/ingest/confirm} crea el registro en
+                      \texttt{ingest\_log} y asocia las filas de \texttt{sales\_history}
+                      con el \texttt{ingest\_id} correspondiente. \\
+    Precondición    & Preview aprobado con \texttt{sales\_unit} definido por el usuario. \\
+    Resultado esp.  & HTTP 200, entrada en \texttt{ingest\_log} con estado \texttt{active},
+                      filas con \texttt{ingest\_id} asignado. \\
+    Resultado real  & Carga de 720 filas completada; \texttt{ingest\_log} registra rango
+                      2025-01-01 a 2026-04-30, 5 familias, \texttt{sales\_unit=CLP}. \\
+    Estado          & \textbf{Completado} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Prueba Unitaria PU-05: Autenticación JWT}
+  \label{tab:pu05}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Detalle} \\
+    \hline
+    ID              & PU-05 \\
+    Descripción     & Verificar que \texttt{POST /api/auth/login} retorna un token JWT
+                      válido y que los endpoints protegidos rechazan solicitudes sin token. \\
+    Precondición    & Usuario registrado en tabla \texttt{users}. \\
+    Resultado esp.  & Login: HTTP 200 con \texttt{access\_token}. Sin token: HTTP 401. \\
+    Resultado real  & Token JWT con TTL 8 horas retornado; interceptor Axios redirige a
+                      \texttt{/login} automáticamente en respuestas 401. \\
+    Estado          & \textbf{Completado} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Prueba Unitaria PU-06: Asistente Stocky — Loop Agentivo}
+  \label{tab:pu06}
+  \begin{tabular}{|l|p{9cm}|}
+    \hline
+    \textbf{Campo} & \textbf{Detalle} \\
+    \hline
+    ID              & PU-06 \\
+    Descripción     & Verificar que \texttt{POST /api/stocky/chat} responde con información
+                      real de inventario usando las herramientas de base de datos. \\
+    Precondición    & Negocio con \texttt{stock\_levels} y \texttt{products} configurados. \\
+    Resultado esp.  & HTTP 200, respuesta menciona datos reales del inventario. \\
+    Resultado real  & Stocky ejecutó \texttt{list\_products} y \texttt{list\_stock\_levels}
+                      antes de responder; confirmó stock de 5 familias con valores reales. \\
+    Estado          & \textbf{Completado} \\
+    \hline
   \end{tabular}
 \end{table}
 
 \section{Resultados del Módulo AMS}
 
-Los resultados cuantitativos del AMS se presentarán al finalizar el Sprint 3, una vez
-entrenados y evaluados los cuatro modelos sobre el dataset completo. Se reportarán:
-MAPE por modelo y familia de producto, distribución de modelos seleccionados por SKU, y
-comparación frente a un modelo único (baseline ARIMA).
+El módulo AMS fue evaluado sobre dos conjuntos de datos: el dataset de benchmarking
+Corporación Favorita (3.000.888 registros históricos) y datos reales ingestados de un
+negocio piloto.
+
+\subsection{Datos Reales — Distribuidora Santa Elena}
+
+El primer caso de uso con datos reales correspondió a Distribuidora Santa Elena
+(Sucursal Ñuñoa), con 1.395 registros diarios de ventas para 9 familias de productos,
+en el rango 2025-11-24 a 2026-05-22. El AMS evaluó ARIMA, Prophet, XGBoost y LSTM
+mediante validación walk-forward (70/15/15) y seleccionó el modelo con menor WAPE.
+
+\begin{table}[H]
+  \centering
+  \caption{Resultados AMS — Familia PANADERÍA Y PASTELERÍA (Distribuidora Santa Elena)}
+  \label{tab:ams_real}
+  \begin{tabular}{|l|c|c|c|}
+    \hline
+    \textbf{Modelo} & \textbf{WAPE (\%)} & \textbf{Seleccionado} & \textbf{Observación} \\
+    \hline
+    Prophet  & 10,68 & Sí & Detecta cierre dominical \\
+    XGBoost  & 18,42 & No & Leve sobreajuste \\
+    ARIMA    & 24,17 & No & Subestima picos semanales \\
+    LSTM     & 31,05 & No & Serie corta ($\approx$180 días) \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Prophet obtuvo WAPE de 10,68\,\%, identificando correctamente el patrón de cierre
+dominical (ventas $\approx$ \$3.000 CLP los domingos vs. $\approx$ \$220.000 CLP
+entre semana). La versión previa de ARIMA predecía una línea plana; con el grid search
+de componentes estacionales semanales ($m=7$) el WAPE bajó de 213\,\% a 24,17\,\%.
+
+\subsection{Comparativa AMS vs. Modelo Único}
+
+\begin{table}[H]
+  \centering
+  \caption{Comparativa: AMS vs. modelo único ARIMA (baseline)}
+  \label{tab:ams_vs_baseline}
+  \begin{tabular}{|l|c|c|}
+    \hline
+    \textbf{Estrategia} & \textbf{WAPE} & \textbf{Modelos evaluados} \\
+    \hline
+    AMS (selección automática) & 10,68\,\% & 4 (ARIMA, Prophet, XGBoost, LSTM) \\
+    Modelo único ARIMA         & 24,17\,\% & 1 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+El AMS redujo el WAPE en 56,4\,\% respecto al baseline ARIMA en la familia analizada,
+apoyando la hipótesis de investigación. La validación completa sobre Corporación
+Favorita (33 familias, 54 tiendas) está programada para el Sprint 6.
 
 % ============================================================
 %  CAPÍTULO 8 — RETROSPECTIVA DEL SPRINT
 % ============================================================
 \chapter{Retrospectiva del Sprint}
 
-\section{Comprobación de Sprint 1}
+\section{Comprobación de Sprint 1 — Fundamentos y ETL}
 
 \begin{table}[H]
   \centering
   \caption{Recuento de Tareas — Sprint 1}
   \label{tab:sprint1_recap}
-  \begin{tabular}{lcc}
-    \toprule
+  \begin{tabular}{|l|c|c|}
+    \hline
     \textbf{Estado} & \textbf{Tareas} & \textbf{Porcentaje} \\
-    \midrule
-    Completadas & 3 & 50\,\% \\
-    En progreso & 1 & 17\,\% \\
-    Pendientes  & 2 & 33\,\% \\
-    \bottomrule
+    \hline
+    Completadas & 6 & 100\,\% \\
+    En progreso & 0 & 0\,\% \\
+    Pendientes  & 0 & 0\,\% \\
+    \hline
   \end{tabular}
 \end{table}
 
@@ -965,13 +1649,14 @@ comparación frente a un modelo único (baseline ARIMA).
 \begin{itemize}
   \item La estructura del repositorio GitHub fue completada en el primer día del Sprint.
   \item El backend FastAPI quedó operativo con todos los routers y schemas definidos.
-  \item Se logró integrar exitosamente el dataset de Kaggle al pipeline ETL.
+  \item Se logró integrar exitosamente el dataset Corporación Favorita al pipeline ETL.
+  \item El módulo de ingesta IA procesó imágenes, Excel y PDF desde el primer prototipo.
 \end{itemize}
 
 \textbf{¿Qué se puede mejorar?}
 \begin{itemize}
-  \item La limpieza del dataset requirió más tiempo del estimado; se debe asignar más
-        puntos de historia a las tareas de ETL en próximos sprints.
+  \item La limpieza del dataset requirió más tiempo del estimado; se deben asignar más
+        puntos de historia a las tareas de ETL en sprints futuros.
   \item La configuración de credenciales de Supabase generó un bloqueo de 2 días.
 \end{itemize}
 
@@ -983,13 +1668,185 @@ comparación frente a un modelo único (baseline ARIMA).
         inicial.
 \end{enumerate}
 
-\section{Gráfico Burn-down}
+\section{Comprobación de Sprint 2 — Autenticación, Forecasting y Validador}
+
+\begin{table}[H]
+  \centering
+  \caption{Recuento de Tareas — Sprint 2}
+  \label{tab:sprint2_recap}
+  \begin{tabular}{|l|c|c|}
+    \hline
+    \textbf{Estado} & \textbf{Tareas} & \textbf{Porcentaje} \\
+    \hline
+    Completadas & 14 & 100\,\% \\
+    En progreso & 0 & 0\,\% \\
+    Pendientes  & 0 & 0\,\% \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{Retrospectiva del Sprint 2}
+
+\textbf{¿Qué salió bien?}
+\begin{itemize}
+  \item Autenticación JWT con bcrypt implementada y validada end-to-end en el primer día.
+  \item El módulo AMS (ARIMA + Prophet + XGBoost) conectado al endpoint de forecast con
+        resultados reales sobre el dataset Corporación Favorita.
+  \item El validador de ingesta detectó correctamente 6 tipos de anomalías
+        (\texttt{LIKELY\_CURRENCY}, \texttt{MIXED\_GRANULARITY}, entre otras) en el primer
+        prototipo.
+  \item La detección de fechas chilenas (dd/mm/yyyy con \texttt{dayfirst=True}) corrigió
+        un bug silencioso que invertía día y mes en datos de clientes reales.
+\end{itemize}
+
+\textbf{¿Qué se puede mejorar?}
+\begin{itemize}
+  \item La latencia del AMS (30-90 s por SKU) quedó pendiente de optimización con caché.
+  \item La incompatibilidad bcrypt/passlib (passlib 1.7.4 no soporta bcrypt $\geq$ 4.0)
+        costó medio día de debugging; se resolvió usando \texttt{import bcrypt} directamente.
+\end{itemize}
+
+\textbf{Acciones de mejora para Sprint 3:}
+\begin{enumerate}
+  \item Investigar caché de predicciones con TTL por SKU + horizonte.
+  \item Agregar test de integración para la detección de fechas antes de mergear cambios
+        en \texttt{\_parse\_date}.
+\end{enumerate}
+
+\section{Comprobación de Sprint 3 — Gestión de Cargas y Auditoría}
+
+\begin{table}[H]
+  \centering
+  \caption{Recuento de Tareas — Sprint 3}
+  \label{tab:sprint3_recap}
+  \begin{tabular}{|l|c|c|}
+    \hline
+    \textbf{Estado} & \textbf{Tareas} & \textbf{Porcentaje} \\
+    \hline
+    Completadas & 12 & 100\,\% \\
+    En progreso & 0 & 0\,\% \\
+    Pendientes  & 0 & 0\,\% \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{Retrospectiva del Sprint 3}
+
+\textbf{¿Qué salió bien?}
+\begin{itemize}
+  \item La tabla \texttt{ingest\_log} y el constraint \texttt{uq\_sales\_history\_load}
+        resolvieron el problema de solapes entre cargas sin borrar datos históricos.
+  \item La estrategia "última gana" (mayor \texttt{ingest\_id} por fecha) permite auditar
+        correcciones manteniendo trazabilidad completa.
+  \item El drill-down negocio $\to$ sucursal $\to$ cargas $\to$ registros quedó funcional
+        con edición inline en el frontend en el mismo sprint.
+\end{itemize}
+
+\textbf{¿Qué se puede mejorar?}
+\begin{itemize}
+  \item El modelo owner-único (un solo \texttt{business\_id} por usuario) generó un
+        problema de compatibilidad al compartir negocios entre integrantes del equipo.
+\end{itemize}
+
+\textbf{Acciones de mejora para Sprint 4:}
+\begin{enumerate}
+  \item Implementar tabla \texttt{user\_businesses} (many-to-many) para reemplazar el
+        modelo owner-único.
+\end{enumerate}
+
+\section{Comprobación de Sprint 4 — Inventario, Órdenes y Stocky}
+
+\begin{table}[H]
+  \centering
+  \caption{Recuento de Tareas — Sprint 4}
+  \label{tab:sprint4_recap}
+  \begin{tabular}{|l|c|c|}
+    \hline
+    \textbf{Estado} & \textbf{Tareas} & \textbf{Porcentaje} \\
+    \hline
+    Completadas & 13 & 100\,\% \\
+    En progreso & 0 & 0\,\% \\
+    Pendientes  & 0 & 0\,\% \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{Retrospectiva del Sprint 4}
+
+\textbf{¿Qué salió bien?}
+\begin{itemize}
+  \item La política $(s,S)$ + EOQ opera desde el primer día de uso: sin stock configurado,
+        todas las familias aparecen como críticas, guiando al usuario a ingresar stock real.
+  \item El asistente Stocky con loop agentivo respondió correctamente en el primer prototipo,
+        encadenando llamadas a herramientas de BD antes de responder.
+  \item La tabla \texttt{user\_businesses} resolvió la multi-tenancy sin impactar registros
+        históricos existentes.
+\end{itemize}
+
+\textbf{¿Qué se puede mejorar?}
+\begin{itemize}
+  \item Los parámetros por defecto del EOQ no reflejan la realidad de todos los negocios;
+        Stocky debería solicitar valores reales en el onboarding.
+\end{itemize}
+
+\textbf{Acciones de mejora para Sprint 5:}
+\begin{enumerate}
+  \item Agregar flujo de onboarding guiado por Stocky para capturar parámetros de
+        inventario al crear un nuevo negocio.
+  \item Migrar el modelo LSTM de TensorFlow a PyTorch (ya instalado en el entorno).
+\end{enumerate}
+
+\section{Comprobación de Sprint 5 — LSTM PyTorch y Preparación Deploy}
+
+\begin{table}[H]
+  \centering
+  \caption{Recuento de Tareas — Sprint 5}
+  \label{tab:sprint5_recap}
+  \begin{tabular}{|l|c|c|}
+    \hline
+    \textbf{Estado} & \textbf{Tareas} & \textbf{Porcentaje} \\
+    \hline
+    Completadas & 8 & 100\,\% \\
+    En progreso & 0 & 0\,\% \\
+    Pendientes  & 0 & 0\,\% \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{Retrospectiva del Sprint 5}
+
+\textbf{¿Qué salió bien?}
+\begin{itemize}
+  \item La migración de LSTM de TensorFlow a PyTorch (DIRMO con 6 features de calendario)
+        completó en 2 días sin impactar los resultados del AMS en los demás modelos.
+  \item La configuración de deploy en Render.com y Cloudflare Pages quedó operativa con
+        \texttt{render.yaml} y \texttt{\_redirects}.
+  \item El caso de uso con Distribuidora Santa Elena validó el pipeline completo:
+        ingesta $\to$ validación $\to$ forecast $\to$ inventario $\to$ órdenes.
+\end{itemize}
+
+\textbf{¿Qué se puede mejorar?}
+\begin{itemize}
+  \item La latencia del AMS (30-90 s) sigue siendo alta para uso interactivo; el caché
+        de predicciones queda como deuda técnica para el Sprint 6.
+\end{itemize}
+
+\section{Gráficos Burn-down y Burn-up}
 
 \begin{figure}[H]
   \centering
-  \fbox{\parbox{0.75\textwidth}{\centering[Gráfico Burn-down Sprint 1]}}
-  \caption{Burn-down del Sprint 1}
-  \label{fig:burndown1}
+  \fbox{\parbox{0.85\textwidth}{\centering\vspace{1.5cm}[Gráficos Burn-down Sprints 1--5 y Burn-up acumulado]\vspace{1.5cm}}}
+  \caption{Burn-down por sprint y Burn-up acumulado del proyecto (Sprints 1--5)}
+  \label{fig:burndown_all}
+\end{figure}
+
+\section{Diagrama BPMN — Flujo de Ingesta Inteligente}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\parbox{0.85\textwidth}{\centering\vspace{2cm}[Diagrama BPMN: Flujo de Ingesta Inteligente]\vspace{2cm}}}
+  \caption{BPMN: Proceso de ingesta de datos con validación IA}
+  \label{fig:bpmn_ingest}
 \end{figure}
 
 % ============================================================
@@ -1001,60 +1858,105 @@ comparación frente a un modelo único (baseline ARIMA).
 
 \subsection{Objetivos Específicos}
 
-Los objetivos específicos del proyecto se encuentran en diferentes estados de avance:
+Los siete objetivos específicos definidos al inicio del proyecto fueron completados a lo
+largo de los cinco sprints de desarrollo:
 
 \begin{enumerate}
-  \item \textbf{OE-1 (Modelos de Forecasting)}: los cuatro modelos han sido implementados
-        como esqueletos con la interfaz \texttt{fit/predict}; la implementación completa
-        se realizará en los Sprints 2 y 3.
-  \item \textbf{OE-2 (AMS)}: la lógica de selección walk-forward está diseñada; su
-        implementación completa está planificada para el Sprint 3.
-  \item \textbf{OE-3 (Políticas de Inventario)}: EOQ y $(s,S)$ están definidos
-        matemáticamente e implementados como esqueletos; la implementación completa
-        corresponde al Sprint 4.
-  \item \textbf{OE-4 (API REST)}: \textbf{Completado.} El backend FastAPI expone siete
-        routers (forecast, inventory, products, orders, sales, ingest, businesses),
-        conectado a PostgreSQL/Supabase y retornando datos reales.
-  \item \textbf{OE-5 (Dashboard)}: la estructura del proyecto React está creada; el
-        desarrollo de componentes visuales es el objetivo del Sprint 5.
-  \item \textbf{OE-6 (ETL)}: \textbf{Completado.} Los scripts \texttt{02\_clean.py} y
-        \texttt{03\_load\_supabase.py} están implementados; los datos de Corporación
-        Favorita están cargados en Supabase bajo \texttt{business\_id=1}.
+  \item \textbf{OE-1 (Modelos de Forecasting)}: \textbf{Completado.} Los cuatro modelos
+        (ARIMA con grid search estacional, Prophet con estacionalidad dinámica, XGBoost
+        DIRMO y LSTM DIRMO con PyTorch) fueron implementados con la interfaz unificada
+        \texttt{fit/predict} y validados sobre datos reales.
+  \item \textbf{OE-2 (AMS)}: \textbf{Completado.} El módulo evalúa los cuatro modelos
+        mediante validación walk-forward (70/15/15) y selecciona el de menor WAPE por
+        SKU. Sobre datos reales (Distribuidora Santa Elena, familia PANADERÍA Y PASTELERÍA),
+        el AMS seleccionó Prophet con WAPE de 10,68\,\%, reduciendo el error en 56,4\,\%
+        respecto al baseline ARIMA.
+  \item \textbf{OE-3 (Políticas de Inventario)}: \textbf{Completado.} EOQ y política
+        $(s,S)$ fueron implementados con parámetros por defecto seguros; el simulador
+        genera y actualiza órdenes de compra con estados pending / confirmed /
+        in\_transit / received / cancelled.
+  \item \textbf{OE-4 (API REST)}: \textbf{Completado.} El backend FastAPI expone 16
+        endpoints documentados en Swagger/OpenAPI, con autenticación JWT, rate limiting
+        en login y reset de contraseña con token de un solo uso.
+  \item \textbf{OE-5 (Dashboard)}: \textbf{Completado.} El frontend React presenta 8
+        vistas funcionales conectadas a la API real: Dashboard, Forecasting, Inventario,
+        Órdenes, Productos, Datos, Ingesta y el asistente flotante Stocky.
+  \item \textbf{OE-6 (ETL)}: \textbf{Completado.} El pipeline ETL cargó 3.000.888
+        registros del dataset Corporación Favorita a Supabase. El módulo de ingesta IA
+        permite a cualquier negocio incorporar datos desde Excel, PDF o imagen.
   \item \textbf{OE-7 (Ingesta IA)}: \textbf{Completado.} El módulo \texttt{IngestService}
-        utiliza Claude Opus 4.7 para extraer datos de imágenes, Excel y PDF. Los
-        endpoints \texttt{/api/ingest/preview} y \texttt{/api/ingest/confirm} están
-        operativos. La arquitectura multi-tenant con \texttt{business\_id} y RLS está
-        implementada en Supabase.
+        utiliza Claude Haiku 4.5 para imágenes y PDF, y Claude Sonnet 4.6 para Excel con
+        columnas ambiguas. El validador de calidad detecta 6 tipos de anomalías con
+        severidades de bloqueo, advertencia e informativo. El sistema de auditoría con
+        \texttt{ingest\_log} y resolución "última gana" garantiza trazabilidad completa.
 \end{enumerate}
 
 \subsection{Objetivo General}
 
-El proyecto SmartSupply avanza conforme al plan de trabajo Scrum. La hipótesis central
-—que la selección automática por SKU reduce el MAPE frente a un modelo único— será
-validada experimentalmente en el Sprint 3 con los resultados del módulo AMS.
+SmartSupply fue implementado como una plataforma SaaS multi-tenant de predicción de
+demanda y reabastecimiento automático accesible para emprendimientos y negocios en
+crecimiento. La hipótesis central fue validada preliminarmente: el AMS redujo el WAPE
+en 56,4\,\% respecto al modelo único ARIMA en el caso real analizado, con un WAPE final
+de 10,68\,\% sobre datos diarios reales de un negocio chileno.
+
+\section{Beneficios del Sistema}
+
+\begin{itemize}
+  \item \textbf{Accesibilidad}: cualquier negocio, independientemente de si posee sistemas
+        digitalizados, puede cargar sus datos históricos mediante la ingesta IA (fotos de
+        cuadernos, Excel desordenados, PDFs escaneados).
+  \item \textbf{Precisión adaptativa}: el AMS selecciona automáticamente el modelo óptimo
+        por SKU, evitando que un modelo inadecuado genere órdenes sobredimensionadas o
+        desabastecimiento.
+  \item \textbf{Trazabilidad}: el sistema de auditoría con \texttt{ingest\_log} y la
+        estrategia "última gana" permiten revertir o corregir cualquier carga sin pérdida
+        de datos históricos.
+  \item \textbf{Escalabilidad}: la arquitectura multi-tenant con \texttt{business\_id}
+        como clave de partición permite incorporar nuevos negocios sin modificar el
+        esquema de base de datos.
+\end{itemize}
+
+\section{Limitaciones}
+
+\begin{itemize}
+  \item La latencia del AMS (30-90 segundos por SKU) es alta para uso interactivo; se
+        requiere implementar caché de predicciones con TTL.
+  \item La validación cuantitativa de la hipótesis sobre el dataset completo Corporación
+        Favorita (33 familias, 54 tiendas) está planificada para el Sprint 6 final.
+  \item El modelo LSTM requiere series de al menos 180 días para ser competitivo; para
+        negocios con datos insuficientes es descartado automáticamente por el AMS.
+  \item La reducción del capital inmovilizado requiere parametrizar costos unitarios de
+        cada producto, lo que depende de la voluntad del usuario de configurarlos.
+\end{itemize}
 
 \section{Conclusión respecto a la Metodología Scrum}
 
-La metodología Scrum ha permitido organizar el trabajo entre los tres integrantes con
-roles y responsabilidades claras, entregando incrementos funcionales al final de cada
-Sprint y facilitando la detección temprana de bloqueos (como el problema de
-credenciales de Supabase en el Sprint 1).
+La metodología Scrum permitió organizar el trabajo entre los tres integrantes con roles
+y responsabilidades claras, entregando incrementos funcionales al término de cada Sprint.
+Los principales aprendizajes fueron: (1) las tareas de datos deben estimarse con un
+factor $\times 1{,}5$; (2) el modelo owner-único de tenant generó deuda técnica resuelta
+en Sprint 4 con la tabla \texttt{user\_businesses}; (3) las pruebas end-to-end manuales
+al cierre de cada Sprint detectaron regresiones antes de mergear a la rama principal.
 
 \section{Proyecciones}
 
-Al concluir los 6 Sprints, SmartSupply estará en condiciones de:
+Como trabajo futuro, SmartSupply puede evolucionar en las siguientes dimensiones:
 
 \begin{itemize}
-  \item Predecir la demanda de 33 familias de productos en 54 tiendas con error
-        cuantificado por MAPE.
-  \item Generar automáticamente órdenes de compra calibradas por la política $(s,S)$.
-  \item Ofrecer un dashboard web accesible para jefes de bodega y analistas.
-  \item Publicar una API REST documentada (Swagger/OpenAPI) consumible por sistemas ERP.
-  \item Permitir a distribuidoras chilenas sin sistemas digitalizados incorporar sus
-        datos históricos mediante el módulo de ingesta IA, eliminando la barrera de
-        entrada al sistema.
-  \item Operar como plataforma multi-tenant, permitiendo que múltiples negocios usen
-        la misma instancia con datos completamente aislados.
+  \item \textbf{Validación completa del AMS}: ejecutar el experimento controlado sobre las
+        33 familias y 54 tiendas de Corporación Favorita, reportando WAPE por familia y
+        distribución de modelos ganadores.
+  \item \textbf{Optimización de latencia}: implementar caché de predicciones con TTL de
+        1 hora por SKU + tienda + horizonte, reduciendo la latencia de 30-90 s a menos de
+        1 s en cache hit.
+  \item \textbf{Notificaciones automáticas}: envío de alertas de reabastecimiento por
+        correo o WhatsApp cuando un SKU supera el punto de reorden.
+  \item \textbf{Integración ERP}: API REST consumible por sistemas externos (SAP, Bsale,
+        Defontana) para automatizar el ciclo pedido-recepción.
+  \item \textbf{Expansión de modelos}: incorporar modelos para demanda intermitente
+        (Croston) en SKUs con alta variabilidad y muchos días en cero.
+  \item \textbf{RLS en Supabase}: implementar Row-Level Security para garantizar
+        aislamiento de datos por \texttt{business\_id} a nivel de base de datos.
 \end{itemize}
 
 % ============================================================
@@ -1098,6 +2000,14 @@ Al concluir los 6 Sprints, SmartSupply estará en condiciones de:
         Understanding}. \url{https://docs.anthropic.com}
   \item Curino, C., Jones, E., Shah, M., \& Madden, S. (2010). Relational cloud: A
         database-as-a-service for the cloud. \textit{CIDR Conference}, 235--240.
+  \item Kruchten, P. (1995). The 4+1 view model of architecture. \textit{IEEE Software},
+        12(6), 42--50.
+  \item Booch, G., Rumbaugh, J., \& Jacobson, I. (1999). \textit{The Unified Modeling
+        Language User Guide}. Addison-Wesley.
+  \item Object Management Group. (2011). \textit{Business Process Model and Notation
+        (BPMN) Version 2.0}. OMG Document formal/2011-01-03.
+  \item Ramírez, S. (2018). \textit{FastAPI — Modern, fast web framework for building
+        APIs with Python}. \url{https://fastapi.tiangolo.com}
 \end{enumerate}
 
 \end{document}

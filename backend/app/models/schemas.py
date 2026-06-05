@@ -237,6 +237,7 @@ class IngestRecord(BaseModel):
     family: str
     sales: float
     onpromotion: int = 0
+    revenue: Optional[float] = None
 
 
 class QualityIssue(BaseModel):

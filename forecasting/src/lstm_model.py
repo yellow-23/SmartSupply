@@ -6,8 +6,15 @@ try:
     import torch.nn as nn
     import torch.utils.data as data_utils
     _TORCH_AVAILABLE = True
+    if torch.backends.mps.is_available():
+        _DEVICE = torch.device("mps")
+    elif torch.cuda.is_available():
+        _DEVICE = torch.device("cuda")
+    else:
+        _DEVICE = torch.device("cpu")
 except ImportError:
     _TORCH_AVAILABLE = False
+    _DEVICE = None
 
 
 # Feriados fijos chilenos como conjunto MM-DD (igual que xgboost_model)
@@ -64,11 +71,12 @@ class LSTMModel:
     """
 
     MAX_HORIZON = 90
-    HIDDEN_SIZE = 64
-    NUM_LAYERS  = 2
+    HIDDEN_SIZE = 32
+    NUM_LAYERS  = 1
     LR          = 5e-3
     WEIGHT_DECAY = 1e-4
-    BATCH_SIZE  = 32
+    BATCH_SIZE  = 64
+    EARLY_STOP_PATIENCE = 5
     N_FEATURES  = 6   # [sales, dow_sin, dow_cos, month_sin, month_cos, is_holiday]
     MIN_SERIES_LEN = 91
 
@@ -153,7 +161,10 @@ class LSTMModel:
             hidden_size  = self.HIDDEN_SIZE,
             num_layers   = self.NUM_LAYERS,
             output_size  = self._effective_horizon,
-        )
+        ).to(_DEVICE)
+
+        X_t = X_t.to(_DEVICE)
+        y_t = y_t.to(_DEVICE)
 
         optimizer = torch.optim.Adam(
             self._net.parameters(), lr=self.LR, weight_decay=self.WEIGHT_DECAY
@@ -165,8 +176,11 @@ class LSTMModel:
             shuffle=True,
         )
 
+        best_loss = float("inf")
+        no_improve = 0
         self._net.train()
         for _ in range(epochs):
+            epoch_loss = 0.0
             for xb, yb in loader:
                 pred = self._net(xb)
                 loss = loss_fn(pred, yb)
@@ -174,15 +188,23 @@ class LSTMModel:
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self._net.parameters(), 1.0)
                 optimizer.step()
+                epoch_loss += loss.item()
+            if epoch_loss < best_loss - 1e-4:
+                best_loss = epoch_loss
+                no_improve = 0
+            else:
+                no_improve += 1
+                if no_improve >= self.EARLY_STOP_PATIENCE:
+                    break
         self._net.eval()
 
     def predict(self, horizon: int) -> pd.Series:
         if self._net is None:
             raise RuntimeError("Llama a fit() antes de predict()")
 
-        tail = torch.tensor(self._tail_features[np.newaxis])  # (1, seq_len, 6)
+        tail = torch.tensor(self._tail_features[np.newaxis]).to(_DEVICE)  # (1, seq_len, 6)
         with torch.no_grad():
-            raw = self._net(tail)[0].numpy()  # (effective_horizon,)
+            raw = self._net(tail)[0].cpu().numpy()  # (effective_horizon,)
 
         # Denormalizar y recortar a [horizon] pasos
         n_use = min(horizon, self._effective_horizon)

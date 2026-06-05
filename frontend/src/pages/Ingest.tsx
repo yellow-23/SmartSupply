@@ -62,9 +62,9 @@ export default function Ingest() {
       setPreview(data);
       setStep("preview");
       setChatMessages([]);
-      // Si el validador detectó CLP, forzar elección explícita del usuario (salesUnit queda null)
-      // Si no hay ambigüedad, pre-setear 'units' para no bloquear el flujo
-      setSalesUnit(data.sales_unit_detected === "CLP" ? null : "units");
+      // Si el archivo tiene ambas columnas (unidades + revenue CLP), siempre 'units'
+      const hasBothCols = data.records.some((r: IngestRecord) => r.revenue != null);
+      setSalesUnit(hasBothCols ? "units" : data.sales_unit_detected === "CLP" ? null : "units");
     },
   });
 
@@ -162,6 +162,7 @@ export default function Ingest() {
 
   const previewError = previewMut.error as any;
   const confirmError = confirmMut.error as any;
+  const hasBothCols = preview?.records.some(r => r.revenue != null) ?? false;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -372,30 +373,40 @@ export default function Ingest() {
           )}
 
           {(!preview.data_type || preview.data_type === "sales") && (
-            <div className={`rounded-2xl border px-5 py-4 space-y-3 ${salesUnit === null ? "bg-amber-50 border-amber-300" : "bg-white border-gray-100"}`}>
-              <p className="text-sm font-semibold text-gray-800">
-                ¿Qué representan los valores de ventas en este archivo?
-              </p>
-              {salesUnit === null && (
-                <p className="text-xs text-amber-700 font-medium">
-                  Stocky detectó que los valores parecen ser montos en pesos. Confirma el tipo antes de cargar.
-                </p>
-              )}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setSalesUnit("units")}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${salesUnit === "units" ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
-                >
-                  Unidades vendidas
-                </button>
-                <button
-                  onClick={() => setSalesUnit("CLP")}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${salesUnit === "CLP" ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
-                >
-                  Monto en pesos (CLP)
-                </button>
+            hasBothCols ? (
+              <div className="rounded-2xl border border-green-200 bg-green-50 px-5 py-4 flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-green-800">Unidades y monto CLP detectados automáticamente</p>
+                  <p className="text-xs text-green-600 mt-0.5">Se guardarán ambas columnas: unidades vendidas y total en pesos.</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className={`rounded-2xl border px-5 py-4 space-y-3 ${salesUnit === null ? "bg-amber-50 border-amber-300" : "bg-white border-gray-100"}`}>
+                <p className="text-sm font-semibold text-gray-800">
+                  ¿Qué representan los valores de ventas en este archivo?
+                </p>
+                {salesUnit === null && (
+                  <p className="text-xs text-amber-700 font-medium">
+                    Stocky detectó que los valores parecen ser montos en pesos. Confirma el tipo antes de cargar.
+                  </p>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setSalesUnit("units")}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${salesUnit === "units" ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+                  >
+                    Unidades vendidas
+                  </button>
+                  <button
+                    onClick={() => setSalesUnit("CLP")}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${salesUnit === "CLP" ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+                  >
+                    Monto en pesos (CLP)
+                  </button>
+                </div>
+              </div>
+            )
           )}
           {preview.data_type === "products" && (
             <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4">
@@ -477,19 +488,23 @@ export default function Ingest() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    {["Fecha", "Familia", "Ventas", "Promo"].map(h => (
+                    {["Fecha", "Familia", "Unidades", hasBothCols ? "Monto (CLP)" : "Promo"].map(h => (
                       <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {preview.records.map((r, i) => (
+                  {preview.records.slice(0, 10).map((r, i) => (
                     <tr key={i} className="hover:bg-gray-50">
                       <td className="px-6 py-3 font-medium text-gray-700">{r.date}</td>
                       <td className="px-6 py-3 text-gray-600">{r.family}</td>
                       <td className="px-6 py-3 font-semibold text-gray-800">{r.sales.toLocaleString("es-CL")}</td>
                       <td className="px-6 py-3">
-                        {r.onpromotion ? (
+                        {hasBothCols ? (
+                          r.revenue != null
+                            ? <span className="font-medium text-gray-700">${r.revenue.toLocaleString("es-CL")}</span>
+                            : <span className="text-[10px] text-gray-300">—</span>
+                        ) : r.onpromotion ? (
                           <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-bold uppercase tracking-tighter">Sí</span>
                         ) : (
                           <span className="text-[10px] text-gray-300">—</span>
@@ -500,6 +515,11 @@ export default function Ingest() {
                 </tbody>
               </table>
             </div>
+            {preview.records.length > 10 && (
+              <p className="text-xs text-gray-400 mt-2 text-center">
+                Mostrando 10 de {preview.records_found.toLocaleString("es-CL")} registros
+              </p>
+            )}
           </div>
         </div>
       )}

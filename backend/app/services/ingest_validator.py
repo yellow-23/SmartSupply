@@ -80,16 +80,16 @@ def validate_ingest_records(records: Iterable[IngestRecord]) -> list[QualityIssu
         min_gap = min(gaps)
         max_gap = max(gaps)
 
-        # Granularidad inconsistente: el caso del Excel salame
+        # Granularidad inconsistente
         if max_gap > 7 and (max_gap / max(min_gap, 1)) > MIXED_GAP_RATIO:
             issues.append(QualityIssue(
-                severity="error",
+                severity="warning",
                 code="MIXED_GRANULARITY",
                 family=family,
                 message=(
                     f"{family}: granularidad inconsistente (gaps entre {min_gap} y {max_gap} dias). "
-                    f"Probablemente mezclas datos diarios con totales mensuales. "
-                    f"Sube un solo tipo a la vez."
+                    f"Puede haber dias sin venta mezclados con periodos sin registro. "
+                    f"Se cargara igual — los modelos usaran los datos disponibles."
                 ),
             ))
         elif median_gap >= MONTHLY_GAP_DAYS:

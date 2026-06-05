@@ -189,6 +189,7 @@ class ForecastService:
                 horizon=horizon_days,
                 series=series,
                 save_plot=False,
+                include_lstm=False,
             )
             model_used = result["Modelo_Elegido"].lower()
             wape_used = result["WAPE"]

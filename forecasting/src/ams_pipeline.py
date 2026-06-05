@@ -117,6 +117,7 @@ def run_ams_pipeline(
     cv: bool = False,
     series: pd.Series | None = None,
     save_plot: bool = True,
+    include_lstm: bool = False,
 ) -> dict:
     """
     Pipeline completo: ETL → AMS → Inventario → Gráfico.
@@ -156,7 +157,7 @@ def run_ams_pipeline(
     # ── 2. AMS ─────────────────────────────────────────────────────────────
     cv_label = "walk-forward CV" if cv else "split único 70/15/15"
     print(f"\n[2/3] Ejecutando AMS  (ARIMA · Prophet · XGBoost · LSTM) — {cv_label}...")
-    ams = AutoModelSelector(horizon=horizon, cv=cv)
+    ams = AutoModelSelector(horizon=horizon, cv=cv, include_lstm=include_lstm)
     result = ams.select(series, sku_id=sku_id)
 
     wapes_display = result['wapes_cv'] if cv and result['wapes_cv'] else result['wapes_all']

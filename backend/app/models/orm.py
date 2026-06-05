@@ -38,6 +38,7 @@ class SalesHistory(Base):
     store_nbr = Column(Integer, nullable=False, index=True)
     family = Column(String, nullable=False, index=True)
     sales = Column(Float, nullable=False)
+    revenue = Column(Float, nullable=True)
     onpromotion = Column(Integer, default=0)
     sales_unit = Column(String(10), nullable=False, default="units")  # 'units' | 'CLP'
     ingest_id = Column(Integer, ForeignKey("ingest_log.id"), nullable=True, index=True)
