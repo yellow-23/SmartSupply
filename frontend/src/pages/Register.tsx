@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { BarChart3, Eye, EyeOff, TrendingUp, Package, Zap, Loader2 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axios.instance";
 import { useAuthStore } from "../store/authStore";
 
 export default function Register() {
@@ -20,7 +20,7 @@ export default function Register() {
     setError(null);
     setIsLoading(true);
     try {
-      const { data } = await axios.post("/api/auth/register", {
+      const { data } = await api.post("/auth/register", {
         name: formData.name,
         email: formData.email,
         password: formData.password,
