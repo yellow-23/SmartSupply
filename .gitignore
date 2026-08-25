@@ -24,6 +24,7 @@ forecasting/models/*.h5
 # Node / Frontend
 node_modules/
 dist/
+.wrangler/
 .DS_Store
 
 # Jupyter
