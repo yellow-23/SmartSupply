@@ -50,6 +50,16 @@ def get_business_wapes(business_id: int) -> list[float]:
         return [v for (bid, _, _), v in _wape_cache.items() if bid == business_id]
 
 
+def invalidate_business_cache(business_id: int) -> None:
+    """Descarta forecasts y WAPEs cacheados de un negocio. Llamar tras ingest/revert/delete/edit de sales_history."""
+    prefix = f"{business_id}|"
+    with _cache_lock:
+        for key in [k for k in _cache if k.startswith(prefix)]:
+            del _cache[key]
+        for wape_key in [k for k in _wape_cache if k[0] == business_id]:
+            del _wape_cache[wape_key]
+
+
 class InsufficientDataError(Exception):
     """Se levanta cuando la serie no tiene los 90 días mínimos para el AMS."""
 

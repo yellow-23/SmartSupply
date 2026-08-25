@@ -15,6 +15,7 @@ from app.models.schemas import (
     SalesSummaryItem,
     StoreResponse,
 )
+from app.services.forecast_service import invalidate_business_cache
 
 router = APIRouter()
 
@@ -167,6 +168,7 @@ def update_record(
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(rec, field, value)
     db.commit()
+    invalidate_business_cache(rec.business_id)
     db.refresh(rec)
     return rec
 
@@ -182,5 +184,7 @@ def delete_record(
     if not rec:
         raise HTTPException(status_code=404, detail=f"Registro {record_id} no encontrado")
     _assert_record_owner(db, rec, current_user)
+    business_id = rec.business_id
     db.delete(rec)
     db.commit()
+    invalidate_business_cache(business_id)

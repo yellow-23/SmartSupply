@@ -20,6 +20,7 @@ from app.services.ingest_service import (
     IngestService,
 )
 from app.services.ingest_validator import filter_loadable_records
+from app.services.forecast_service import invalidate_business_cache
 
 router = APIRouter()
 service = IngestService()
@@ -212,6 +213,7 @@ def confirm_ingest(
             ))
 
     db.commit()
+    invalidate_business_cache(body.business_id)
 
     return IngestResponse(
         store_nbr=body.store_nbr,

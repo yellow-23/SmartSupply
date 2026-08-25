@@ -11,6 +11,7 @@ from app.api.auth import get_current_user
 from app.database import get_db
 from app.models.orm import Business, IngestLog, SalesHistory, User, UserBusiness
 from app.models.schemas import IngestLogResponse, SalesRecordResponse
+from app.services.forecast_service import invalidate_business_cache
 
 router = APIRouter()
 
@@ -80,6 +81,7 @@ def revert_ingest(
     _assert_owner(db, log.business_id, current_user)
     log.status = "reverted"
     db.commit()
+    invalidate_business_cache(log.business_id)
     db.refresh(log)
     item = IngestLogResponse.model_validate(log)
     item.uploader_name = (db.query(User).filter(User.id == log.user_id).first() or User()).name
@@ -100,3 +102,4 @@ def delete_ingest(
     db.query(SalesHistory).filter(SalesHistory.ingest_id == ingest_id).delete()
     db.delete(log)
     db.commit()
+    invalidate_business_cache(log.business_id)
