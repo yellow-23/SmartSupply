@@ -9,7 +9,7 @@ from app.api.auth import get_current_user
 from app.database import get_db
 from app.models.orm import IngestLog, PurchaseOrder, SalesHistory, StockLevel, User
 from app.models.schemas import DashboardChartPoint, DashboardKPIs
-from app.services.forecast_service import get_business_wapes
+from app.services.forecast_service import get_business_cached_forecasts, get_business_wapes
 
 router = APIRouter()
 
@@ -101,7 +101,7 @@ def get_chart_data(
         .all()
     )
 
-    return [
+    points = [
         DashboardChartPoint(
             date=row.date.strftime("%d %b"),
             real=round(row.real, 1),
@@ -109,3 +109,23 @@ def get_chart_data(
         )
         for row in rows
     ]
+
+    # Suma la prediccion cacheada por dia entre los SKUs para los que el usuario
+    # ya corrio un forecast (pagina Forecast). Si no hay ninguno, no se agrega nada.
+    forecast_by_date: dict = {}
+    for cached in get_business_cached_forecasts(bid):
+        for point in cached.predictions:
+            if point.date > max_date:
+                forecast_by_date[point.date] = forecast_by_date.get(point.date, 0.0) + point.predicted_sales
+
+    if forecast_by_date and points:
+        points[-1].forecast = points[-1].real  # conecta la linea punteada con el historico
+
+    for d in sorted(forecast_by_date):
+        points.append(DashboardChartPoint(
+            date=d.strftime("%d %b"),
+            real=None,
+            forecast=round(forecast_by_date[d], 1),
+        ))
+
+    return points

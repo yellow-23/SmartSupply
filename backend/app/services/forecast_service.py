@@ -50,6 +50,20 @@ def get_business_wapes(business_id: int) -> list[float]:
         return [v for (bid, _, _), v in _wape_cache.items() if bid == business_id]
 
 
+def get_business_cached_forecasts(business_id: int) -> list:
+    """Devuelve el forecast cacheado mas reciente por SKU (sku_id, store_nbr) de un negocio.
+    Vacio si el usuario aun no corrio ningun forecast (se llena al usar la pagina Forecast)."""
+    prefix = f"{business_id}|"
+    with _cache_lock:
+        entries = [v for k, v in _cache.items() if k.startswith(prefix)]
+    latest: dict[tuple, object] = {}
+    for response, _ts in entries:
+        sku_key = (response.sku_id, response.store_nbr)
+        if sku_key not in latest or response.generated_at > latest[sku_key].generated_at:
+            latest[sku_key] = response
+    return list(latest.values())
+
+
 def invalidate_business_cache(business_id: int) -> None:
     """Descarta forecasts y WAPEs cacheados de un negocio. Llamar tras ingest/revert/delete/edit de sales_history."""
     prefix = f"{business_id}|"
