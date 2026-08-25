@@ -153,8 +153,6 @@ JWT_EXPIRE_HOURS=8
 - **`purchase_orders`**: `(id, business_id, store_nbr, family, quantity, trigger_stock, reorder_point_s, order_up_to_S, policy_used, status, created_at, expected_delivery, received_at)`
 - **`password_reset_tokens`**: `(id, user_id, token, expires_at, used)`
 - **`stores`**: `(store_nbr, city, state, type, cluster)`
-- **`oil_prices`**: `(date, dcoilwtico)`
-- **`holidays`**: `(date, type, locale, locale_name, description, transferred)`
 
 ## Notas importantes de infraestructura
 

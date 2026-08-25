@@ -63,25 +63,6 @@ class Store(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class OilPrice(Base):
-    __tablename__ = "oil_prices"
-
-    date = Column(Date, primary_key=True)
-    dcoilwtico = Column(Float)
-
-
-class Holiday(Base):
-    __tablename__ = "holidays"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    date = Column(Date, nullable=False)
-    type = Column(String)
-    locale = Column(String)
-    locale_name = Column(String)
-    description = Column(Text)
-    transferred = Column(Boolean, default=False)
-
-
 class Product(Base):
     __tablename__ = "products"
 

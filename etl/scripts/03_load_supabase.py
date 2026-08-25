@@ -46,18 +46,7 @@ if __name__ == "__main__":
     df_stores = pd.read_csv(PROCESSED_DIR / "stores_clean.csv")
     load_table("stores", df_stores, on_conflict="store_nbr")
 
-    # 2. oil_prices
-    df_oil = pd.read_csv(PROCESSED_DIR / "oil_clean.csv", parse_dates=["date"])
-    df_oil["date"] = df_oil["date"].dt.strftime("%Y-%m-%d")
-    load_table("oil_prices", df_oil, on_conflict="date")
-
-    # 3. holidays
-    df_hol = pd.read_csv(PROCESSED_DIR / "holidays_clean.csv", parse_dates=["date"])
-    df_hol["date"] = df_hol["date"].dt.strftime("%Y-%m-%d")
-    df_hol = df_hol.drop(columns=["id"], errors="ignore")
-    load_table("holidays", df_hol, on_conflict="date,locale,locale_name")
-
-    # 4. sales_history (depende de stores — cargar al final)
+    # 2. sales_history (depende de stores — cargar al final)
     # STORE_FILTER=None carga todo; asigna un numero para cargar solo esa tienda
     STORE_FILTER = None
     df_sales = pd.read_csv(PROCESSED_DIR / "train_clean.csv", parse_dates=["date"])

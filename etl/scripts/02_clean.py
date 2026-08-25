@@ -49,47 +49,16 @@ def clean_stores(path: Path) -> pd.DataFrame:
     return df
 
 
-def clean_oil(path: Path) -> pd.DataFrame:
-    print("  Leyendo oil.csv...")
-    df = pd.read_csv(path, parse_dates=["date"])
-    df = df[df["date"] >= "2016-01-01"].copy()
-
-    # Rellenar nulos interpolando (precio del petroleo no tiene saltos bruscos)
-    df = df.set_index("date").asfreq("D")
-    df["dcoilwtico"] = df["dcoilwtico"].interpolate(method="time").ffill().bfill()
-    df = df.reset_index()
-
-    print(f"  Filas oil_clean: {len(df):,}")
-    return df
-
-
-def clean_holidays(path: Path) -> pd.DataFrame:
-    print("  Leyendo holidays_events.csv...")
-    df = pd.read_csv(path, parse_dates=["date"])
-    df = df[df["date"] >= "2016-01-01"].copy()
-    df.drop_duplicates(subset=["date", "locale", "locale_name"], inplace=True)
-    # Convertir columna transferred a bool limpio
-    df["transferred"] = df["transferred"].astype(bool)
-    print(f"  Filas holidays_clean: {len(df):,}")
-    return df
-
-
 if __name__ == "__main__":
     print("\n=== ETL Step 2: Limpieza ===\n")
 
     df_sales    = clean_sales(RAW_DIR / "train.csv")
     df_stores   = clean_stores(RAW_DIR / "stores.csv")
-    df_oil      = clean_oil(RAW_DIR / "oil.csv")
-    df_holidays = clean_holidays(RAW_DIR / "holidays_events.csv")
 
     print("\nGuardando archivos limpios...")
     df_sales.to_csv(OUT_DIR / "train_clean.csv", index=False)
     df_stores.to_csv(OUT_DIR / "stores_clean.csv", index=False)
-    df_oil.to_csv(OUT_DIR / "oil_clean.csv", index=False)
-    df_holidays.to_csv(OUT_DIR / "holidays_clean.csv", index=False)
 
     print(f"\n✓ train_clean.csv     → {len(df_sales):,} filas")
     print(f"✓ stores_clean.csv    → {len(df_stores):,} filas")
-    print(f"✓ oil_clean.csv       → {len(df_oil):,} filas")
-    print(f"✓ holidays_clean.csv  → {len(df_holidays):,} filas")
     print(f"\nArchivos en: {OUT_DIR}")
