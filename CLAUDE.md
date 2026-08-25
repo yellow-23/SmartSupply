@@ -389,7 +389,7 @@ Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec
 - [ ] S6: QA final + merge `dev -> main` + Tesis (deploy Render/Cloudflare ya en produccion desde 2026-08-24)
 
 **Mejoras tecnicas acumuladas:**
-- [ ] Tests automatizados de `_parse_date` y `validate_ingest_records` (no existen)
+- [x] ~~Tests automatizados de _parse_date y validate_ingest_records~~ RESUELTO 2026-08-24: `backend/tests/` (pytest), 17 tests, `PYTHONPATH=. ../venv/bin/python3.11 -m pytest tests/`
 - [x] ~~Dashboard: poblar serie forecast en chart-data~~ RESUELTO 2026-08-24: suma por dia la prediccion cacheada de los SKUs que el usuario corrio en la pagina Forecast (`get_business_cached_forecasts`, TTL 1h del cache existente). Si el usuario aun no corrio ningun forecast, `forecast` sigue en `None` como antes.
 - [x] ~~Cache de predicciones por SKU+tienda+horizonte~~ YA EXISTIA (`forecast_service.py`, TTL 1h); RESUELTO bug de invalidacion 2026-08-24 (no se limpiaba al ingestar/revertir/eliminar/editar)
 - [x] ~~LSTM: migrar lstm_model.py de tensorflow a torch~~ RESUELTO (Sprint 5, `lstm_model.py` ya usa PyTorch)
