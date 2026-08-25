@@ -386,17 +386,17 @@ Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec
 
 **Proximo (top priority):**
 - [ ] S5: Reportes exportables (PDF/Excel), Admin panel, recuperacion contrasena por email real (SMTP/Resend)
-- [ ] S6: QA final + Deploy Render/Cloudflare + merge `dev -> main` + Tesis
+- [ ] S6: QA final + merge `dev -> main` + Tesis (deploy Render/Cloudflare ya en produccion desde 2026-08-24)
 
 **Mejoras tecnicas acumuladas:**
-- [ ] Cache de predicciones por SKU+tienda+horizonte (reducir latencia 30-90s a <1s en hit)
-- [ ] LSTM: migrar lstm_model.py de tensorflow a torch (ya instalado en venv)
-- [ ] Dashboard: poblar `mape_global` y `nivel_servicio` cuando Int.1 e Int.2 expongan sus metricas
-- [ ] Dashboard: poblar serie `forecast` en chart-data integrando el AMS
-- [ ] `hasCLPSkus` en Inventory.tsx: conectar al `sales_unit` real de los productos del negocio
-- [ ] DEBUG=false en produccion para no exponer debug_token en forgot-password
-- [ ] RLS en Supabase para garantizar aislamiento por business_id (defensa en profundidad)
-- [ ] Tests automatizados de `_parse_date` y `validate_ingest_records`
+- [ ] Dashboard: poblar serie `forecast` en chart-data integrando el AMS (sigue en `None`, ver `dashboard.py:108`)
+- [ ] Tests automatizados de `_parse_date` y `validate_ingest_records` (no existen)
+- [x] ~~Cache de predicciones por SKU+tienda+horizonte~~ YA EXISTIA (`forecast_service.py`, TTL 1h); RESUELTO bug de invalidacion 2026-08-24 (no se limpiaba al ingestar/revertir/eliminar/editar)
+- [x] ~~LSTM: migrar lstm_model.py de tensorflow a torch~~ RESUELTO (Sprint 5, `lstm_model.py` ya usa PyTorch)
+- [x] ~~Dashboard: poblar mape_global y nivel_servicio~~ RESUELTO (`dashboard.py`, via `get_business_wapes`)
+- [x] ~~hasCLPSkus en Inventory.tsx~~ RESUELTO (`inventory.py:51` calcula `has_clp_skus` real desde `sales_unit`)
+- [x] ~~DEBUG=false en produccion~~ RESUELTO (`render.yaml` ya lo fija en `false`)
+- [x] ~~RLS en Supabase~~ REVISADO 2026-08-24: `businesses`/`sales_history`/`stores` tenian politicas `ALL` abiertas a `public` (agujero real via anon key, sin relacion con el backend que usa `postgres`/bypassrls); se eliminaron. Resto de tablas ya denegaba por default.
 
 **Bugs conocidos / deuda:**
 - [x] ~~El UI de Forecast etiqueta valores en "uds" sin chequear si la data es CLP~~ RESUELTO en S2-F
