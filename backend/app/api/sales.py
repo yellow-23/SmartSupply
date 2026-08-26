@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.database import get_db
-from app.models.orm import Business, SalesHistory, Store, User
+from app.models.orm import SalesHistory, Store, User, UserBusiness
 from app.models.schemas import (
     SalesPoint,
     SalesRecordResponse,
@@ -148,8 +148,11 @@ def get_sales_summary(
 
 
 def _assert_record_owner(db: Session, record: SalesHistory, user: User):
-    biz = db.query(Business).filter(Business.id == record.business_id).first()
-    if biz and biz.owner_user_id not in (None, user.id) and biz.id != user.business_id:
+    has_access = db.query(UserBusiness).filter(
+        UserBusiness.user_id == user.id,
+        UserBusiness.business_id == record.business_id,
+    ).first()
+    if not has_access:
         raise HTTPException(status_code=403, detail="Este registro no te pertenece")
 
 

@@ -93,6 +93,7 @@ def get_current_user(
     )
     db.add(user)
     db.flush()
+    business.owner_user_id = user.id
     db.add(UserBusiness(user_id=user.id, business_id=business.id, role="owner"))
     db.commit()
     db.refresh(user)
