@@ -208,7 +208,40 @@ ln -sf python3.11 venv/bin/python3
 ```
 Verificar: `python --version` debe decir `Python 3.11.x`
 
-## Estado actual (2026-05-26)
+## Estado actual (2026-08-26)
+
+### Completado - Deploy produccion + Auth Supabase + mobile (2026-08-24 a 2026-08-26, yellow-23)
+
+Sesion de retomada del proyecto tras cambio de dueno del repo (de `nachytto` a `yellow-23`). Todo el trabajo
+quedo directo en `main` (no en `dev` -- `dev` esta atrasada respecto a `main`, falta reconciliar antes de S6).
+
+**Deploy (2026-08-24):**
+- [x] Backend en Render: `https://smartsupply-e6g8.onrender.com`, plan Starter ($7/mes, sin auto-sleep). El servicio necesita `Root Directory=backend` seteado a mano en el dashboard (no lo toma solo del `render.yaml` al crear el servicio por UI)
+- [x] Frontend en Cloudflare Pages: `https://smartsupply-frontend.pages.dev`, proyecto creado con `wrangler` CLI. Auto-deploy desde GitHub (`yellow-23/SmartSupply`) configurado: Root directory=`frontend`, Build command=`npm run build`, Output=`dist`, env vars `VITE_API_URL`/`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` en Settings -> Environment variables (Production)
+- [x] Supabase reactivada (estaba pausada por inactividad del tier free)
+- [x] Remotes de git arreglados: `origin` ahora apunta a `yellow-23/SmartSupply` (el viejo repo de `nachytto` quedo como remote `nachytto-old`, sin permiso de push)
+
+**Limpieza de datos (2026-08-24):**
+- [x] `oil_prices` y `holidays` (tablas de Kaggle, sin uso real -- forecasting usa `_chile_holidays()` hardcodeado) eliminadas: tabla + modelo ORM + referencias en `etl/scripts/`
+- [x] Reset completo de datos de prueba: `TRUNCATE ... RESTART IDENTITY CASCADE` sobre users/businesses/sales_history/etc (12 usuarios y 15 negocios de pruebas viejas, claves perdidas)
+- [x] RLS en Supabase revisado: `businesses`/`sales_history`/`stores` tenian politicas `ALL` abiertas a `public` (agujero real via el anon key, que es "publishable" por diseño) -- eliminadas. El backend usa `postgres`/bypassrls asi que RLS nunca protegio nada real hasta este fix
+
+**Auth: migracion de JWT propio a Supabase Auth (2026-08-26):**
+- [x] Backend: `get_current_user` valida contra `GET {SUPABASE_URL}/auth/v1/user` en vez de un JWT firmado a mano. `users.supabase_uid` reemplaza `hashed_password`. Se cae `password_reset_tokens` y los endpoints `/login /register /forgot-password /reset-password` -- Supabase los reemplaza
+- [x] Autoprovisioning: primer login de un `supabase_uid` nuevo crea Business+Store+User (mismo comportamiento que el viejo `/register`). Cuenta vieja con mismo email sin `supabase_uid` se enlaza sola
+- [x] Google Sign-In: proveedor configurado en Supabase (Authentication -> Sign In / Providers -> Google) con credenciales propias de Google Cloud Console -- NO es el "OAuth Server" de Supabase (eso es para exponer tu proyecto como IdP a terceros, otra cosa)
+- [x] Onboarding: login con Google no permite pedir `business_name` durante el flujo OAuth, asi que quedaba "Negocio de {nombre}" generico. `businesses.onboarding_completed` (default `true`; `false` solo si se autoprovisiona sin nombre) + `POST /api/auth/onboarding` + gate de una pantalla en `ProtectedRoute` que pide el nombre real antes de dejar entrar
+- [x] Bug de carrera resuelto: el redirect de OAuth de Google vuelve como full page load; `ProtectedRoute` mandaba a `/login` antes de que `supabase-js` terminara de procesar la sesion (async). Se agrego `isInitialized` en `authStore`, poblado por el primer evento `onAuthStateChange` (`INITIAL_SESSION`)
+- [x] Cache invalidation (relacionado, mismo dia): `forecast_service` tenia cache TTL 1h que nunca se invalidaba al ingestar/revertir/eliminar/editar `sales_history` -- se agrego `invalidate_business_cache()` en los 4 puntos que mutan esa tabla
+
+**Mobile responsive (2026-08-26):**
+- [x] `Sidebar` era `w-64` fijo sin breakpoints (ocupaba mas de medio viewport en celular) -- ahora es un drawer (`fixed` + `-translate-x-full` en mobile, `md:static` en desktop) con boton hamburguesa en `TopBar`
+- [x] `TopBar` oculta el buscador en pantallas chicas, trunca titulo/subtitulo
+- [x] `StockyFloat` tenia `w-96` fijo que desbordaba en telefonos angostos -- ahora usa el viewport con margen en mobile
+
+**Otras mejoras (2026-08-24):**
+- [x] Dashboard: serie `forecast` en `chart-data` ahora suma la prediccion cacheada de los SKUs que el usuario corrio en Forecast (`get_business_cached_forecasts`)
+- [x] Tests: `backend/tests/` (pytest, 17 tests) para `_parse_date` y `validate_ingest_records` -- no existian
 
 ### Completado - Sprint 4 Inventario + Ordenes + Stocky global (2026-05-26, mergeado a dev)
 
@@ -389,7 +422,7 @@ Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec
 
 ### Notas tecnicas importantes
 - **LSTM**: el modelo espera `tensorflow` pero el venv tiene `torch`. Hay que migrar `lstm_model.py` a PyTorch o instalar tensorflow. Por ahora no bloquea - AMS lo descarta y elige el mejor entre los 3 restantes.
-- **Latencia forecast**: cada request corre el AMS completo (30-90s). ARIMA ahora corre grid mas grande (144 combinaciones vs 18 anteriores) por la busqueda estacional. Considerar cache.
+- **Latencia forecast**: cada request corre el AMS completo (30-90s) en cache miss. ARIMA corre un grid grande (144 combinaciones) por la busqueda estacional. Hay cache en memoria por 1h (`forecast_service.py`) que se invalida al mutar `sales_history`.
 - **Dataset Kaggle**: business_id=1 se lee del CSV directamente (no esta en DB). business_id=2 (SmartSupply Demo) y business_id=18 (Santa Elena) son data real ingestada.
 - **Currency vs units**: el sistema actualmente no distingue. La data de Santa Elena son pesos CLP pero el dashboard etiqueta todo como "uds". El validador avisa con `LIKELY_CURRENCY` pero no bloquea. La hipotesis de la tesis (AMS reduce capital inmovilizado) NO es testeable hasta que se implemente modo monto vs unidades (ver S2-F pendiente).
 - **Fallback de modelos Claude**: ingesta intenta Sonnet primero, cae a Haiku en 529. Si ambos fallan, mensaje friendly al usuario y traceback completo en logs del backend.
@@ -398,8 +431,15 @@ Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec
 ### Pendiente
 
 **Proximo (top priority):**
-- [ ] S5: Reportes exportables (PDF/Excel), Admin panel, recuperacion contrasena por email real (SMTP/Resend)
-- [ ] S6: QA final + merge `dev -> main` + Tesis (deploy Render/Cloudflare ya en produccion desde 2026-08-24)
+- [ ] S5: Reportes exportables (PDF/Excel), Admin panel (falta definir alcance: gestion de usuarios, negocios, o ambos)
+- [ ] S6: QA final + reconciliar `dev` con `main` (quedaron divergidas, todo el trabajo de deploy/auth/mobile se hizo directo en `main`) + merge final + Tesis
+- [x] ~~Recuperacion de contrasena por email real~~ RESUELTO 2026-08-26: viene gratis con Supabase Auth (`supabase.auth.resetPasswordForEmail`), sin necesidad de SMTP/Resend
+
+**Cosas sueltas de la sesion 2026-08-24/26:**
+- [ ] Borrar `client_secret_*.json` (credenciales OAuth de Google descargadas) que quedo en la raiz del repo -- esta en `.gitignore` asi que no se subio, pero conviene sacarlo del filesystem
+- [ ] Cuenta de prueba duplicada `cristobal.pello@gmail.com` (business_id=2, "Negocio de cristobal flores") -- decidir si se borra o se deja
+- [ ] Bundle de frontend paso a ~1.16MB (326KB gzip) con Supabase Auth agregado -- vite avisa por code-splitting, no urgente pero crece
+- [ ] No hay browser tool conectado en esta sesion (el usuario declino instalar la extension) -- los cambios de UI/mobile se verificaron por build + inspeccion de codigo, no visualmente en navegador real
 
 **Mejoras tecnicas acumuladas:**
 - [x] ~~Tests automatizados de _parse_date y validate_ingest_records~~ RESUELTO 2026-08-24: `backend/tests/` (pytest), 17 tests, `PYTHONPATH=. ../venv/bin/python3.11 -m pytest tests/`
