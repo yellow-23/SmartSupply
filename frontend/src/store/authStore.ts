@@ -15,6 +15,7 @@ interface User {
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  isInitialized: boolean;
   isLoading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -34,6 +35,7 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       isAuthenticated: false,
+      isInitialized: false,
       isLoading: false,
       error: null,
 
@@ -90,14 +92,14 @@ export const useAuthStore = create<AuthState>()(
       syncProfile: async () => {
         const { data } = await supabase.auth.getSession();
         if (!data.session) {
-          set({ user: null, isAuthenticated: false });
+          set({ user: null, isAuthenticated: false, isInitialized: true });
           return;
         }
         try {
           const user = await fetchProfile();
-          set({ user, isAuthenticated: true });
+          set({ user, isAuthenticated: true, isInitialized: true });
         } catch {
-          set({ user: null, isAuthenticated: false });
+          set({ user: null, isAuthenticated: false, isInitialized: true });
         }
       },
     }),
@@ -106,7 +108,9 @@ export const useAuthStore = create<AuthState>()(
 );
 
 // Mantiene el store sincronizado con la sesion real de Supabase (login, logout, refresh de token,
-// y el regreso del redirect de Google OAuth).
+// y el regreso del redirect de Google OAuth). onAuthStateChange dispara un evento INITIAL_SESSION
+// apenas el SDK termina de procesar la sesion (incluye el hash del redirect de OAuth) -- ProtectedRoute
+// espera isInitialized antes de decidir si redirige a /login, para no correr esa carrera.
 supabase.auth.onAuthStateChange(() => {
   useAuthStore.getState().syncProfile();
 });
