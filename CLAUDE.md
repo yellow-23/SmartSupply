@@ -213,7 +213,7 @@ Verificar: `python --version` debe decir `Python 3.11.x`
 ### Completado - Deploy produccion + Auth Supabase + mobile (2026-08-24 a 2026-08-26, yellow-23)
 
 Sesion de retomada del proyecto tras cambio de dueno del repo (de `nachytto` a `yellow-23`). Todo el trabajo
-quedo directo en `main` (no en `dev` -- `dev` esta atrasada respecto a `main`, falta reconciliar antes de S6).
+quedo directo en `main`; `dev` se puso al dia con un fast-forward el 2026-08-26 (no tenia commits propios).
 
 **Deploy (2026-08-24):**
 - [x] Backend en Render: `https://smartsupply-e6g8.onrender.com`, plan Starter ($7/mes, sin auto-sleep). El servicio necesita `Root Directory=backend` seteado a mano en el dashboard (no lo toma solo del `render.yaml` al crear el servicio por UI)
@@ -432,7 +432,7 @@ Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec
 
 **Proximo (top priority):**
 - [ ] S5: Reportes exportables (PDF/Excel), Admin panel (falta definir alcance: gestion de usuarios, negocios, o ambos)
-- [ ] S6: QA final + reconciliar `dev` con `main` (quedaron divergidas, todo el trabajo de deploy/auth/mobile se hizo directo en `main`) + merge final + Tesis
+- [ ] S6: QA final + Tesis (`dev`/`main` ya sincronizadas, `dev -> main` sera solo el merge de cierre cuando corresponda)
 - [x] ~~Recuperacion de contrasena por email real~~ RESUELTO 2026-08-26: viene gratis con Supabase Auth (`supabase.auth.resetPasswordForEmail`), sin necesidad de SMTP/Resend
 
 **Cosas sueltas de la sesion 2026-08-24/26:**
