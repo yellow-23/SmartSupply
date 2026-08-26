@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { BarChart3, Loader2, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import api from "../api/axios.instance";
+import { supabase } from "../lib/supabase";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -15,10 +15,13 @@ export default function ForgotPassword() {
     setError(null);
     setIsLoading(true);
     try {
-      await api.post("/auth/forgot-password", { email });
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
       setSent(true);
     } catch (err: any) {
-      setError(err.response?.data?.detail ?? "Error al enviar el correo");
+      setError(err.message ?? "Error al enviar el correo");
     } finally {
       setIsLoading(false);
     }

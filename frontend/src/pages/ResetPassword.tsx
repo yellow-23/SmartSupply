@@ -1,12 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BarChart3, Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import api from "../api/axios.instance";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") ?? "";
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -14,6 +12,24 @@ export default function ResetPassword() {
   const [confirm, setConfirm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkingLink, setCheckingLink] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    // El link del correo trae el token en el hash de la URL; el SDK de Supabase
+    // lo procesa solo al cargar la pagina y establece una sesion temporal.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" || session) {
+        setHasSession(true);
+        setCheckingLink(false);
+      }
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setHasSession(true);
+      setCheckingLink(false);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,16 +46,25 @@ export default function ResetPassword() {
 
     setIsLoading(true);
     try {
-      await api.post("/auth/reset-password", { token, new_password: password });
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
       navigate("/login?reset=ok");
     } catch (err: any) {
-      setError(err.response?.data?.detail ?? "Error al restablecer la contraseña");
+      setError(err.message ?? "Error al restablecer la contraseña");
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!token) {
+  if (checkingLink) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center bg-white">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!hasSession) {
     return (
       <div className="w-full min-h-screen flex items-center justify-center bg-white p-8">
         <div className="max-w-md w-full text-center">

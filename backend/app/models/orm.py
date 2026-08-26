@@ -10,7 +10,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False, index=True)
-    hashed_password = Column(String, nullable=False)
+    supabase_uid = Column(String, unique=True, nullable=True, index=True)
     role = Column(String, nullable=False, default="analyst")  # 'admin' | 'analyst'
     business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, default=1)
     is_active = Column(Boolean, default=True)
@@ -136,12 +136,3 @@ class UserBusiness(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class PasswordResetToken(Base):
-    __tablename__ = "password_reset_tokens"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    token = Column(String, unique=True, nullable=False, index=True)
-    expires_at = Column(DateTime(timezone=True), nullable=False)
-    used = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())

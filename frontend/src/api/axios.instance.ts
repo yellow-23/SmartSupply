@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { supabase } from '../lib/supabase';
 
 // En dev: Vite proxea /api -> localhost:8000 (ver vite.config.ts)
-// En producción: VITE_API_URL = https://smartsupply-b6ag.onrender.com/api (DEBE incluir /api)
+// En producción: VITE_API_URL = https://smartsupply-e6g8.onrender.com/api (DEBE incluir /api)
 const BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 const api = axios.create({
@@ -9,24 +10,19 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-api.interceptors.request.use((config) => {
-  try {
-    const stored = localStorage.getItem('auth-storage');
-    if (stored) {
-      const { state } = JSON.parse(stored);
-      if (state?.token) {
-        config.headers.Authorization = `Bearer ${state.token}`;
-      }
-    }
-  } catch {}
+api.interceptors.request.use(async (config) => {
+  const { data } = await supabase.auth.getSession();
+  if (data.session?.access_token) {
+    config.headers.Authorization = `Bearer ${data.session.access_token}`;
+  }
   return config;
 });
 
 api.interceptors.response.use(
   (res) => res,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('auth-storage');
+      await supabase.auth.signOut();
       window.location.href = '/login';
     }
     return Promise.reject(error);
