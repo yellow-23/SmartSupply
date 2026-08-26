@@ -127,23 +127,29 @@ SmartSupply/
 - **Forecasting**: statsmodels (ARIMA), prophet, xgboost, torch (LSTM)
 - **Frontend**: React + Vite + Recharts + Axios + Zustand + TanStack Query
 - **Python**: 3.11 — SIEMPRE usar `python3.11` explicitamente (el venv tiene 3.11 y 3.12, los paquetes estan en 3.11)
-- **Variables de entorno**: `backend/.env` (no commitear, basarse en `.env.example`)
+- **Variables de entorno**: `backend/.env` (no commitear)
+- **Auth**: Supabase Auth (email/password + Google OAuth) desde 2026-08-26. Ya no hay JWT propio ni bcrypt para login — ver seccion "Auth" mas abajo.
 
 ## Variables de entorno necesarias
 
+Backend (`backend/.env`):
 ```
 DATABASE_URL=postgresql://...@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_KEY=anon-key
 ANTHROPIC_API_KEY=sk-ant-...
-JWT_SECRET=secreto-largo-y-aleatorio
-JWT_ALGORITHM=HS256
-JWT_EXPIRE_HOURS=8
+```
+
+Frontend (build time / Cloudflare Pages):
+```
+VITE_API_URL=https://smartsupply-e6g8.onrender.com/api
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=anon-key   # mismo valor que SUPABASE_KEY del backend
 ```
 
 ## Schema de base de datos
 
-- **`users`**: `(id, name, email, hashed_password, role, business_id, is_active, created_at)`
+- **`users`**: `(id, name, email, supabase_uid, role, business_id, is_active, created_at)`
 - **`businesses`**: `(id, name, rut, city, type, owner_user_id, created_at)`
 - **`user_businesses`**: `(id, user_id, business_id, role)` - many-to-many; role: owner|member. Controla acceso en businesses.py, ingests.py
 - **`sales_history`**: `(id, business_id, date, store_nbr, family, sales, onpromotion, sales_unit, ingest_id, ...)`
@@ -151,14 +157,21 @@ JWT_EXPIRE_HOURS=8
 - **`products`**: `(id, business_id, store_nbr, family, unit_cost, order_cost, holding_rate, lead_time_days, moq)` - todos opcionales; Stocky los completa
 - **`stock_levels`**: `(id, business_id, store_nbr, family, quantity, updated_at)`
 - **`purchase_orders`**: `(id, business_id, store_nbr, family, quantity, trigger_stock, reorder_point_s, order_up_to_S, policy_used, status, created_at, expected_delivery, received_at)`
-- **`password_reset_tokens`**: `(id, user_id, token, expires_at, used)`
 - **`stores`**: `(store_nbr, city, state, type, cluster)`
+
+## Auth (Supabase Auth, desde 2026-08-26)
+
+- El frontend habla directo con Supabase Auth (`@supabase/supabase-js`, `frontend/src/lib/supabase.ts`) para login (email/password + Google OAuth), registro y reset de clave. El backend ya no emite ni firma JWT propios.
+- `backend/app/api/auth.py::get_current_user` valida el `Authorization: Bearer <token>` llamando a `GET {SUPABASE_URL}/auth/v1/user` (no verifica el JWT localmente — evita depender de si el proyecto usa el sistema legacy de JWT secret o el nuevo de signing keys/JWKS).
+- Primer request autenticado de un `supabase_uid` nunca visto: autoprovisiona `Business` + `Store` + `User` (mismo comportamiento que tenia el viejo `/register`, ahora disparado por cualquier endpoint protegido, no por un endpoint dedicado).
+- Cuenta vieja (creada antes de esta migracion) con el mismo email pero `supabase_uid` nulo: se enlaza automaticamente en el primer login nuevo, sin perder su negocio.
+- `GET /api/auth/me` devuelve el perfil local (id, role, business_id, business_name) — el frontend lo llama despues de cada cambio de sesion de Supabase (`onAuthStateChange` en `authStore.ts`).
+- Proveedor Google: configurado en Supabase dashboard → Authentication → Sign In / Providers → Google, con credenciales propias de Google Cloud Console (no usa el "OAuth Server" de Supabase, que es para otra cosa — exponer *tu* proyecto como IdP para terceros).
 
 ## Notas importantes de infraestructura
 
 - **Supabase proyecto**: `xqiehkshtedrodhtdkzv` (region sa-east-1). Se pausa automaticamente en tier gratuito por inactividad. Si la DB no conecta, restaurar desde Supabase dashboard o via MCP.
 - **Tabla `users`**: fue creada via `execute_sql` en schema `public` (NO via `apply_migration` - ese tool la creo en schema incorrecto).
-- **bcrypt**: el venv tiene bcrypt 5.0.0 que rompe passlib 1.7.4. Usar `import bcrypt` directamente en el codigo de auth.
 
 ## Como correr el proyecto
 
