@@ -10,6 +10,7 @@ interface User {
   role: 'admin' | 'analyst';
   business_id: number;
   business_name: string;
+  onboarding_completed: boolean;
 }
 
 interface AuthState {
@@ -23,6 +24,7 @@ interface AuthState {
   register: (name: string, email: string, password: string, businessName: string) => Promise<{ needsEmailConfirmation: boolean }>;
   logout: () => Promise<void>;
   syncProfile: () => Promise<void>;
+  completeOnboarding: (businessName: string) => Promise<void>;
 }
 
 async function fetchProfile(): Promise<User> {
@@ -87,6 +89,11 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         await supabase.auth.signOut();
         set({ user: null, isAuthenticated: false, error: null });
+      },
+
+      completeOnboarding: async (businessName) => {
+        const { data } = await api.post('/auth/onboarding', { business_name: businessName });
+        set({ user: data });
       },
 
       syncProfile: async () => {

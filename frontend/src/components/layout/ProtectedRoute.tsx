@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import OnboardingGate from './OnboardingGate';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -23,6 +24,8 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   }
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  if (user && !user.onboarding_completed) return <OnboardingGate />;
 
   if (allowedRoles && user && !allowedRoles.includes(user.role as 'admin' | 'analyst')) {
     return <Navigate to="/dashboard" replace />;

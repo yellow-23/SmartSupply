@@ -25,6 +25,11 @@ class UserOut(BaseModel):
     role: str
     business_id: int
     business_name: str = ""
+    onboarding_completed: bool = True
+
+
+class OnboardingRequest(BaseModel):
+    business_name: str
 
 
 def get_current_user(
@@ -71,9 +76,10 @@ def get_current_user(
     # Primer login de este usuario en el sistema: autoprovisionar negocio + tienda + usuario.
     metadata = payload.get("user_metadata") or {}
     name = metadata.get("full_name") or metadata.get("name") or email.split("@")[0]
-    business_name = (metadata.get("business_name") or "").strip() or f"Negocio de {name}"
+    given_business_name = (metadata.get("business_name") or "").strip()
+    business_name = given_business_name or f"Negocio de {name}"
 
-    business = Business(name=business_name, type="distributor")
+    business = Business(name=business_name, type="distributor", onboarding_completed=bool(given_business_name))
     db.add(business)
     db.flush()
     db.add(Store(business_id=business.id, store_nbr=1, name="Tienda Principal"))
@@ -114,4 +120,35 @@ def me(
         role=current_user.role,
         business_id=current_user.business_id,
         business_name=biz.name if biz else "",
+        onboarding_completed=biz.onboarding_completed if biz else True,
+    )
+
+
+@router.post("/onboarding", response_model=UserOut)
+def complete_onboarding(
+    body: OnboardingRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+):
+    """Completa el nombre del negocio para cuentas autoprovisionadas sin ese dato (ej: login con Google)."""
+    name = body.business_name.strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="El nombre del negocio no puede estar vacío")
+
+    biz = db.query(Business).filter(Business.id == current_user.business_id).first()
+    if not biz:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Negocio no encontrado")
+
+    biz.name = name
+    biz.onboarding_completed = True
+    db.commit()
+
+    return UserOut(
+        id=current_user.id,
+        name=current_user.name,
+        email=current_user.email,
+        role=current_user.role,
+        business_id=current_user.business_id,
+        business_name=biz.name,
+        onboarding_completed=True,
     )

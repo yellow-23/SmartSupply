@@ -26,6 +26,7 @@ class Business(Base):
     city = Column(String, nullable=True)
     type = Column(String, nullable=True)
     owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    onboarding_completed = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
