@@ -59,6 +59,11 @@ async def generate_automatic_orders(
 
     created = []
     for sku in critical_skus:
+        if sku.get("needs_cost_setup"):
+            # Sin unit_cost configurado el calculo de cantidad no es confiable -- no se genera
+            # orden automatica para este SKU hasta que se cargue el costo (ver /inventory/alerts).
+            continue
+
         # Retrieve lead_time for expected_delivery
         from app.services.inventory_service import _get_product_params
         params = _get_product_params(db, business_id, store_nbr, sku["family"])

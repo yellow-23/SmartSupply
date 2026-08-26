@@ -4,8 +4,9 @@ export interface InventoryAlert {
   family: string
   current_stock: number
   reorder_point_s: number
-  order_up_to_S: number
-  order_quantity: number
+  order_up_to_S: number | null
+  order_quantity: number | null
+  needs_cost_setup: boolean
   urgency: 'critical' | 'high' | 'normal'
 }
 

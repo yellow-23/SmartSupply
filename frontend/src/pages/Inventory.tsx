@@ -132,20 +132,26 @@ export default function Inventory() {
                   {urgencyLabel[a.urgency]}
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
-                <div>
-                  <p className="font-medium text-gray-800 text-base">{a.current_stock}</p>
-                  <p>Stock actual</p>
+              {a.needs_cost_setup ? (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  Falta configurar el costo unitario para calcular cuánto pedir
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
+                  <div>
+                    <p className="font-medium text-gray-800 text-base">{a.current_stock}</p>
+                    <p>Stock actual</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-800 text-base">{a.reorder_point_s}</p>
+                    <p>Punto s</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-orange-600 text-base">{a.order_quantity}</p>
+                    <p>A pedir</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-gray-800 text-base">{a.reorder_point_s}</p>
-                  <p>Punto s</p>
-                </div>
-                <div>
-                  <p className="font-medium text-orange-600 text-base">{a.order_quantity}</p>
-                  <p>A pedir</p>
-                </div>
-              </div>
+              )}
             </button>
           ))}
         </div>

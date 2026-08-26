@@ -240,6 +240,14 @@ class InventoryService:
             ).all()
         }
 
+        product_map = {
+            p.family: p
+            for p in db.query(Product).filter(
+                Product.business_id == business_id,
+                Product.store_nbr == store_nbr,
+            ).all()
+        }
+
         critical = []
         for family in families:
             current_stock = stock_map.get(family, 0.0)
@@ -248,6 +256,23 @@ class InventoryService:
             s, S, eoq = _calc_s_S(series, params)
 
             if current_stock <= s:
+                product = product_map.get(family)
+                needs_cost_setup = product is None or product.unit_cost is None
+                if needs_cost_setup:
+                    # Sin unit_cost real, EOQ usa un fallback (1.0) que dispara cantidades
+                    # sin sentido -- no se ofrece una cantidad hasta que carguen el costo.
+                    critical.append(
+                        {
+                            "family": family,
+                            "current_stock": current_stock,
+                            "reorder_point_s": round(s, 2),
+                            "order_up_to_S": None,
+                            "order_quantity": None,
+                            "needs_cost_setup": True,
+                        }
+                    )
+                    continue
+
                 moq = params["moq"]
                 order_qty = max(S - current_stock, moq)
                 critical.append(
@@ -257,6 +282,7 @@ class InventoryService:
                         "reorder_point_s": round(s, 2),
                         "order_up_to_S": round(S, 2),
                         "order_quantity": round(order_qty, 2),
+                        "needs_cost_setup": False,
                     }
                 )
 
