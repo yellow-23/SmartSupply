@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import assert_business_access, get_current_user
 from app.database import get_db
 from app.models.orm import User
 from app.services import stocky_service
@@ -25,5 +25,6 @@ def stocky_chat(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    assert_business_access(db, current_user, body.business_id)
     reply = stocky_service.chat(db, body.business_id, body.messages)
     return StockyChatResponse(reply=reply)

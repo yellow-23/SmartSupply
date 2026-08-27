@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import assert_business_access, get_current_user
 from app.database import get_db
 from app.models.orm import Product, User
 from app.models.schemas import (
@@ -29,6 +29,7 @@ def list_products(
     limit: int = Query(20, ge=1, le=100),
 ):
     effective_business_id = business_id or current_user.business_id
+    assert_business_access(db, current_user, effective_business_id)
     q = db.query(Product).filter(Product.business_id == effective_business_id)
     if store_nbr is not None:
         q = q.filter(Product.store_nbr == store_nbr)
@@ -62,6 +63,7 @@ def get_product(
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
+    assert_business_access(db, current_user, product.business_id)
     return product
 
 
@@ -71,6 +73,7 @@ def create_product(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ):
+    assert_business_access(db, current_user, payload.business_id)
     exists = db.query(Product).filter(
         Product.business_id == payload.business_id,
         Product.store_nbr == payload.store_nbr,
@@ -98,6 +101,7 @@ def update_product(
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
+    assert_business_access(db, current_user, product.business_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(product, field, value)
     db.commit()
@@ -114,5 +118,6 @@ def delete_product(
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
+    assert_business_access(db, current_user, product.business_id)
     db.delete(product)
     db.commit()

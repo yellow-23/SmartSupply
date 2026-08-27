@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import assert_business_access, get_current_user
 from app.database import get_db
 from app.models.orm import IngestLog, SalesHistory, User
 from app.models.schemas import InventoryMetrics, InventoryStatus
@@ -36,6 +36,7 @@ async def get_stock_alerts(
     """
     Retorna los SKUs cuyo stock actual está por debajo del punto de reorden (s).
     """
+    assert_business_access(db, current_user, business_id)
     try:
         raw_alerts = service.get_critical_skus(db=db, business_id=business_id, store_nbr=store_nbr)
 
@@ -82,6 +83,7 @@ async def get_inventory_status(
     Retorna el estado actual del inventario para una familia/SKU.
     Incluye stock actual, punto de reorden (s), nivel de reposición (S) y EOQ.
     """
+    assert_business_access(db, current_user, business_id)
     try:
         return service.get_status(db=db, business_id=business_id, store_nbr=store_nbr, family=family)
     except ValueError as e:
@@ -105,6 +107,7 @@ async def get_inventory_metrics(
     - Nivel de servicio (%)
     - Costo total de inventario (CLP)
     """
+    assert_business_access(db, current_user, business_id)
     try:
         return service.get_metrics(
             db=db,

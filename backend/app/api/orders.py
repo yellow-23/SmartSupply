@@ -4,7 +4,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import assert_business_access, get_current_user
 from app.database import get_db
 from app.models.orm import PurchaseOrder, User
 from app.models.schemas import PurchaseOrderResponse
@@ -32,6 +32,7 @@ async def list_orders(
     db: Session = Depends(get_db),
 ):
     """Lista las órdenes de compra del negocio, con filtro opcional por estado."""
+    assert_business_access(db, current_user, business_id)
     q = db.query(PurchaseOrder).filter(
         PurchaseOrder.business_id == business_id,
         PurchaseOrder.store_nbr == store_nbr,
@@ -52,6 +53,7 @@ async def generate_automatic_orders(
     Revisa todos los SKUs en estado crítico (stock <= s) y genera órdenes
     automáticas con la política (s,S). Devuelve las órdenes creadas.
     """
+    assert_business_access(db, current_user, business_id)
     try:
         critical_skus = service.get_critical_skus(db=db, business_id=business_id, store_nbr=store_nbr)
     except Exception as e:
@@ -107,6 +109,7 @@ async def update_order_status(
     """
     if new_status not in _VALID_STATUSES:
         raise HTTPException(status_code=400, detail=f"Estado inválido: {new_status}")
+    assert_business_access(db, current_user, business_id)
 
     order = db.query(PurchaseOrder).filter(
         PurchaseOrder.id == order_id,
@@ -140,6 +143,7 @@ async def get_order(
     db: Session = Depends(get_db),
 ):
     """Detalle de una orden de compra por ID."""
+    assert_business_access(db, current_user, business_id)
     order = db.query(PurchaseOrder).filter(
         PurchaseOrder.id == order_id,
         PurchaseOrder.business_id == business_id,

@@ -106,6 +106,16 @@ def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> U
     return current_user
 
 
+def assert_business_access(db: Session, user: User, business_id: int) -> None:
+    """Verifica que el usuario pertenezca al negocio antes de dejarlo leer/escribir sus datos."""
+    has_access = db.query(UserBusiness).filter(
+        UserBusiness.user_id == user.id,
+        UserBusiness.business_id == business_id,
+    ).first()
+    if not has_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a este negocio")
+
+
 @router.get("/me", response_model=UserOut)
 def me(
     current_user: Annotated[User, Depends(get_current_user)],
