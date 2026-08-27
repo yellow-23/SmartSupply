@@ -88,7 +88,7 @@ def get_current_user(
         name=name,
         email=email,
         supabase_uid=supabase_uid,
-        role="admin",
+        role="business_admin",
         business_id=business.id,
     )
     db.add(user)
@@ -101,7 +101,7 @@ def get_current_user(
 
 
 def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
-    if current_user.role != "admin":
+    if current_user.role != "business_admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol de administrador")
     return current_user
 

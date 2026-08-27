@@ -7,7 +7,7 @@ interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'analyst';
+  role: 'business_admin' | 'analyst';
   business_id: number;
   business_name: string;
   onboarding_completed: boolean;

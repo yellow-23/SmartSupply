@@ -95,7 +95,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
           <div className="rounded-xl px-4 py-3 mb-2 border border-white/10 bg-white/5">
             <p className="text-xs text-orange-400 font-semibold truncate mb-0.5">{user?.business_name ?? ""}</p>
             <p className="text-sm font-semibold text-white truncate">{user?.name ?? "Usuario"}</p>
-            <p className="text-xs text-white/40 mt-0.5 capitalize">{user?.role === "admin" ? "Administrador" : "Analista"}</p>
+            <p className="text-xs text-white/40 mt-0.5 capitalize">{user?.role === "business_admin" ? "Administrador" : "Analista"}</p>
           </div>
           <button
             onClick={() => { queryClient.clear(); logout(); navigate("/login"); }}
