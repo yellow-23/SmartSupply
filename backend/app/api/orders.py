@@ -1,7 +1,10 @@
 from datetime import date, timedelta
+from io import BytesIO
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
 from sqlalchemy.orm import Session
 
 from app.api.auth import assert_business_access, get_current_user
@@ -40,6 +43,58 @@ async def list_orders(
     if status:
         q = q.filter(PurchaseOrder.status == status)
     return q.order_by(PurchaseOrder.created_at.desc()).all()
+
+
+@router.get("/export")
+async def export_orders(
+    business_id: int,
+    store_nbr: int = 1,
+    status: Optional[str] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+    db: Session = Depends(get_db),
+):
+    """Exporta las ordenes de compra (con los mismos filtros que /orders) a Excel."""
+    assert_business_access(db, current_user, business_id)
+    q = db.query(PurchaseOrder).filter(
+        PurchaseOrder.business_id == business_id,
+        PurchaseOrder.store_nbr == store_nbr,
+    )
+    if status:
+        q = q.filter(PurchaseOrder.status == status)
+    orders = q.order_by(PurchaseOrder.created_at.desc()).all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Ordenes"
+    ws.append([
+        "ID", "Familia", "Cantidad", "Estado", "Política", "Stock al disparar",
+        "Punto s", "Nivel S", "Creada", "Entrega esperada", "Recibida",
+    ])
+    for o in orders:
+        ws.append([
+            o.id,
+            o.family,
+            float(o.quantity) if o.quantity is not None else None,
+            o.status,
+            o.policy_used,
+            float(o.trigger_stock) if o.trigger_stock is not None else None,
+            float(o.reorder_point_s) if o.reorder_point_s is not None else None,
+            float(o.order_up_to_S) if o.order_up_to_S is not None else None,
+            o.created_at.strftime("%Y-%m-%d %H:%M") if o.created_at else None,
+            o.expected_delivery.strftime("%Y-%m-%d") if o.expected_delivery else None,
+            o.received_at.strftime("%Y-%m-%d %H:%M") if o.received_at else None,
+        ])
+    for col in "ABCDEFGHIJK":
+        ws.column_dimensions[col].width = 16
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=ordenes_negocio{business_id}.xlsx"},
+    )
 
 
 @router.post("/generate", response_model=list[PurchaseOrderResponse])

@@ -73,3 +73,11 @@ export async function fetchForecastOptions(): Promise<ForecastOptions> {
 export function isInsufficientDataError(err: any): err is { response: { data: { detail: InsufficientDataDetail } } } {
   return err?.response?.status === 422 && err?.response?.data?.detail?.code === 'insufficient_data';
 }
+
+export async function exportForecastPdf(req: ForecastRequest): Promise<Blob> {
+  const { data } = await client.get(`/forecast/${encodeURIComponent(req.sku_id)}/export`, {
+    params: { store_nbr: req.store_nbr, horizon_days: req.horizon_days, model: req.model },
+    responseType: 'blob',
+  });
+  return data as Blob;
+}

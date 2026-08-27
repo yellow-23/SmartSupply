@@ -1,6 +1,9 @@
+from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
 from sqlalchemy.orm import Session
 
 from app.api.auth import assert_business_access, get_current_user
@@ -69,6 +72,52 @@ async def get_stock_alerts(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/alerts/export")
+async def export_stock_alerts(
+    business_id: int,
+    store_nbr: int = 1,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+    db: Session = Depends(get_db),
+):
+    """Exporta las alertas de inventario (mismo calculo que /alerts) a Excel."""
+    assert_business_access(db, current_user, business_id)
+    try:
+        raw_alerts = service.get_critical_skus(db=db, business_id=business_id, store_nbr=store_nbr)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    alerts = sorted(
+        ({**a, "urgency": _urgency(a["current_stock"], a["reorder_point_s"])} for a in raw_alerts),
+        key=lambda x: {"critical": 0, "high": 1, "normal": 2}.get(x["urgency"], 2),
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Alertas"
+    ws.append(["Familia", "Urgencia", "Stock actual", "Punto s", "Nivel S", "A pedir", "Falta costo unitario"])
+    for a in alerts:
+        ws.append([
+            a["family"],
+            a["urgency"],
+            a["current_stock"],
+            a["reorder_point_s"],
+            a["order_up_to_S"],
+            a["order_quantity"],
+            "Si" if a.get("needs_cost_setup") else "No",
+        ])
+    for col in "ABCDEFG":
+        ws.column_dimensions[col].width = 16
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=alertas_negocio{business_id}.xlsx"},
+    )
 
 
 @router.get("/{family}", response_model=InventoryStatus)

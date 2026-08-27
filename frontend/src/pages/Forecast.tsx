@@ -6,12 +6,14 @@ import ForecastLineChart from '../components/ForecastLineChart';
 import {
   fetchForecast,
   fetchForecastOptions,
+  exportForecastPdf,
   fetchSalesHistory,
   isInsufficientDataError,
   SalesPoint,
 } from '../api/forecast';
 import { useAuthStore } from '../store/authStore';
 import { useForecastStore } from '../store/forecastStore';
+import { downloadBlob } from '../lib/utils';
 
 const MODEL_LABELS: Record<string, string> = {
   xgboost: 'XGBoost',
@@ -24,6 +26,7 @@ const Forecast = () => {
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const {
     skuId, setSkuId,
@@ -58,6 +61,17 @@ const Forecast = () => {
   const daysRequired = options?.days_required ?? 90;
   const hasEnoughData = daysAvailable >= daysRequired;
   const hasAnyData = !!options && options.families.length > 0 && options.stores.length > 0;
+
+  const handleExport = async () => {
+    if (!skuId || storeNbr == null) return;
+    setExporting(true);
+    try {
+      const blob = await exportForecastPdf({ sku_id: skuId, store_nbr: storeNbr, horizon_days: horizon, model: 'auto' });
+      downloadBlob(blob, `forecast_${skuId}_${storeNbr}.pdf`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handlePredict = async () => {
     if (!skuId || storeNbr == null) return;
@@ -153,9 +167,13 @@ const Forecast = () => {
           </p>
         </div>
         {result && (
-          <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all shadow-sm">
-            <Download className="w-4 h-4" />
-            <span className="text-sm font-medium">Exportar</span>
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-60"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            <span className="text-sm font-medium">Exportar PDF</span>
           </button>
         )}
       </div>

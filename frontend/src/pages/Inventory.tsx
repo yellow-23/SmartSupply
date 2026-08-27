@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Package, AlertCircle, TrendingDown, RefreshCw, Loader2 } from 'lucide-react';
+import { Package, AlertCircle, TrendingDown, RefreshCw, Loader2, Download } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import {
   fetchAlerts,
   fetchInventoryStatus,
   fetchInventoryMetrics,
   generateOrders,
+  exportAlerts,
   InventoryAlert,
 } from '../api/inventory';
+import { downloadBlob } from '../lib/utils';
 
 const urgencyBadge = (urgency: InventoryAlert['urgency']) => {
   if (urgency === 'critical') return 'bg-red-100 text-red-700 border border-red-200';
@@ -32,6 +34,7 @@ export default function Inventory() {
 
   const [storeNbr, setStoreNbr] = useState(1);
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const alertsQuery = useQuery({
     queryKey: ['inventory-alerts', businessId, storeNbr],
@@ -58,6 +61,17 @@ export default function Inventory() {
       alert(`Se generaron ${data.length} órdenes automáticas.`);
     },
   });
+
+  const handleExport = async () => {
+    if (!businessId) return;
+    setIsExporting(true);
+    try {
+      const blob = await exportAlerts(businessId, storeNbr);
+      downloadBlob(blob, `alertas_inventario_${businessId}.xlsx`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const alerts = alertsQuery.data?.alerts ?? [];
   const hasCLPSkus = alertsQuery.data?.has_clp_skus ?? false;
@@ -86,6 +100,14 @@ export default function Inventory() {
             onChange={(e) => setStoreNbr(Number(e.target.value))}
             className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-700"
           />
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60"
+          >
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            Exportar Excel
+          </button>
         </div>
       </div>
 

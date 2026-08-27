@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ShoppingCart, CheckCircle, Clock, Truck, Plus, Loader2, XCircle } from 'lucide-react';
+import { ShoppingCart, CheckCircle, Clock, Truck, Plus, Loader2, XCircle, Download } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { fetchOrders, generateOrders, updateOrderStatus, PurchaseOrder } from '../api/inventory';
+import { fetchOrders, generateOrders, updateOrderStatus, exportOrders, PurchaseOrder } from '../api/inventory';
+import { downloadBlob } from '../lib/utils';
 
 const STATUS_LABELS: Record<PurchaseOrder['status'], string> = {
   pending: 'Pendiente',
@@ -45,6 +46,7 @@ export default function Orders() {
 
   const [storeNbr] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   const ordersQuery = useQuery({
     queryKey: ['orders', businessId, storeNbr, statusFilter],
@@ -66,6 +68,17 @@ export default function Orders() {
       queryClient.invalidateQueries({ queryKey: ['orders', businessId] });
     },
   });
+
+  const handleExport = async () => {
+    if (!businessId) return;
+    setIsExporting(true);
+    try {
+      const blob = await exportOrders(businessId, storeNbr, statusFilter || undefined);
+      downloadBlob(blob, `ordenes_${businessId}.xlsx`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const orders = ordersQuery.data ?? [];
 
@@ -123,6 +136,14 @@ export default function Orders() {
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60"
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Exportar Excel
+            </button>
             <button
               onClick={() => generateMutation.mutate()}
               disabled={generateMutation.isPending}

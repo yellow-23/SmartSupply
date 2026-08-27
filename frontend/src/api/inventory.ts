@@ -81,3 +81,13 @@ export const updateOrderStatus = (orderId: number, businessId: number, newStatus
   api.patch<PurchaseOrder>(
     `/orders/${orderId}/status?business_id=${businessId}&new_status=${newStatus}`
   ).then(r => r.data)
+
+export const exportOrders = (businessId: number, storeNbr = 1, status?: string) => {
+  const params = new URLSearchParams({ business_id: String(businessId), store_nbr: String(storeNbr) })
+  if (status) params.set('status', status)
+  return api.get(`/orders/export?${params}`, { responseType: 'blob' }).then(r => r.data as Blob)
+}
+
+export const exportAlerts = (businessId: number, storeNbr = 1) =>
+  api.get(`/inventory/alerts/export?business_id=${businessId}&store_nbr=${storeNbr}`, { responseType: 'blob' })
+    .then(r => r.data as Blob)
