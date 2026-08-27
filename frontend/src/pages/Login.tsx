@@ -13,6 +13,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [formData, setFormData] = useState({ email: "", password: "" });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -22,7 +23,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await login(formData.email, formData.password);
+      await login(formData.email, formData.password, rememberMe);
       navigate("/dashboard");
     } catch {
       // error ya en store
@@ -132,7 +133,12 @@ export default function Login() {
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 text-blue-600 border-gray-300 rounded" />
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded"
+                />
                 <span className="text-sm text-gray-600">Recordarme</span>
               </label>
               <Link to="/forgot-password" className="text-sm font-medium text-orange-600 hover:opacity-80">
@@ -182,7 +188,7 @@ export default function Login() {
           </p>
 
           <p className="mt-4 text-center text-xs text-gray-400">
-            SmartSupply &mdash; Tesis UNAB &middot; Ingeniería Civil en Informática
+            SmartSupply
           </p>
         </div>
       </div>

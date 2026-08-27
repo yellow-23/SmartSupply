@@ -1,5 +1,5 @@
 import api from '../api/axios.instance';
-import { supabase } from '../lib/supabase';
+import { supabase, setRememberMe } from '../lib/supabase';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -19,7 +19,7 @@ interface AuthState {
   isInitialized: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, remember?: boolean) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   register: (name: string, email: string, password: string, businessName: string) => Promise<{ needsEmailConfirmation: boolean }>;
   logout: () => Promise<void>;
@@ -41,9 +41,10 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
 
-      login: async (email, password) => {
+      login: async (email, password, remember = true) => {
         set({ isLoading: true, error: null });
         try {
+          setRememberMe(remember);
           const { error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
           const user = await fetchProfile();
