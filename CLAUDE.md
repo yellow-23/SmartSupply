@@ -243,6 +243,14 @@ quedo directo en `main`; `dev` se puso al dia con un fast-forward el 2026-08-26 
 - [x] Dashboard: serie `forecast` en `chart-data` ahora suma la prediccion cacheada de los SKUs que el usuario corrio en Forecast (`get_business_cached_forecasts`)
 - [x] Tests: `backend/tests/` (pytest, 17 tests) para `_parse_date` y `validate_ingest_records` -- no existian
 
+**Onboarding + seguridad + reportes (2026-08-26/27):**
+- [x] Onboarding: login con Google no permite pedir `business_name` durante el flujo OAuth, quedaba "Negocio de {nombre}" generico. `businesses.onboarding_completed` (default `true`; `false` solo si se autoprovisiona sin nombre) + `POST /api/auth/onboarding` + gate de una pantalla en `ProtectedRoute`
+- [x] Seguridad -- IDOR en `sales.py`: `_assert_record_owner` comparaba `biz.owner_user_id`, que nunca se poblaba al autoprovisionar (ni el `/register` viejo ni el autoprovision de Supabase Auth lo seteaban) -- el chequeo se saltaba siempre. Cualquier usuario autenticado podia editar/borrar `sales_history` de otro negocio adivinando el `record_id`. Reemplazado por chequeo de `UserBusiness`
+- [x] Seguridad -- mismo patron de IDOR encontrado y arreglado en `orders.py`, `inventory.py`, `products.py` y `stocky.py` (11 endpoints): ninguno verificaba que el `business_id` recibido por query param (o el `business_id` del producto encontrado por ID) le perteneciera al usuario logueado. `assert_business_access()` centralizado en `auth.py`
+- [x] Inventario -- EOQ sin sentido cuando falta `unit_cost`: `_get_product_params` usa `unit_cost=1.0` de fallback; combinado con `order_cost=5000` default, EOQ se dispara a cantidades absurdas (probado: 13,326 unidades sugeridas para un SKU que vende ~12/dia). `get_critical_skus` marca `needs_cost_setup` y no calcula cantidad; `/api/orders/generate` salta esos SKUs; el panel de Inventory avisa "falta configurar costo" en vez de mostrar el numero
+- [x] Reportes exportables (S5): `GET /api/orders/export` y `/api/inventory/alerts/export` (Excel via openpyxl) + `GET /api/forecast/{sku}/export` (PDF via fpdf2 -- resumen + tabla de predicciones). Boton en `Orders.tsx`/`Inventory.tsx`, y se conecto el boton "Exportar" que ya existia sin funcionalidad en `Forecast.tsx`
+- [x] Email de confirmacion (Supabase Auth): revisado con Resend SMTP -- sin dominio propio verificado, Resend solo permite mandar a la cuenta con la que te registraste ahi (no a usuarios reales). Se dejo "Confirm email" activo en Supabase con esa limitacion conocida; Google Sign-In no la tiene (no depende de email)
+
 ### Completado - Sprint 4 Inventario + Ordenes + Stocky global (2026-05-26, mergeado a dev)
 
 Rama `feature/s4-inventario-ordenes` mergeada a `dev`. Tambien mergeado `feature/xgboost-direct-forecast` (Int.1: XGBoost DIRMO + tests AMS reales).
@@ -431,15 +439,16 @@ Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec
 ### Pendiente
 
 **Proximo (top priority):**
-- [ ] S5: Reportes exportables (PDF/Excel), Admin panel (falta definir alcance: gestion de usuarios, negocios, o ambos)
+- [ ] Admin panel (falta definir alcance: gestion de usuarios, negocios, o ambos) -- unico item grande de S5 sin arrancar
 - [ ] S6: QA final + Tesis (`dev`/`main` ya sincronizadas, `dev -> main` sera solo el merge de cierre cuando corresponda)
 - [x] ~~Recuperacion de contrasena por email real~~ RESUELTO 2026-08-26: viene gratis con Supabase Auth (`supabase.auth.resetPasswordForEmail`), sin necesidad de SMTP/Resend
+- [x] ~~Reportes exportables (PDF/Excel)~~ RESUELTO 2026-08-27: ver seccion de arriba
 
-**Cosas sueltas de la sesion 2026-08-24/26:**
-- [ ] Borrar `client_secret_*.json` (credenciales OAuth de Google descargadas) que quedo en la raiz del repo -- esta en `.gitignore` asi que no se subio, pero conviene sacarlo del filesystem
-- [ ] Cuenta de prueba duplicada `cristobal.pello@gmail.com` (business_id=2, "Negocio de cristobal flores") -- decidir si se borra o se deja
-- [ ] Bundle de frontend paso a ~1.16MB (326KB gzip) con Supabase Auth agregado -- vite avisa por code-splitting, no urgente pero crece
-- [ ] No hay browser tool conectado en esta sesion (el usuario declino instalar la extension) -- los cambios de UI/mobile se verificaron por build + inspeccion de codigo, no visualmente en navegador real
+**Cosas sueltas sin confirmar (sesion 2026-08-24/27):**
+- [ ] Confirmar que se borro `client_secret_*.json` del filesystem (credenciales OAuth de Google descargadas) -- esta en `.gitignore`, nunca se subio, pero convendria sacarlo del disco
+- [ ] Confirmar si se corrio la query de borrado de las cuentas de prueba `cristobal.pello@gmail.com` (business_id=2) y `test.cristobal23@gmail.com` (business_id=3) -- se le paso la query al usuario, no confirmado si la ejecuto. Ojo: borrar de `public.users`/`businesses` no borra la cuenta de `auth.users` en Supabase (necesita Authentication -> Users en el dashboard), si no se hace ahi tambien el autoprovision la recrea en el proximo login
+- [ ] Bundle de frontend paso a ~1.17MB (327KB gzip) -- vite avisa por code-splitting, no urgente pero crece con cada feature
+- [ ] No hay browser tool conectado en esta sesion (el usuario declino instalar la extension) -- los cambios de UI se verificaron por build + inspeccion de codigo/logs de Supabase, no visualmente en navegador real
 
 **Mejoras tecnicas acumuladas:**
 - [x] ~~Tests automatizados de _parse_date y validate_ingest_records~~ RESUELTO 2026-08-24: `backend/tests/` (pytest), 17 tests, `PYTHONPATH=. ../venv/bin/python3.11 -m pytest tests/`
