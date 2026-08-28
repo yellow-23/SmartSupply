@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="SmartSupply">
+  <defs>
+    <linearGradient id="ssGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E33FD1"></stop>
+      <stop offset="55%" stop-color="#FF4D8D"></stop>
+      <stop offset="100%" stop-color="#FF6A24"></stop>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#ssGrad)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26 44 V28 H42"></path>
+    <path d="M74 44 V28 H58"></path>
+    <path d="M26 56 V72 H42"></path>
+    <path d="M74 56 V72 H58"></path>
+  </g>
+</svg>

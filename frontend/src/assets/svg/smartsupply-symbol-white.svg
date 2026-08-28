@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="SmartSupply">
+  <g fill="none" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26 44 V28 H42"></path>
+    <path d="M74 44 V28 H58"></path>
+    <path d="M26 56 V72 H42"></path>
+    <path d="M74 56 V72 H58"></path>
+    <path d="M50 16 V26"></path>
+    <path d="M50 74 V84"></path>
+  </g>
+</svg>

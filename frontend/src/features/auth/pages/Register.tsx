@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { BarChart3, Eye, EyeOff, TrendingUp, Package, Zap, Loader2 } from "lucide-react";
+import { Eye, EyeOff, TrendingUp, Package, Zap, Loader2 } from "lucide-react";
+import logoSymbol from "../../../assets/svg/smartsupply-symbol.svg";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 
@@ -43,7 +44,7 @@ export default function Register() {
     return (
       <div className="w-full min-h-screen flex items-center justify-center bg-white p-8">
         <div className="max-w-md w-full text-center">
-          <BarChart3 className="w-10 h-10 text-[#1565C0] mx-auto mb-4" />
+          <img src={logoSymbol} alt="" className="w-10 h-10 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Revisa tu correo</h2>
           <p className="text-gray-500 mb-6">Te enviamos un enlace de confirmación a {formData.email}. Confírmalo para poder ingresar.</p>
           <Link to="/login" className="text-orange-600 hover:opacity-80 text-sm font-medium">Volver al inicio de sesión</Link>
@@ -65,7 +66,7 @@ export default function Register() {
         <div className="text-white max-w-lg relative z-10">
           <div className="flex items-center gap-3 mb-10">
             <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-              <BarChart3 className="w-5 h-5 text-white" />
+              <img src={logoSymbol} alt="" className="w-5 h-5" />
             </div>
             <span className="text-lg font-semibold tracking-wide">SmartSupply</span>
           </div>
@@ -97,7 +98,7 @@ export default function Register() {
         <div className="w-full max-w-md">
           <div className="flex items-center gap-2 mb-8 md:hidden">
             <div className="w-8 h-8 bg-[#1565C0] rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-4 h-4 text-white" />
+              <img src={logoSymbol} alt="" className="w-4 h-4" />
             </div>
             <span className="text-lg font-bold text-gray-900">SmartSupply</span>
           </div>

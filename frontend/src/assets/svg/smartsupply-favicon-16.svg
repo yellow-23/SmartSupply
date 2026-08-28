@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="16" height="16" role="img" aria-label="SmartSupply">
   <rect width="100" height="100" rx="25" fill="#0D0E13"></rect>
-  <g fill="none" stroke="#EA580C" stroke-width="19" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke="#FF4D8D" stroke-width="19" stroke-linecap="round" stroke-linejoin="round">
     <path d="M30 46 V30 H46"></path>
     <path d="M70 54 V70 H54"></path>
   </g>

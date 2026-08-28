@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { BarChart3, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import logoSymbol from "../../../assets/svg/smartsupply-symbol.svg";
 import { useAuthStore } from "../store/authStore";
 
 export default function OnboardingGate() {
@@ -26,7 +27,7 @@ export default function OnboardingGate() {
     <div className="w-full min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
         <div className="w-10 h-10 bg-[#1565C0] rounded-xl flex items-center justify-center mb-6">
-          <BarChart3 className="w-5 h-5 text-white" />
+          <img src={logoSymbol} alt="" className="w-5 h-5" />
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">¿Cómo se llama tu distribuidora?</h2>
         <p className="text-gray-500 mb-6 text-sm">

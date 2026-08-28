@@ -7,13 +7,13 @@ import {
   Sparkles,
   Database,
   LogOut,
-  BarChart3,
   Package,
   ClipboardList,
   X,
 } from "lucide-react";
 import { useAuthStore } from "../../features/auth/store/authStore";
 import { cn } from "../lib/utils";
+import logoSymbol from "../../assets/svg/smartsupply-symbol.svg";
 
 const navItems = [
   { name: "Inicio",            path: "/dashboard",   icon: LayoutDashboard },
@@ -56,7 +56,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
       >
         <div className="px-5 py-5 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/10 border border-white/20">
-            <BarChart3 className="w-5 h-5 text-white" />
+            <img src={logoSymbol} alt="" className="w-5 h-5" />
           </div>
           <span className="text-lg font-bold tracking-tight flex-1">SmartSupply</span>
           <button

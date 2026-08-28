@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { BarChart3, Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
+import logoSymbol from "../../../assets/svg/smartsupply-symbol.svg";
 import { Link } from "react-router-dom";
 import { supabase } from "../../../shared/lib/supabase";
 
@@ -39,7 +40,7 @@ export default function ForgotPassword() {
         <div className="text-white max-w-lg relative z-10">
           <div className="flex items-center gap-3 mb-10">
             <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-              <BarChart3 className="w-5 h-5 text-white" />
+              <img src={logoSymbol} alt="" className="w-5 h-5" />
             </div>
             <span className="text-lg font-semibold tracking-wide">SmartSupply</span>
           </div>
@@ -58,7 +59,7 @@ export default function ForgotPassword() {
           {/* Mobile logo */}
           <div className="flex items-center gap-2 mb-8 md:hidden">
             <div className="w-8 h-8 bg-[#1565C0] rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-4 h-4 text-white" />
+              <img src={logoSymbol} alt="" className="w-4 h-4" />
             </div>
             <span className="text-lg font-bold text-gray-900">SmartSupply</span>
           </div>
