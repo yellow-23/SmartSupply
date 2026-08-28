@@ -22,6 +22,7 @@ app.add_middleware(
         "http://localhost:3000",
         "https://smartsupply-frontend.pages.dev",
         "https://smartsupply.pages.dev",
+        "https://app.smart-supply.cl",
     ],
     allow_origin_regex=r"https://.*\.(smartsupply-frontend|smartsupply)\.pages\.dev",
     allow_credentials=True,
