@@ -240,7 +240,7 @@ def chat(db: Session, business_id: int, messages: list[dict], max_iterations: in
 
     for _ in range(max_iterations):
         response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-sonnet-5",
             max_tokens=1024,
             system=_SYSTEM,
             tools=_TOOLS,
