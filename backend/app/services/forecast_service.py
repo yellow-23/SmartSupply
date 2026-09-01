@@ -75,7 +75,7 @@ def invalidate_business_cache(business_id: int) -> None:
 
 
 class InsufficientDataError(Exception):
-    """Se levanta cuando la serie no tiene los 90 días mínimos para el AMS."""
+    """Se levanta cuando la serie no tiene los días mínimos (_MIN_DAYS) para el AMS."""
 
     def __init__(self, days_available: int, days_required: int = _MIN_DAYS):
         self.days_available = days_available

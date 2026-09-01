@@ -58,7 +58,7 @@ const Forecast = () => {
     [options, storeNbr],
   );
   const daysAvailable = selectedStore?.days_available ?? 0;
-  const daysRequired = options?.days_required ?? 90;
+  const daysRequired = options?.days_required ?? 30;
   const hasEnoughData = daysAvailable >= daysRequired;
   const hasAnyData = !!options && options.families.length > 0 && options.stores.length > 0;
 

@@ -14,6 +14,7 @@ from app.models.schemas import ForecastRequest, ForecastResponse
 from app.services.forecast_service import (
     ForecastService,
     InsufficientDataError,
+    _MIN_DAYS,
     _cache,
     _cache_lock,
 )
@@ -107,7 +108,7 @@ def get_forecast_options(
         for row in store_rows
     ]
 
-    return {"families": families, "stores": stores, "days_required": 90}
+    return {"families": families, "stores": stores, "days_required": _MIN_DAYS}
 
 
 @router.delete("/cache", status_code=200)
