@@ -9,6 +9,7 @@ export interface Business {
   type: string | null;
   owner_user_id: number | null;
   created_at: string;
+  my_role: "owner" | "member" | null;
 }
 
 export interface StoreItem {

@@ -196,6 +196,7 @@ class BusinessResponse(BaseModel):
     type: Optional[str] = None
     owner_user_id: Optional[int] = None
     created_at: datetime
+    my_role: Optional[str] = None  # role del usuario autenticado en este negocio: 'owner' | 'member'
 
     class Config:
         from_attributes = True

@@ -128,6 +128,21 @@ def assert_business_access(db: Session, user: User, business_id: int) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a este negocio")
 
 
+def assert_business_owner(db: Session, user: User, business_id: int) -> None:
+    """Como assert_business_access, pero exige role='owner' en el negocio (o platform_admin).
+    Un 'member' (analista invitado) puede ver los datos pero no borrar/revertir cargas."""
+    if user.role == "platform_admin":
+        return
+    membership = db.query(UserBusiness).filter(
+        UserBusiness.user_id == user.id,
+        UserBusiness.business_id == business_id,
+    ).first()
+    if not membership:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a este negocio")
+    if membership.role != "owner":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo el dueño del negocio puede realizar esta acción")
+
+
 @router.post("/dev-login", response_model=DevLoginResponse)
 def dev_login(body: DevLoginRequest):
     """Solo para probar la API desde /docs: loguea contra Supabase Auth (email+password) y devuelve

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import assert_business_owner, get_current_user
 from app.database import get_db
 from app.models.orm import SalesHistory, Store, User, UserBusiness
 from app.models.schemas import (
@@ -186,7 +186,7 @@ def delete_record(
     rec = db.query(SalesHistory).filter(SalesHistory.id == record_id).first()
     if not rec:
         raise HTTPException(status_code=404, detail=f"Registro {record_id} no encontrado")
-    _assert_record_owner(db, rec, current_user)
+    assert_business_owner(db, current_user, rec.business_id)
     business_id = rec.business_id
     db.delete(rec)
     db.commit()

@@ -8,6 +8,12 @@ from app.database import get_db
 from app.models.orm import Business, Store, User, UserBusiness
 from app.models.schemas import BusinessCreate, BusinessResponse, StoreResponse
 
+
+def _with_role(biz: Business, role: str | None) -> BusinessResponse:
+    out = BusinessResponse.model_validate(biz)
+    out.my_role = role
+    return out
+
 router = APIRouter()
 
 
@@ -23,14 +29,15 @@ def list_businesses(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ):
-    """Lista los negocios a los que el usuario pertenece."""
-    return (
-        db.query(Business)
+    """Lista los negocios a los que el usuario pertenece, con su rol en cada uno."""
+    rows = (
+        db.query(Business, UserBusiness.role)
         .join(UserBusiness, UserBusiness.business_id == Business.id)
         .filter(UserBusiness.user_id == current_user.id)
         .order_by(Business.id)
         .all()
     )
+    return [_with_role(biz, role) for biz, role in rows]
 
 
 @router.get("/{business_id}", response_model=BusinessResponse)
@@ -42,9 +49,12 @@ def get_business(
     biz = db.query(Business).filter(Business.id == business_id).first()
     if not biz:
         raise HTTPException(status_code=404, detail=f"Negocio {business_id} no encontrado")
-    if not _can_access(db, business_id, current_user):
+    membership = db.query(UserBusiness).filter(
+        UserBusiness.user_id == current_user.id, UserBusiness.business_id == business_id,
+    ).first()
+    if not membership:
         raise HTTPException(status_code=403, detail="No tienes acceso a este negocio")
-    return biz
+    return _with_role(biz, membership.role)
 
 
 @router.post("", response_model=BusinessResponse, status_code=201)

@@ -12,6 +12,7 @@ import {
 import { chatIngest } from "../../ingest/api/ingest";
 import { StatusBadge } from "../components/StatusBadge";
 import ConfirmModal from "../components/ConfirmModal";
+import { useAuthStore } from "../../auth/store/authStore";
 
 type Confirm =
   | { type: "revert"; log: IngestLogItem }
@@ -25,7 +26,10 @@ export default function Datos() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
 
+  const globalRole = useAuthStore((s) => s.user?.role);
   const businesses = useQuery({ queryKey: ["businesses"], queryFn: listBusinesses });
+  const selectedBusiness = businesses.data?.find((b) => b.id === businessId);
+  const canManage = globalRole === "platform_admin" || selectedBusiness?.my_role === "owner";
 
   const stores = useQuery({
     queryKey: ["stores", businessId],
@@ -160,6 +164,7 @@ export default function Datos() {
                     key={log.id}
                     log={log}
                     open={expanded === log.id}
+                    canManage={canManage}
                     onToggle={() => setExpanded(expanded === log.id ? null : log.id)}
                     onRevert={() => setConfirm({ type: "revert", log })}
                     onDelete={() => setConfirm({ type: "delete", log })}
@@ -200,9 +205,10 @@ export default function Datos() {
   );
 }
 
-function RowGroup({ log, open, onToggle, onRevert, onDelete }: {
+function RowGroup({ log, open, canManage, onToggle, onRevert, onDelete }: {
   log: IngestLogItem;
   open: boolean;
+  canManage: boolean;
   onToggle: () => void;
   onRevert: () => void;
   onDelete: () => void;
@@ -258,16 +264,22 @@ function RowGroup({ log, open, onToggle, onRevert, onDelete }: {
           <StatusBadge status={log.status === "active" ? "Activo" : "Inactivo"} />
         </td>
         <td className="px-4 py-3">
-          <div className="flex items-center gap-2 justify-end">
-            {log.status === "active" && (
-              <button onClick={onRevert} title="Revertir" className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
-                <RotateCcw className="w-3.5 h-3.5" />
+          {canManage ? (
+            <div className="flex items-center gap-2 justify-end">
+              {log.status === "active" && (
+                <button onClick={onRevert} title="Revertir" className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors active:scale-90">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button onClick={onDelete} title="Eliminar" className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors active:scale-90">
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
-            )}
-            <button onClick={onDelete} title="Eliminar" className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
+            </div>
+          ) : (
+            <span className="text-xs text-gray-300 italic block text-right" title="Solo el dueño del negocio puede administrar cargas">
+              Solo lectura
+            </span>
+          )}
         </td>
       </tr>
 
@@ -307,12 +319,14 @@ function RowGroup({ log, open, onToggle, onRevert, onDelete }: {
                         </td>
                         <td className="px-4 py-2 text-gray-500">{r.onpromotion}</td>
                         <td className="px-4 py-2 text-right">
-                          <button
-                            onClick={() => setRecordToDelete(r.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {canManage && (
+                            <button
+                              onClick={() => setRecordToDelete(r.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors active:scale-90"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

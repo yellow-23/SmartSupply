@@ -7,7 +7,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import assert_business_owner, get_current_user
 from app.database import get_db
 from app.models.orm import Business, IngestLog, SalesHistory, User, UserBusiness
 from app.models.schemas import IngestLogResponse, SalesRecordResponse
@@ -78,7 +78,7 @@ def revert_ingest(
     log = db.query(IngestLog).filter(IngestLog.id == ingest_id).first()
     if not log:
         raise HTTPException(status_code=404, detail=f"Carga {ingest_id} no encontrada")
-    _assert_owner(db, log.business_id, current_user)
+    assert_business_owner(db, current_user, log.business_id)
     log.status = "reverted"
     db.commit()
     invalidate_business_cache(log.business_id)
@@ -98,7 +98,7 @@ def delete_ingest(
     log = db.query(IngestLog).filter(IngestLog.id == ingest_id).first()
     if not log:
         raise HTTPException(status_code=404, detail=f"Carga {ingest_id} no encontrada")
-    _assert_owner(db, log.business_id, current_user)
+    assert_business_owner(db, current_user, log.business_id)
     db.query(SalesHistory).filter(SalesHistory.ingest_id == ingest_id).delete()
     db.delete(log)
     db.commit()
