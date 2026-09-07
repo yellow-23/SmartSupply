@@ -8,6 +8,7 @@ de sales_history.
 import base64
 import json
 import os
+import re
 import warnings
 from datetime import date, datetime
 from pathlib import Path
@@ -365,11 +366,17 @@ class IngestService:
         # Silenciamos warnings de pandas: intentamos varios formatos a proposito.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            # 1. ISO y dd/mm/yyyy (CL/EU). dayfirst=True parsea YYYY-MM-DD correctamente.
-            result = pd.to_datetime(val, dayfirst=True, errors="coerce")
-            # 2. Fallback US (mm/dd/yyyy) si dayfirst=True fallo (ej: dia=21 invalido).
-            if pd.isna(result):
-                result = pd.to_datetime(val, dayfirst=False, errors="coerce")
+            # 0. ISO (YYYY-MM-DD[...]): el anio ya fija el orden, es inambiguo. Si se le
+            # pasa dayfirst=True igual invierte dia/mes (ej "2025-03-11" -> 11-nov) cada
+            # vez que el dia es <=12, asi que para este formato NO usamos dayfirst.
+            if re.match(r"^\d{4}-\d{1,2}-\d{1,2}", str(val).strip()):
+                result = pd.to_datetime(val, errors="coerce")
+            else:
+                # 1. dd/mm/yyyy (CL/EU).
+                result = pd.to_datetime(val, dayfirst=True, errors="coerce")
+                # 2. Fallback US (mm/dd/yyyy) si dayfirst=True fallo (ej: dia=21 invalido).
+                if pd.isna(result):
+                    result = pd.to_datetime(val, dayfirst=False, errors="coerce")
         return result.date() if not pd.isna(result) else None
 
     def _detect_data_type(self, df: pd.DataFrame, headers: list[str]) -> str:
