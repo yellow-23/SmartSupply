@@ -1,8 +1,9 @@
-import { Target, AlertTriangle, ClipboardList, Activity, RefreshCw, Upload, FileDown, Loader2, Sparkles } from "lucide-react";
+import { Target, AlertTriangle, ClipboardList, Activity, RefreshCw, Upload, FileDown, Zap, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { KpiCard } from "../components/KpiCard";
 import AlertsSummaryPanel from "../components/AlertsSummaryPanel";
+import Skeleton from "../../../shared/ui/Skeleton";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -96,7 +97,7 @@ export default function Dashboard() {
           </div>
           <button
             onClick={() => navigate("/ingest")}
-            className="px-7 py-3 bg-orange-600 text-white rounded-xl font-bold text-base hover:opacity-90 transition-all inline-flex items-center gap-2"
+            className="px-7 py-3 bg-orange-600 text-white rounded-xl font-bold text-base hover:opacity-90 transition-all active:scale-[0.97] inline-flex items-center gap-2"
           >
             <Upload className="w-5 h-5" />
             Subir mis ventas
@@ -123,22 +124,26 @@ export default function Dashboard() {
           label="MAPE global"
           value={kpisLoading ? "…" : fmt(kpis?.mape_global, "%")}
           icon={<Target className="w-full h-full" />}
+          delay={0}
         />
         <KpiCard
           label="SKUs en alerta"
           value={kpisLoading ? "…" : fmt(kpis?.skus_en_alerta)}
           icon={<AlertTriangle className="w-full h-full" />}
           valueClassName={kpis && kpis.skus_en_alerta > 0 ? "text-danger" : undefined}
+          delay={0.03}
         />
         <KpiCard
           label="Órdenes pendientes"
           value={kpisLoading ? "…" : fmt(kpis?.ordenes_pendientes)}
           icon={<ClipboardList className="w-full h-full" />}
+          delay={0.06}
         />
         <KpiCard
           label="Nivel de servicio"
           value={kpisLoading ? "…" : fmt(kpis?.nivel_servicio, "%")}
           icon={<Activity className="w-full h-full" />}
+          delay={0.09}
         />
       </div>
 
@@ -160,9 +165,14 @@ export default function Dashboard() {
           </div>
 
           {chartLoading ? (
-            <div className="flex items-center justify-center h-60 text-gray-400">
-              <Loader2 className="w-6 h-6 animate-spin mr-2" />
-              <span className="text-sm">Cargando datos…</span>
+            <div className="h-60 flex items-end gap-2 px-2 pb-2">
+              {Array.from({ length: 14 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  className="flex-1"
+                  style={{ height: `${30 + ((i * 37) % 60)}%` }}
+                />
+              ))}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
@@ -187,7 +197,7 @@ export default function Dashboard() {
           <AlertsSummaryPanel />
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-accent">⚡</span>
+              <Zap className="w-4 h-4 text-accent" />
               <span className="text-sm font-semibold text-gray-700">Acciones rápidas</span>
             </div>
             <div className="space-y-1">
@@ -195,7 +205,7 @@ export default function Dashboard() {
                 <button
                   key={action.label}
                   onClick={() => navigate(action.href)}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors active:scale-[0.98] group"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-blue-900 flex items-center justify-center text-white">

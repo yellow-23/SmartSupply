@@ -3,6 +3,8 @@ import { Plus, Package, AlertTriangle, Pencil, Trash2, Loader2, X } from "lucide
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchProducts, createProduct, updateProduct, deleteProduct, Product, ProductCreate } from "../api/products";
 import { listBusinesses } from "../../../shared/api/data";
+import Modal from "../../../shared/ui/Modal";
+import { toast } from "../../../shared/ui/toastStore";
 
 const EMPTY_FORM: Omit<ProductCreate, "business_id"> = {
   store_nbr: 1, family: "", unit_cost: null,
@@ -34,17 +36,17 @@ export default function Products() {
 
   const createMut = useMutation({
     mutationFn: (f: typeof EMPTY_FORM) => createProduct({ ...f, business_id: businessId! }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); closeModal(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); closeModal(); toast.success("Producto creado"); },
   });
 
   const updateMut = useMutation({
     mutationFn: ({ id, body }: { id: number; body: typeof EMPTY_FORM }) => updateProduct(id, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); closeModal(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); closeModal(); toast.success("Producto actualizado"); },
   });
 
   const deleteMut = useMutation({
     mutationFn: deleteProduct,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); setDeleteTarget(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); setDeleteTarget(null); toast.success("Producto eliminado"); },
   });
 
   function openCreate() { setForm(EMPTY_FORM); setEditing(null); setModal("create"); }
@@ -173,14 +175,13 @@ export default function Products() {
       </div>
 
       {/* Create / Edit modal */}
-      {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+      <Modal open={!!modal} onClose={closeModal}>
+          <div className="p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-semibold text-gray-900">
                 {modal === "create" ? "Nuevo producto" : "Editar producto"}
               </h2>
-              <button onClick={closeModal} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+              <button onClick={closeModal} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors active:scale-90">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -274,13 +275,13 @@ export default function Products() {
               )}
 
               <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={closeModal} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+                <button type="button" onClick={closeModal} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors active:scale-[0.97]">
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:opacity-90 disabled:opacity-60 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:opacity-90 disabled:opacity-60 transition-transform active:scale-[0.97]"
                 >
                   {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {modal === "create" ? "Crear" : "Guardar"}
@@ -288,33 +289,30 @@ export default function Products() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Delete confirm */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} className="max-w-sm">
+          <div className="p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-1">Eliminar producto</h2>
             <p className="text-sm text-gray-500 mb-5">
-              ¿Seguro que quieres eliminar <span className="font-medium text-gray-800">{deleteTarget.family}</span>? Esta acción no se puede deshacer.
+              ¿Seguro que quieres eliminar <span className="font-medium text-gray-800">{deleteTarget?.family}</span>? Esta acción no se puede deshacer.
             </p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+              <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors active:scale-[0.97]">
                 Cancelar
               </button>
               <button
-                onClick={() => deleteMut.mutate(deleteTarget.id)}
+                onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
                 disabled={deleteMut.isPending}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:opacity-90 disabled:opacity-60 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:opacity-90 disabled:opacity-60 transition-transform active:scale-[0.97]"
               >
                 {deleteMut.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Eliminar
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
       </>)}
     </div>
   );

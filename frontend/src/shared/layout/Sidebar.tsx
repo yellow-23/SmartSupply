@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -80,17 +81,33 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
               key={item.path}
               to={item.path}
               onClick={onClose}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors border-l-[3px] pl-[9px]",
-                  isActive
-                    ? "bg-white/10 text-white border-l-orange-600"
-                    : "text-white/50 hover:bg-white/5 hover:text-white border-l-transparent"
-                )
-              }
+              className="group relative flex items-center gap-3 py-2.5 pl-[9px] rounded-lg text-sm font-medium"
             >
-              <item.icon className="w-4 h-4 flex-shrink-0" />
-              {item.name}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <motion.span
+                      layoutId="sidebar-active-pill"
+                      className="absolute inset-0 rounded-lg bg-white/10 border-l-[3px] border-l-orange-600"
+                      transition={{ type: "spring", stiffness: 550, damping: 38 }}
+                    />
+                  )}
+                  <item.icon
+                    className={cn(
+                      "relative z-10 w-4 h-4 flex-shrink-0 transition-colors",
+                      isActive ? "text-white" : "text-white/50 group-hover:text-white"
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "relative z-10 transition-colors",
+                      isActive ? "text-white" : "text-white/50 group-hover:text-white"
+                    )}
+                  >
+                    {item.name}
+                  </span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>

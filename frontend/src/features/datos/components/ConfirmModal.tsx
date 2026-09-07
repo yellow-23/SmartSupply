@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import Modal from "../../../shared/ui/Modal";
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -21,17 +22,14 @@ export default function ConfirmModal({
   onConfirm,
   onClose,
 }: ConfirmModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+    <Modal open={isOpen} onClose={onClose}>
+      <div className="p-6">
         <div className="flex items-start justify-between mb-4">
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 ml-4 shrink-0"
+            className="text-gray-400 hover:text-gray-600 ml-4 shrink-0 transition-colors active:scale-90"
           >
             <X className="w-5 h-5" />
           </button>
@@ -40,7 +38,7 @@ export default function ConfirmModal({
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors active:scale-[0.97]"
           >
             {onConfirm ? "Cancelar" : "Cerrar"}
           </button>
@@ -48,13 +46,13 @@ export default function ConfirmModal({
             <button
               onClick={onConfirm}
               disabled={isLoading}
-              className={`px-4 py-2 text-sm rounded-lg font-medium disabled:opacity-60 ${confirmClassName}`}
+              className={`px-4 py-2 text-sm rounded-lg font-medium disabled:opacity-60 transition-transform active:scale-[0.97] ${confirmClassName}`}
             >
               {isLoading ? "Procesando…" : confirmLabel}
             </button>
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

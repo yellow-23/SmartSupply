@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { ShoppingCart, CheckCircle, Clock, Truck, Plus, Loader2, XCircle, Download } from 'lucide-react';
 import { useAuthStore } from '../../auth/store/authStore';
 import { fetchOrders, generateOrders, updateOrderStatus, exportOrders, PurchaseOrder } from '../api/orders';
 import { downloadBlob } from '../../../shared/lib/utils';
+import { toast } from '../../../shared/ui/toastStore';
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 6 },
+  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.015, duration: 0.12 } }),
+};
 
 const STATUS_LABELS: Record<PurchaseOrder['status'], string> = {
   pending: 'Pendiente',
@@ -59,13 +66,19 @@ export default function Orders() {
       updateOrderStatus(orderId, businessId!, newStatus),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders', businessId] });
+      toast.success('Estado actualizado');
     },
   });
 
   const generateMutation = useMutation({
     mutationFn: () => generateOrders(businessId!, storeNbr),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['orders', businessId] });
+      toast.success(
+        data.length > 0
+          ? `Se generaron ${data.length} orden${data.length !== 1 ? 'es' : ''}.`
+          : 'No hay SKUs que requieran una orden por ahora.'
+      );
     },
   });
 
@@ -139,7 +152,7 @@ export default function Orders() {
             <button
               onClick={handleExport}
               disabled={isExporting}
-              className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60"
+              className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors active:scale-[0.97] disabled:opacity-60"
             >
               {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               Exportar Excel
@@ -147,7 +160,7 @@ export default function Orders() {
             <button
               onClick={() => generateMutation.mutate()}
               disabled={generateMutation.isPending}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-600 text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-60"
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-600 text-white rounded-lg hover:opacity-90 transition-transform active:scale-[0.97] disabled:opacity-60"
             >
               {generateMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -185,10 +198,17 @@ export default function Orders() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {orders.map((o) => {
+                {orders.map((o, i) => {
                   const next = NEXT_STATUS[o.status];
                   return (
-                    <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                    <motion.tr
+                      key={o.id}
+                      custom={i}
+                      initial="hidden"
+                      animate="visible"
+                      variants={rowVariants}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
                       <td className="px-4 py-4 font-medium text-gray-800 whitespace-nowrap">{o.family}</td>
                       <td className="px-4 py-4 text-gray-700">{o.quantity}</td>
                       <td className="px-4 py-4 text-gray-500">{o.trigger_stock ?? '—'}</td>
@@ -206,13 +226,13 @@ export default function Orders() {
                           <button
                             onClick={() => statusMutation.mutate({ orderId: o.id, newStatus: next.status })}
                             disabled={statusMutation.isPending}
-                            className="px-3 py-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                            className="px-3 py-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors active:scale-[0.95] disabled:opacity-50 whitespace-nowrap"
                           >
                             {next.label}
                           </button>
                         )}
                       </td>
-                    </tr>
+                    </motion.tr>
                   );
                 })}
               </tbody>
@@ -220,12 +240,6 @@ export default function Orders() {
           </div>
         )}
       </div>
-
-      {generateMutation.isSuccess && (
-        <p className="text-sm text-green-600 text-center">
-          Órdenes generadas correctamente.
-        </p>
-      )}
     </div>
   );
 }

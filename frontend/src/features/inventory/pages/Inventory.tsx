@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { Package, AlertCircle, TrendingDown, RefreshCw, Loader2, Download } from 'lucide-react';
+import { toast } from '../../../shared/ui/toastStore';
 import { useAuthStore } from '../../auth/store/authStore';
 import {
   fetchAlerts,
@@ -65,7 +67,11 @@ export default function Inventory() {
     mutationFn: () => generateOrders(businessId!, storeNbr),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['orders', businessId] });
-      alert(`Se generaron ${data.length} órdenes automáticas.`);
+      toast.success(
+        data.length > 0
+          ? `Se generaron ${data.length} orden${data.length !== 1 ? 'es' : ''} automática${data.length !== 1 ? 's' : ''}.`
+          : 'No hay SKUs que requieran una orden por ahora.'
+      );
     },
   });
 
@@ -150,11 +156,14 @@ export default function Inventory() {
           <p className="text-sm text-gray-400">Sin alertas activas.</p>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {alerts.map((a) => (
-            <button
+          {alerts.map((a, i) => (
+            <motion.button
               key={a.family}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.02, duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
               onClick={() => setSelectedFamily(a.family)}
-              className={`text-left bg-white rounded-2xl shadow-sm border p-5 hover:shadow-md transition-shadow ${
+              className={`text-left bg-white rounded-2xl shadow-sm border p-5 hover:shadow-md transition-all active:scale-[0.98] ${
                 selectedFamily === a.family ? 'border-orange-400' : 'border-gray-100'
               }`}
             >
@@ -184,7 +193,7 @@ export default function Inventory() {
                   </div>
                 </div>
               )}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -327,7 +336,7 @@ export default function Inventory() {
           <button
             onClick={() => generateMutation.mutate()}
             disabled={generateMutation.isPending}
-            className="w-full flex items-center justify-center gap-2 p-4 bg-orange-600 text-white rounded-2xl font-bold hover:opacity-90 transition-all disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 p-4 bg-orange-600 text-white rounded-2xl font-bold hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-60"
           >
             {generateMutation.isPending ? (
               <Loader2 className="w-5 h-5 animate-spin" />

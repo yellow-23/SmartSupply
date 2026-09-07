@@ -1,4 +1,5 @@
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "../../../shared/lib/utils";
 
 interface KpiCardProps {
@@ -11,14 +12,19 @@ interface KpiCardProps {
     isGood: boolean;
   };
   valueClassName?: string;
+  delay?: number;
 }
 
-export function KpiCard({ label, value, icon, trend, valueClassName }: KpiCardProps) {
+export function KpiCard({ label, value, icon, trend, valueClassName, delay = 0 }: KpiCardProps) {
   const trendGood = trend && trend.isGood;
-  const trendBad = trend && !trend.isGood;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+      className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow"
+    >
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{label}</span>
         <div
@@ -42,6 +48,6 @@ export function KpiCard({ label, value, icon, trend, valueClassName }: KpiCardPr
           {trend.value}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

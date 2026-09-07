@@ -1,11 +1,19 @@
 import { useState } from "react";
 import { Shield, Building2, Loader2, Trash2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   listAdminUsers, listAdminBusinesses, updateAdminUser, deleteAdminUser, deleteAdminBusiness,
   AdminUser, AdminBusiness,
 } from "../api/admin";
 import { useAuthStore } from "../../auth/store/authStore";
+import Modal from "../../../shared/ui/Modal";
+import { toast } from "../../../shared/ui/toastStore";
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 6 },
+  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.015, duration: 0.12 } }),
+};
 
 const ROLE_LABEL: Record<string, string> = {
   platform_admin: "Admin plataforma",
@@ -34,12 +42,12 @@ export default function Admin() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, body }: { id: number; body: { is_active?: boolean; role?: string } }) => updateAdminUser(id, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "users"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "users"] }); toast.success("Usuario actualizado"); },
   });
 
   const deleteUserMut = useMutation({
     mutationFn: deleteAdminUser,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "users"] }); setDeleteUserTarget(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "users"] }); setDeleteUserTarget(null); toast.success("Usuario eliminado"); },
   });
 
   const deleteBizMut = useMutation({
@@ -48,6 +56,7 @@ export default function Admin() {
       qc.invalidateQueries({ queryKey: ["admin", "businesses"] });
       qc.invalidateQueries({ queryKey: ["admin", "users"] });
       setDeleteBizTarget(null);
+      toast.success("Negocio eliminado");
     },
   });
 
@@ -91,8 +100,15 @@ export default function Admin() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {(users ?? []).map((u: AdminUser) => (
-                    <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                  {(users ?? []).map((u: AdminUser, i) => (
+                    <motion.tr
+                      key={u.id}
+                      custom={i}
+                      initial="hidden"
+                      animate="visible"
+                      variants={rowVariants}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
                       <td className="px-6 py-4 font-medium text-gray-800">{u.name}</td>
                       <td className="px-6 py-4 text-gray-500">{u.email}</td>
                       <td className="px-6 py-4 text-gray-500">{u.business_name || <span className="text-gray-300 italic">Sin negocio</span>}</td>
@@ -127,7 +143,7 @@ export default function Admin() {
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
@@ -156,8 +172,15 @@ export default function Admin() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {(businesses ?? []).map((b) => (
-                    <tr key={b.id} className="hover:bg-gray-50 transition-colors">
+                  {(businesses ?? []).map((b, i) => (
+                    <motion.tr
+                      key={b.id}
+                      custom={i}
+                      initial="hidden"
+                      animate="visible"
+                      variants={rowVariants}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
                       <td className="px-6 py-4 font-medium text-gray-800">{b.name}</td>
                       <td className="px-6 py-4 text-gray-500">{b.type ?? "—"}</td>
                       <td className="px-6 py-4 text-gray-500">{b.user_count}</td>
@@ -177,7 +200,7 @@ export default function Admin() {
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
@@ -186,12 +209,11 @@ export default function Admin() {
         </div>
       )}
 
-      {deleteUserTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <Modal open={!!deleteUserTarget} onClose={() => setDeleteUserTarget(null)} className="max-w-sm">
+          <div className="p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-1">Eliminar usuario</h2>
             <p className="text-sm text-gray-500 mb-5">
-              ¿Seguro que quieres eliminar a <span className="font-medium text-gray-800">{deleteUserTarget.name}</span> ({deleteUserTarget.email})?
+              ¿Seguro que quieres eliminar a <span className="font-medium text-gray-800">{deleteUserTarget?.name}</span> ({deleteUserTarget?.email})?
               Esta acción no se puede deshacer.
             </p>
             {deleteUserMut.error && (
@@ -200,29 +222,27 @@ export default function Admin() {
               </p>
             )}
             <div className="flex justify-end gap-2">
-              <button onClick={() => setDeleteUserTarget(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+              <button onClick={() => setDeleteUserTarget(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors active:scale-[0.97]">
                 Cancelar
               </button>
               <button
-                onClick={() => deleteUserMut.mutate(deleteUserTarget.id)}
+                onClick={() => deleteUserTarget && deleteUserMut.mutate(deleteUserTarget.id)}
                 disabled={deleteUserMut.isPending}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:opacity-90 disabled:opacity-60 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:opacity-90 disabled:opacity-60 transition-transform active:scale-[0.97]"
               >
                 {deleteUserMut.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Eliminar
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
-      {deleteBizTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <Modal open={!!deleteBizTarget} onClose={() => setDeleteBizTarget(null)} className="max-w-sm">
+          <div className="p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-1">Eliminar negocio</h2>
             <p className="text-sm text-gray-500 mb-5">
-              ¿Seguro que quieres eliminar <span className="font-medium text-gray-800">{deleteBizTarget.name}</span>?
-              Se borran sus {deleteBizTarget.sales_rows.toLocaleString("es-CL")} filas de ventas y datos asociados. Sus {deleteBizTarget.user_count} usuario{deleteBizTarget.user_count !== 1 ? "s" : ""} no se elimina{deleteBizTarget.user_count !== 1 ? "n" : ""}, quedan sin negocio. Esta acción no se puede deshacer.
+              ¿Seguro que quieres eliminar <span className="font-medium text-gray-800">{deleteBizTarget?.name}</span>?
+              Se borran sus {deleteBizTarget?.sales_rows.toLocaleString("es-CL")} filas de ventas y datos asociados. Sus {deleteBizTarget?.user_count} usuario{deleteBizTarget?.user_count !== 1 ? "s" : ""} no se elimina{deleteBizTarget?.user_count !== 1 ? "n" : ""}, quedan sin negocio. Esta acción no se puede deshacer.
             </p>
             {deleteBizMut.error && (
               <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-3">
@@ -230,21 +250,20 @@ export default function Admin() {
               </p>
             )}
             <div className="flex justify-end gap-2">
-              <button onClick={() => setDeleteBizTarget(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+              <button onClick={() => setDeleteBizTarget(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors active:scale-[0.97]">
                 Cancelar
               </button>
               <button
-                onClick={() => deleteBizMut.mutate(deleteBizTarget.id)}
+                onClick={() => deleteBizTarget && deleteBizMut.mutate(deleteBizTarget.id)}
                 disabled={deleteBizMut.isPending}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:opacity-90 disabled:opacity-60 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:opacity-90 disabled:opacity-60 transition-transform active:scale-[0.97]"
               >
                 {deleteBizMut.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Eliminar
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }
