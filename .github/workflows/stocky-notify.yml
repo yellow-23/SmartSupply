@@ -1,0 +1,34 @@
+name: Stocky Notifications
+
+on:
+  schedule:
+    # Stock bajo: todos los dias a las 13:00 UTC (~10:00 Chile continental).
+    - cron: "0 13 * * *"
+    # Resumen semanal: lunes a las 13:00 UTC.
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Que job correr manualmente"
+        type: choice
+        options: [low-stock, weekly-digest]
+        default: low-stock
+
+jobs:
+  low-stock:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'low-stock' || github.event.schedule == '0 13 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Revisar stock bajo
+        run: |
+          curl -sf -X POST "${{ secrets.BACKEND_URL }}/api/notify/low-stock" \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}"
+
+  weekly-digest:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'weekly-digest' || github.event.schedule == '0 13 * * 1'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar resumen semanal
+        run: |
+          curl -sf -X POST "${{ secrets.BACKEND_URL }}/api/notify/weekly-digest" \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}"

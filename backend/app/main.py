@@ -6,7 +6,7 @@ FastAPI backend para la plataforma de predicción de demanda y reabastecimiento
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, forecast, inventory, products, orders, sales, ingest, ingests, businesses, dashboard, stocky, admin
+from app.api import auth, forecast, inventory, products, orders, sales, ingest, ingests, businesses, dashboard, stocky, admin, notify
 from app.api.auth import get_current_user, require_admin
 
 app = FastAPI(
@@ -45,6 +45,7 @@ app.include_router(businesses.router, prefix="/api/businesses", tags=["Negocios"
 app.include_router(dashboard.router,  prefix="/api/dashboard",  tags=["Dashboard"],          dependencies=_auth)
 app.include_router(stocky.router,     prefix="/api/stocky",     tags=["Stocky"],              dependencies=_auth)
 app.include_router(admin.router,      prefix="/api/admin",      tags=["Admin"],               dependencies=[Depends(require_admin)])
+app.include_router(notify.router,     prefix="/api/notify",     tags=["Notificaciones"])
 
 
 @app.get("/", tags=["Health"])
