@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import assert_business_access, get_current_user
 from app.database import get_db
-from app.models.orm import PurchaseOrder, User
+from app.models.orm import PurchaseOrder, StockLevel, User
 from app.models.schemas import PurchaseOrderResponse
 from app.services.inventory_service import InventoryService
 
@@ -184,6 +184,19 @@ async def update_order_status(
     if new_status == "received":
         from datetime import datetime
         order.received_at = datetime.now()
+
+        stock = db.query(StockLevel).filter(
+            StockLevel.business_id == business_id,
+            StockLevel.store_nbr == order.store_nbr,
+            StockLevel.family == order.family,
+        ).first()
+        if stock:
+            stock.quantity = float(stock.quantity or 0) + float(order.quantity)
+        else:
+            db.add(StockLevel(
+                business_id=business_id, store_nbr=order.store_nbr,
+                family=order.family, quantity=order.quantity,
+            ))
 
     db.commit()
     db.refresh(order)
