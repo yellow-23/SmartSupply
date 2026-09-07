@@ -10,6 +10,7 @@ import {
   Package,
   ClipboardList,
   X,
+  Shield,
 } from "lucide-react";
 import { useAuthStore } from "../../features/auth/store/authStore";
 import { cn } from "../lib/utils";
@@ -71,7 +72,10 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
         <div className="mx-5 border-t border-white/10" />
 
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => (
+          {(user?.role === "platform_admin"
+            ? [...navItems, { name: "Admin", path: "/admin", icon: Shield }]
+            : navItems
+          ).map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -95,7 +99,9 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
           <div className="rounded-xl px-4 py-3 mb-2 border border-white/10 bg-white/5">
             <p className="text-xs text-orange-400 font-semibold truncate mb-0.5">{user?.business_name ?? ""}</p>
             <p className="text-sm font-semibold text-white truncate">{user?.name ?? "Usuario"}</p>
-            <p className="text-xs text-white/40 mt-0.5 capitalize">{user?.role === "business_admin" ? "Administrador" : "Analista"}</p>
+            <p className="text-xs text-white/40 mt-0.5 capitalize">
+            {user?.role === "platform_admin" ? "Admin plataforma" : user?.role === "business_admin" ? "Administrador" : "Analista"}
+          </p>
           </div>
           <button
             onClick={() => { queryClient.clear(); logout(); navigate("/login"); }}

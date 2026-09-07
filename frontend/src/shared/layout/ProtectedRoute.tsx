@@ -5,7 +5,7 @@ import OnboardingGate from '../../features/auth/components/OnboardingGate';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  allowedRoles?: Array<'business_admin' | 'analyst'>;
+  allowedRoles?: Array<'platform_admin' | 'business_admin' | 'analyst'>;
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -27,7 +27,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   if (user && !user.onboarding_completed) return <OnboardingGate />;
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role as 'business_admin' | 'analyst')) {
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }
 

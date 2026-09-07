@@ -23,13 +23,24 @@ class UserOut(BaseModel):
     name: str
     email: str
     role: str
-    business_id: int
+    business_id: int | None
     business_name: str = ""
     onboarding_completed: bool = True
 
 
 class OnboardingRequest(BaseModel):
     business_name: str
+
+
+class DevLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class DevLoginResponse(BaseModel):
+    access_token: str
+    expires_in: int
+    user_id: str
 
 
 def get_current_user(
@@ -101,8 +112,9 @@ def get_current_user(
 
 
 def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
-    if current_user.role != "business_admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol de administrador")
+    """Rol de administrador de la plataforma (nosotros), distinto de business_admin (dueno de un negocio)."""
+    if current_user.role != "platform_admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol de administrador de plataforma")
     return current_user
 
 
@@ -114,6 +126,27 @@ def assert_business_access(db: Session, user: User, business_id: int) -> None:
     ).first()
     if not has_access:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a este negocio")
+
+
+@router.post("/dev-login", response_model=DevLoginResponse)
+def dev_login(body: DevLoginRequest):
+    """Solo para probar la API desde /docs: loguea contra Supabase Auth (email+password) y devuelve
+    el access_token. Copialo y pegalo en el boton 'Authorize' de Swagger (sin el prefijo 'Bearer')
+    para que quede guardado mientras probas el resto de los endpoints."""
+    resp = httpx.post(
+        f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+        headers={"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"},
+        json={"email": body.email, "password": body.password},
+        timeout=10.0,
+    )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email o contraseña incorrectos")
+    data = resp.json()
+    return DevLoginResponse(
+        access_token=data["access_token"],
+        expires_in=data["expires_in"],
+        user_id=data["user"]["id"],
+    )
 
 
 @router.get("/me", response_model=UserOut)

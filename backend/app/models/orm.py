@@ -11,8 +11,8 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False, index=True)
     supabase_uid = Column(String, unique=True, nullable=True, index=True)
-    role = Column(String, nullable=False, default="analyst")  # 'business_admin' | 'analyst'
-    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, default=1)
+    role = Column(String, nullable=False, default="analyst")  # 'platform_admin' | 'business_admin' | 'analyst'
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

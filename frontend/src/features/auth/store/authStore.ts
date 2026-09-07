@@ -7,8 +7,8 @@ interface User {
   id: number;
   name: string;
   email: string;
-  role: 'business_admin' | 'analyst';
-  business_id: number;
+  role: 'platform_admin' | 'business_admin' | 'analyst';
+  business_id: number | null;
   business_name: string;
   onboarding_completed: boolean;
 }

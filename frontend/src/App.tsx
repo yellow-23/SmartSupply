@@ -10,6 +10,7 @@ import Ingest from "./features/ingest/pages/Ingest";
 import Datos from "./features/datos/pages/Datos";
 import Orders from "./features/orders/pages/Orders";
 import Products from "./features/products/pages/Products";
+import Admin from "./features/admin/pages/Admin";
 import AppShell from "./shared/layout/AppShell";
 import ProtectedRoute from "./shared/layout/ProtectedRoute";
 
@@ -34,6 +35,14 @@ function App() {
                   <Route path="/datos"          element={<Datos />} />
                   <Route path="/orders"         element={<Orders />} />
                   <Route path="/products"       element={<Products />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute allowedRoles={["platform_admin"]}>
+                        <Admin />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </AppShell>
