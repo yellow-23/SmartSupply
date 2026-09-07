@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import assert_business_owner, get_current_user
 from app.database import get_db
-from app.models.orm import Business, IngestLog, SalesHistory, User, UserBusiness
+from app.models.orm import Business, IngestLog, Product, PurchaseOrder, SalesHistory, StockLevel, User, UserBusiness
 from app.models.schemas import IngestLogResponse, SalesRecordResponse
 from app.services.forecast_service import invalidate_business_cache
 
@@ -24,6 +24,37 @@ def _assert_owner(db: Session, business_id: int, user: User):
         UserBusiness.business_id == business_id,
     ).first():
         raise HTTPException(status_code=403, detail="No tienes acceso a este negocio")
+
+
+def _cleanup_orphaned_families(db: Session, business_id: int, store_nbr: int, families: list[str]) -> None:
+    """Si una familia se quedo sin ninguna venta activa (tras borrar/revertir una carga), borra
+    tambien su config huerfana (product, stock_level, purchase_orders) para que deje de aparecer
+    en Productos/Inventario/Ordenes."""
+    for family in families:
+        still_active = (
+            db.query(SalesHistory)
+            .join(IngestLog, IngestLog.id == SalesHistory.ingest_id)
+            .filter(
+                SalesHistory.business_id == business_id,
+                SalesHistory.store_nbr == store_nbr,
+                SalesHistory.family == family,
+                IngestLog.status == "active",
+            )
+            .first()
+        )
+        if still_active:
+            continue
+        db.query(PurchaseOrder).filter(
+            PurchaseOrder.business_id == business_id, PurchaseOrder.store_nbr == store_nbr,
+            PurchaseOrder.family == family,
+        ).delete()
+        db.query(StockLevel).filter(
+            StockLevel.business_id == business_id, StockLevel.store_nbr == store_nbr,
+            StockLevel.family == family,
+        ).delete()
+        db.query(Product).filter(
+            Product.business_id == business_id, Product.store_nbr == store_nbr, Product.family == family,
+        ).delete()
 
 
 @router.get("", response_model=list[IngestLogResponse])
@@ -80,6 +111,8 @@ def revert_ingest(
         raise HTTPException(status_code=404, detail=f"Carga {ingest_id} no encontrada")
     assert_business_owner(db, current_user, log.business_id)
     log.status = "reverted"
+    db.flush()
+    _cleanup_orphaned_families(db, log.business_id, log.store_nbr, log.families or [])
     db.commit()
     invalidate_business_cache(log.business_id)
     db.refresh(log)
@@ -99,7 +132,10 @@ def delete_ingest(
     if not log:
         raise HTTPException(status_code=404, detail=f"Carga {ingest_id} no encontrada")
     assert_business_owner(db, current_user, log.business_id)
+    business_id, store_nbr, families = log.business_id, log.store_nbr, log.families or []
     db.query(SalesHistory).filter(SalesHistory.ingest_id == ingest_id).delete()
     db.delete(log)
+    db.flush()
+    _cleanup_orphaned_families(db, business_id, store_nbr, families)
     db.commit()
-    invalidate_business_cache(log.business_id)
+    invalidate_business_cache(business_id)
