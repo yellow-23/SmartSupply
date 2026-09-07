@@ -3,7 +3,7 @@ notify_service — envia correos de Stocky via Resend (stock bajo + resumen sema
 Pensado para ser llamado desde un cron externo (GitHub Actions), no desde el usuario.
 """
 import os
-from datetime import date, timedelta
+from datetime import timedelta
 
 import httpx
 from sqlalchemy import func
@@ -89,14 +89,23 @@ def send_weekly_digest(db: Session) -> dict:
     """Resumen semanal por negocio: ventas de los ultimos 7 dias, MAPE del AMS,
     ordenes pendientes y alertas de stock activas."""
     sent, skipped = 0, 0
-    today = date.today()
-    week_ago = today - timedelta(days=7)
-
     for business in db.query(Business).all():
         owner_email = _owner_email(db, business)
         if not owner_email:
             skipped += 1
             continue
+
+        # Ventana movil sobre la ultima fecha con datos del negocio (no sobre "hoy" real):
+        # asi el resumen tiene sentido aunque la ultima carga sea de hace tiempo.
+        latest_date = (
+            db.query(func.max(SalesHistory.date))
+            .filter(SalesHistory.business_id == business.id)
+            .scalar()
+        )
+        if latest_date is None:
+            continue  # negocio sin ninguna venta cargada: no le mandamos un digest vacio
+        today = latest_date
+        week_ago = today - timedelta(days=6)
 
         total_sales = (
             db.query(func.sum(SalesHistory.sales))
@@ -108,7 +117,7 @@ def send_weekly_digest(db: Session) -> dict:
             .scalar()
         )
         if total_sales is None:
-            continue  # negocio sin datos esta semana: no le mandamos un digest vacio
+            continue
 
         pending_orders = (
             db.query(func.count(PurchaseOrder.id))
