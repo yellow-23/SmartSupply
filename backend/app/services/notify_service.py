@@ -56,16 +56,18 @@ def check_low_stock_and_notify(db: Session) -> dict:
         rows = []
         for store in db.query(Store).filter(Store.business_id == business.id).all():
             for alert in _inventory.get_critical_skus(db, business.id, store.store_nbr):
-                if alert.get("needs_cost_setup"):
-                    continue
                 rows.append((store.store_nbr, alert))
 
         if not rows:
             continue
 
         items_html = "".join(
-            f"<li><b>{a['family']}</b> (tienda {store_nbr}): stock {a['current_stock']:.0f}, "
-            f"punto de reorden {a['reorder_point_s']:.0f}, sugerido pedir {a['order_quantity']:.0f}</li>"
+            f"<li><b>{a['family']}</b> (tienda {store_nbr}): stock {a['current_stock']:.0f}"
+            + (
+                f", punto de reorden {a['reorder_point_s']:.0f}, sugerido pedir {a['order_quantity']:.0f}</li>"
+                if not a.get("needs_cost_setup")
+                else " — configura el costo unitario en Productos para ver cuánto pedir</li>"
+            )
             for store_nbr, a in rows
         )
         html = (
