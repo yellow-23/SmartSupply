@@ -1,7 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Send, Sparkles, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, Send, Sparkles, Trash2, X } from "lucide-react";
 import { useAuthStore } from "../../auth/store/authStore";
 import { chatStocky, StockyMessage } from "../api/stocky";
+import { fetchProducts } from "../../products/api/products";
+
+function storageKey(businessId: number) {
+  return `stocky-chat-${businessId}`;
+}
+
+function loadHistory(businessId: number): StockyMessage[] {
+  try {
+    const raw = localStorage.getItem(storageKey(businessId));
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function StockyFloat() {
   const [open, setOpen] = useState(false);
@@ -11,6 +26,41 @@ export default function StockyFloat() {
   const user = useAuthStore(s => s.user);
   const businessId = user?.business_id ?? 0;
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const productsQuery = useQuery({
+    queryKey: ["stocky-families", businessId],
+    queryFn: () => fetchProducts({ business_id: businessId, limit: 5 }),
+    enabled: !!businessId,
+    staleTime: 60_000,
+  });
+  const families = productsQuery.data?.items.map(p => p.family) ?? [];
+
+  const suggestions = families.length > 0
+    ? [
+      "¿Qué productos tienen el costo vacío?",
+      families[1] ? `Pon el lead time de ${families[1]} en 5 días` : `Pon el lead time de ${families[0]} en 5 días`,
+      `¿Cuál es el stock de ${families[0]}?`,
+    ]
+    : [
+      "¿Qué productos tengo configurados?",
+      "¿Cómo subo mis primeras ventas?",
+      "¿Qué son el punto de reorden y el EOQ?",
+    ];
+
+  // Carga el historial guardado al abrir un negocio distinto (o al montar).
+  useEffect(() => {
+    if (businessId) setMessages(loadHistory(businessId));
+  }, [businessId]);
+
+  // Persiste cada cambio de conversacion en localStorage, por negocio.
+  useEffect(() => {
+    if (!businessId) return;
+    try {
+      localStorage.setItem(storageKey(businessId), JSON.stringify(messages));
+    } catch {
+      // localStorage lleno o no disponible (modo privado): no bloquea el chat.
+    }
+  }, [messages, businessId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -68,9 +118,18 @@ export default function StockyFloat() {
               <p className="text-sm font-semibold text-white leading-tight">Stocky</p>
               <p className="text-xs text-orange-100">Asistente de inventario</p>
             </div>
+            {messages.length > 0 && (
+              <button
+                onClick={() => setMessages([])}
+                title="Borrar historial"
+                className="ml-auto p-1.5 hover:bg-white/20 rounded-lg transition-colors active:scale-90"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
+              </button>
+            )}
             <button
               onClick={() => setOpen(false)}
-              className="ml-auto p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+              className={`p-1.5 hover:bg-white/20 rounded-lg transition-colors active:scale-90 ${messages.length > 0 ? "" : "ml-auto"}`}
             >
               <X className="w-4 h-4 text-white" />
             </button>
@@ -86,11 +145,7 @@ export default function StockyFloat() {
                   Puedo revisar qué parámetros faltan en tus productos, ver el stock actual, y actualizar valores directamente.
                 </p>
                 <div className="mt-4 space-y-1.5 text-left">
-                  {[
-                    "¿Qué productos tienen el costo vacío?",
-                    "Pon el lead time de BEBIDAS en 5 días",
-                    "¿Cuál es el stock de LÁCTEOS?",
-                  ].map(s => (
+                  {suggestions.map(s => (
                     <button
                       key={s}
                       onClick={() => setInput(s)}
