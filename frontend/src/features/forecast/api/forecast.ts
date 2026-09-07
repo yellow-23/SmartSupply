@@ -74,6 +74,23 @@ export function isInsufficientDataError(err: any): err is { response: { data: { 
   return err?.response?.status === 422 && err?.response?.data?.detail?.code === 'insufficient_data';
 }
 
+export interface ForecastAccuracyItem {
+  family: string;
+  store_nbr: number;
+  evaluated_days: number;
+  wape_actual: number | null;
+  avg_predicted: number;
+  avg_actual: number;
+  last_model_used: string;
+}
+
+export async function fetchForecastAccuracy(businessId: number, storeNbr?: number): Promise<ForecastAccuracyItem[]> {
+  const { data } = await client.get<ForecastAccuracyItem[]>('/forecast/accuracy', {
+    params: { business_id: businessId, store_nbr: storeNbr },
+  });
+  return data;
+}
+
 export async function exportForecastPdf(req: ForecastRequest): Promise<Blob> {
   const { data } = await client.get(`/forecast/${encodeURIComponent(req.sku_id)}/export`, {
     params: { store_nbr: req.store_nbr, horizon_days: req.horizon_days, model: req.model },

@@ -6,6 +6,7 @@ import ForecastLineChart from '../components/ForecastLineChart';
 import {
   fetchForecast,
   fetchForecastOptions,
+  fetchForecastAccuracy,
   exportForecastPdf,
   fetchSalesHistory,
   isInsufficientDataError,
@@ -44,6 +45,13 @@ const Forecast = () => {
     queryKey: ['forecast', 'options'],
     queryFn: fetchForecastOptions,
     staleTime: 60_000,
+  });
+
+  const { data: accuracy } = useQuery({
+    queryKey: ['forecast', 'accuracy', user?.business_id],
+    queryFn: () => fetchForecastAccuracy(user!.business_id!),
+    enabled: !!user?.business_id,
+    staleTime: 300_000,
   });
 
   // Inicializar selección con la primera familia/tienda disponibles
@@ -339,6 +347,48 @@ const Forecast = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {accuracy && accuracy.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-1">
+            Precisión real del modelo
+          </h3>
+          <p className="text-xs text-gray-400 mb-4">
+            Compara lo que se predijo contra la venta real, una vez que esos días ya pasaron y subiste esos datos.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  {['Familia', 'Tienda', 'Días evaluados', 'Predicho prom.', 'Real prom.', 'Error real', 'Modelo'].map(h => (
+                    <th key={h} className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {accuracy.map(a => (
+                  <tr key={`${a.family}-${a.store_nbr}`} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-2 font-medium text-gray-800">{a.family}</td>
+                    <td className="px-4 py-2 text-gray-500">#{a.store_nbr}</td>
+                    <td className="px-4 py-2 text-gray-500">{a.evaluated_days}</td>
+                    <td className="px-4 py-2 text-gray-500">{a.avg_predicted}</td>
+                    <td className="px-4 py-2 text-gray-500">{a.avg_actual}</td>
+                    <td className={`px-4 py-2 font-semibold ${
+                      a.wape_actual == null ? 'text-gray-400'
+                      : a.wape_actual < 20 ? 'text-green-600'
+                      : a.wape_actual < 40 ? 'text-yellow-600'
+                      : 'text-red-500'
+                    }`}>
+                      {a.wape_actual != null ? `${a.wape_actual}%` : '—'}
+                    </td>
+                    <td className="px-4 py-2 text-gray-500 uppercase text-xs">{a.last_model_used}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

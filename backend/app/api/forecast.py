@@ -17,6 +17,7 @@ from app.services.forecast_service import (
     _MIN_DAYS,
     _cache,
     _cache_lock,
+    get_forecast_accuracy,
 )
 
 router = APIRouter()
@@ -109,6 +110,18 @@ def get_forecast_options(
     ]
 
     return {"families": families, "stores": stores, "days_required": _MIN_DAYS}
+
+
+@router.get("/accuracy")
+def get_accuracy(
+    current_user: Annotated[User, Depends(get_current_user)],
+    business_id: int = Query(...),
+    store_nbr: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """Compara predicciones ya guardadas contra la venta real, por familia.
+    Solo incluye fechas donde ya llego el dato real (no proyecciones a futuro)."""
+    return get_forecast_accuracy(db, business_id, store_nbr)
 
 
 @router.delete("/cache", status_code=200)

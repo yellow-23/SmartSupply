@@ -127,6 +127,22 @@ class IngestLog(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class ForecastPrediction(Base):
+    """Cada punto de una prediccion generada, guardado apenas se calcula. Al llegar
+    ventas reales para esa fecha, se puede comparar prediccion vs realidad."""
+    __tablename__ = "forecast_predictions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, index=True)
+    store_nbr = Column(Integer, nullable=False, index=True)
+    family = Column(String(50), nullable=False, index=True)
+    target_date = Column(Date, nullable=False, index=True)
+    predicted_sales = Column(Float, nullable=False)
+    model_used = Column(String(20), nullable=False)
+    horizon_days = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class UserBusiness(Base):
     __tablename__ = "user_businesses"
 

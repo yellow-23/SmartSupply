@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from datetime import date as date_type
 
-from app.models.orm import IngestLog, SalesHistory
+from app.models.orm import ForecastPrediction, IngestLog, SalesHistory
 from app.models.schemas import ForecastResponse, ForecastPoint
 
 # Agregar el root del repo al path para importar el módulo forecasting/
@@ -62,6 +62,80 @@ def get_business_cached_forecasts(business_id: int) -> list:
         if sku_key not in latest or response.generated_at > latest[sku_key].generated_at:
             latest[sku_key] = response
     return list(latest.values())
+
+
+def _persist_predictions(
+    db: Session, business_id: int, store_nbr: int, family: str,
+    predictions: list, model_used: str, horizon_days: int,
+) -> None:
+    """Guarda cada punto predicho para poder comparar despues contra la venta real.
+    La primera prediccion hecha para una fecha se conserva (no se pisa en corridas
+    posteriores), para que la validacion sea honesta."""
+    if business_id == _BENCHMARK_BUSINESS_ID:
+        return
+    existing = {
+        d for (d,) in db.query(ForecastPrediction.target_date).filter(
+            ForecastPrediction.business_id == business_id,
+            ForecastPrediction.store_nbr == store_nbr,
+            ForecastPrediction.family == family,
+            ForecastPrediction.target_date.in_([p.date for p in predictions]),
+        ).all()
+    }
+    for p in predictions:
+        if p.date in existing:
+            continue
+        db.add(ForecastPrediction(
+            business_id=business_id, store_nbr=store_nbr, family=family,
+            target_date=p.date, predicted_sales=p.predicted_sales,
+            model_used=model_used, horizon_days=horizon_days,
+        ))
+    db.commit()
+
+
+def get_forecast_accuracy(db: Session, business_id: int, store_nbr: Optional[int] = None) -> list[dict]:
+    """Compara predicciones ya guardadas contra la venta real, familia por familia,
+    solo para fechas donde ya hay un dato real cargado (no proyectadas a futuro)."""
+    q = (
+        db.query(
+            ForecastPrediction.family,
+            ForecastPrediction.store_nbr,
+            ForecastPrediction.target_date,
+            ForecastPrediction.predicted_sales,
+            ForecastPrediction.model_used,
+            SalesHistory.sales.label("actual_sales"),
+        )
+        .join(
+            SalesHistory,
+            (SalesHistory.business_id == ForecastPrediction.business_id)
+            & (SalesHistory.store_nbr == ForecastPrediction.store_nbr)
+            & (SalesHistory.family == ForecastPrediction.family)
+            & (SalesHistory.date == ForecastPrediction.target_date),
+        )
+        .join(IngestLog, IngestLog.id == SalesHistory.ingest_id)
+        .filter(ForecastPrediction.business_id == business_id, IngestLog.status == "active")
+    )
+    if store_nbr is not None:
+        q = q.filter(ForecastPrediction.store_nbr == store_nbr)
+
+    by_family: dict[tuple, list] = {}
+    for family, s_nbr, target_date, predicted, model_used, actual in q.all():
+        by_family.setdefault((family, s_nbr), []).append((target_date, predicted, actual, model_used))
+
+    out = []
+    for (family, s_nbr), rows in by_family.items():
+        rows.sort(key=lambda r: r[0])
+        errors = [abs(pred - actual) / actual for _, pred, actual, _ in rows if actual]
+        wape_actual = round(float(np.mean(errors)) * 100, 1) if errors else None
+        out.append({
+            "family": family,
+            "store_nbr": s_nbr,
+            "evaluated_days": len(rows),
+            "wape_actual": wape_actual,
+            "avg_predicted": round(sum(r[1] for r in rows) / len(rows), 2),
+            "avg_actual": round(sum(r[2] for r in rows) / len(rows), 2),
+            "last_model_used": rows[-1][3],
+        })
+    return out
 
 
 def invalidate_business_cache(business_id: int) -> None:
@@ -237,6 +311,7 @@ class ForecastService:
             generated_at=datetime.now(),
             sales_unit=sales_unit,
         )
+        _persist_predictions(db, business_id, store_nbr, sku_id, predictions, model_used, horizon_days)
         with _cache_lock:
             _cache[key] = (response, time.monotonic())
             if wape_used is not None:
