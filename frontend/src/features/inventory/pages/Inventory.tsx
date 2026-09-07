@@ -10,6 +10,7 @@ import {
   InventoryAlert,
 } from '../api/inventory';
 import { generateOrders } from '../../orders/api/orders';
+import { fetchProducts } from '../../products/api/products';
 import { downloadBlob } from '../../../shared/lib/utils';
 
 const urgencyBadge = (urgency: InventoryAlert['urgency']) => {
@@ -39,6 +40,12 @@ export default function Inventory() {
   const alertsQuery = useQuery({
     queryKey: ['inventory-alerts', businessId, storeNbr],
     queryFn: () => fetchAlerts(businessId!, storeNbr),
+    enabled: businessId != null,
+  });
+
+  const familiesQuery = useQuery({
+    queryKey: ['inventory-families', businessId, storeNbr],
+    queryFn: () => fetchProducts({ business_id: businessId!, store_nbr: storeNbr, limit: 100 }),
     enabled: businessId != null,
   });
 
@@ -75,6 +82,9 @@ export default function Inventory() {
 
   const alerts = alertsQuery.data?.alerts ?? [];
   const hasCLPSkus = alertsQuery.data?.has_clp_skus ?? false;
+  const allFamilies = Array.from(
+    new Set([...(familiesQuery.data?.items.map((p) => p.family) ?? []), ...alerts.map((a) => a.family)])
+  ).sort();
 
   if (!businessId) {
     return (
@@ -190,8 +200,8 @@ export default function Inventory() {
               className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700"
             >
               <option value="">-- Selecciona una familia --</option>
-              {alerts.map((a) => (
-                <option key={a.family} value={a.family}>{a.family}</option>
+              {allFamilies.map((family) => (
+                <option key={family} value={family}>{family}</option>
               ))}
             </select>
           </div>
