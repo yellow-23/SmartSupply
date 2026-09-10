@@ -101,7 +101,7 @@ export default function StockyFloat() {
         <button
           onClick={() => setOpen(true)}
           title="Preguntar a Stocky"
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-accent text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
         >
           <Sparkles className="w-6 h-6" />
         </button>
@@ -110,7 +110,7 @@ export default function StockyFloat() {
       {open && (
         <div className="fixed inset-x-4 bottom-4 md:inset-x-auto md:bottom-6 md:right-6 z-50 md:w-96 h-[520px] max-h-[calc(100vh-2rem)] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 shrink-0">
+          <div className="flex items-center gap-3 px-4 py-3 bg-accent shrink-0">
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
             </div>

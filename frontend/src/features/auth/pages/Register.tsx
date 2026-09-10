@@ -56,7 +56,7 @@ export default function Register() {
   return (
     <div className="w-full min-h-screen flex">
       {/* Left: hero */}
-      <div className="flex-1 hidden md:flex items-center justify-center p-12 relative overflow-hidden bg-gradient-to-br from-slate-950 from-[0%] via-blue-900 via-[70%] to-orange-600 to-[100%]">
+      <div className="flex-1 hidden md:flex items-center justify-center p-12 relative overflow-hidden bg-sidebar">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-10 w-64 h-64 rounded-full border border-white/20" />
           <div className="absolute top-40 left-32 w-96 h-96 rounded-full border border-white/10" />

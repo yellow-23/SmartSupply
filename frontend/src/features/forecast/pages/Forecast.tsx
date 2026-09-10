@@ -301,7 +301,7 @@ const Forecast = () => {
           </div>
 
           <div className="space-y-4">
-            <div className="bg-gradient-to-br from-slate-950 to-blue-900 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden">
+            <div className="bg-sidebar p-6 rounded-2xl text-white shadow-xl relative overflow-hidden">
               <TrendingUp className="absolute -right-4 -bottom-4 w-32 h-32 text-white/5 rotate-12" />
               <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-2">Mejor Modelo (AMS)</p>
               <h4 className="text-3xl font-bold mb-1">{modelLabel}</h4>

@@ -35,7 +35,7 @@ export default function Login() {
     <div className="w-full min-h-screen flex">
       {/* Left: hero */}
       <div
-        className="flex-1 hidden md:flex items-center justify-center p-12 relative overflow-hidden bg-gradient-to-br from-slate-950 from-[0%] via-blue-900 via-[70%] to-orange-600 to-[100%]"
+        className="flex-1 hidden md:flex items-center justify-center p-12 relative overflow-hidden bg-sidebar"
       >
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-10">
