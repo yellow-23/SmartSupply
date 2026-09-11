@@ -9,11 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@blobatar/react": "^2.7.0",
     "@headlessui/react": "^2.0.4",
     "@hookform/resolvers": "^5.2.2",
     "@supabase/supabase-js": "^2.112.4",
     "@tanstack/react-query": "^5.40.0",
     "axios": "^1.7.2",
+    "blobatar": "^2.7.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.2.10",
     "lucide-react": "^0.395.0",
