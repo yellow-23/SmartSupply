@@ -213,7 +213,7 @@ def check_low_stock_and_notify(db: Session, business_id: int | None = None) -> d
         if not rows:
             continue
 
-        if send_email(owner_email, f"⚠ Stock bajo en {business.name}", low_stock_html(business.name, rows)):
+        if send_email(owner_email, f"Stock bajo en {business.name}", low_stock_html(business.name, rows)):
             sent += 1
         else:
             skipped += 1
