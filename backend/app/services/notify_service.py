@@ -23,6 +23,7 @@ def send_email(to: str, subject: str, html: str) -> bool:
     """Envia un correo via la API HTTP de Resend. Devuelve False (sin lanzar) si falla,
     para que un negocio con error de envio no corte el resto del batch."""
     if not RESEND_API_KEY:
+        print("[notify] RESEND_API_KEY no configurada, no se envia correo")
         return False
     try:
         resp = httpx.post(
@@ -31,9 +32,13 @@ def send_email(to: str, subject: str, html: str) -> bool:
             json={"from": RESEND_FROM_EMAIL, "to": [to], "subject": subject, "html": html},
             timeout=15.0,
         )
-        return resp.status_code < 300
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        print(f"[notify] error de red enviando a {to}: {e}")
         return False
+    if resp.status_code >= 300:
+        print(f"[notify] Resend rechazo envio a {to}: {resp.status_code} {resp.text}")
+        return False
+    return True
 
 
 def _owner_email(db: Session, business: Business) -> str | None:
@@ -43,11 +48,16 @@ def _owner_email(db: Session, business: Business) -> str | None:
     return owner.email if owner else None
 
 
-def check_low_stock_and_notify(db: Session) -> dict:
+def _businesses(db: Session, business_id: int | None):
+    q = db.query(Business)
+    return q.filter(Business.id == business_id).all() if business_id else q.all()
+
+
+def check_low_stock_and_notify(db: Session, business_id: int | None = None) -> dict:
     """Para cada negocio, revisa SKUs criticos (stock <= punto de reorden) en todas sus
     tiendas y le manda un correo al dueño si hay al menos uno."""
     sent, skipped = 0, 0
-    for business in db.query(Business).all():
+    for business in _businesses(db, business_id):
         owner_email = _owner_email(db, business)
         if not owner_email:
             skipped += 1
@@ -144,11 +154,11 @@ def check_low_stock_and_notify(db: Session) -> dict:
     return {"sent": sent, "skipped": skipped}
 
 
-def send_weekly_digest(db: Session) -> dict:
+def send_weekly_digest(db: Session, business_id: int | None = None) -> dict:
     """Resumen semanal por negocio: ventas de los ultimos 7 dias, MAPE del AMS,
     ordenes pendientes y alertas de stock activas."""
     sent, skipped = 0, 0
-    for business in db.query(Business).all():
+    for business in _businesses(db, business_id):
         owner_email = _owner_email(db, business)
         if not owner_email:
             skipped += 1

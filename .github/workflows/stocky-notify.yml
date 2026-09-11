@@ -13,22 +13,30 @@ on:
         type: choice
         options: [low-stock, weekly-digest]
         default: low-stock
+      business_id:
+        description: "Opcional: solo este negocio (para pruebas). Vacio = todos"
+        required: false
+        default: ""
 
 jobs:
   low-stock:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'low-stock' || github.event.schedule == '0 13 * * *'
     runs-on: ubuntu-latest
+    env:
+      BUSINESS_ID: ${{ github.event.inputs.business_id }}
     steps:
       - name: Revisar stock bajo
         run: |
-          curl -sf -X POST "${{ secrets.BACKEND_URL }}/api/notify/low-stock" \
+          curl -sf -X POST "${{ secrets.BACKEND_URL }}/api/notify/low-stock${BUSINESS_ID:+?business_id=$BUSINESS_ID}" \
             -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}"
 
   weekly-digest:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'weekly-digest' || github.event.schedule == '0 13 * * 1'
     runs-on: ubuntu-latest
+    env:
+      BUSINESS_ID: ${{ github.event.inputs.business_id }}
     steps:
       - name: Enviar resumen semanal
         run: |
-          curl -sf -X POST "${{ secrets.BACKEND_URL }}/api/notify/weekly-digest" \
+          curl -sf -X POST "${{ secrets.BACKEND_URL }}/api/notify/weekly-digest${BUSINESS_ID:+?business_id=$BUSINESS_ID}" \
             -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}"
