@@ -10,7 +10,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import assert_business_access, get_current_user
 from app.database import get_db
 from app.models.orm import Business, Product, SalesHistory, StockLevel, User, IngestLog
 from app.models.schemas import IngestConfirm, IngestPreview, IngestResponse, IngestChatRequest, IngestChatResponse
@@ -63,6 +63,7 @@ def confirm_ingest(
     Paso 2: confirma la carga. Crea un ingest_log y agrega las filas con ese
     ingest_id SIN sobrescribir cargas previas (cada carga queda separada).
     """
+    assert_business_access(db, current_user, body.business_id)
     data_type = body.data_type or "sales"
 
     # ── Stock snapshot ──────────────────────────────────────────────────────────
