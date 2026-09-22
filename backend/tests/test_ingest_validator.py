@@ -47,6 +47,25 @@ def test_mixed_granularity_flagged():
     assert "MIXED_GRANULARITY" in codes
 
 
+def test_mixed_granularity_is_blocking():
+    """MIXED_GRANULARITY debe ser severity='error': es la unica incidencia que
+    bloquea la carga (ver RF-22 y confirm_ingest en ingest.py)."""
+    daily = [rec(i) for i in range(5)]
+    monthly_gap = [rec(90), rec(120)]
+    issues = validate_ingest_records(daily + monthly_gap)
+    mixed = next(i for i in issues if i.code == "MIXED_GRANULARITY")
+    assert mixed.severity == "error"
+
+
+def test_other_issues_stay_non_blocking():
+    """Las demas incidencias (monthly, weekly, scale_shift, currency) deben
+    seguir siendo warning/info: solo MIXED_GRANULARITY bloquea."""
+    monthly = [IngestRecord(date=TODAY - timedelta(days=30 * i), family="PAN", sales=10.0) for i in range(4)]
+    issues = validate_ingest_records(monthly)
+    monthly_issue = next(i for i in issues if i.code == "MONTHLY_GRANULARITY")
+    assert monthly_issue.severity == "warning"
+
+
 def test_scale_shift_flagged():
     first_half = [rec(20 - i, sales=10.0) for i in range(10)]
     second_half = [rec(10 - i, sales=100.0) for i in range(10)]

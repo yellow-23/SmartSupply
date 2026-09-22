@@ -19,7 +19,7 @@ from app.services.ingest_service import (
     SUPPORTED_IMAGE_TYPES,
     IngestService,
 )
-from app.services.ingest_validator import filter_loadable_records
+from app.services.ingest_validator import filter_loadable_records, validate_ingest_records
 from app.services.forecast_service import invalidate_business_cache
 
 router = APIRouter()
@@ -146,6 +146,17 @@ def confirm_ingest(
     # ── Sales (default) ─────────────────────────────────────────────────────────
     if not body.records:
         raise HTTPException(status_code=400, detail="No hay registros para cargar.")
+
+    # Re-valida en el backend: el boton del frontend ya bloquea ante issues
+    # "error", pero esto evita que alguien confirme igual llamando al endpoint
+    # directo (ej. desde /docs) con datos que el validador marco como bloqueantes.
+    blocking = [i for i in validate_ingest_records(body.records) if i.severity == "error"]
+    if blocking:
+        detail = "; ".join(f"[{i.code}] {i.message}" for i in blocking)
+        raise HTTPException(
+            status_code=422,
+            detail=f"La carga tiene incidencias bloqueantes de calidad: {detail}",
+        )
 
     loadable = filter_loadable_records(body.records)
     if not loadable:
