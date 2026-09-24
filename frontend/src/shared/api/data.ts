@@ -65,10 +65,21 @@ export async function listBusinessStores(businessId: number): Promise<StoreItem[
   return data;
 }
 
-export async function createBusinessStore(businessId: number, name: string): Promise<StoreItem> {
-  const { data } = await api.post(`/businesses/${businessId}/stores`, { name });
+export async function createBusinessStore(businessId: number, payload: { name: string; city?: string }): Promise<StoreItem> {
+  const { data } = await api.post(`/businesses/${businessId}/stores`, payload);
   return data;
 }
+
+export const STORE_FORM_FIELDS = [
+  { name: "name", label: "Nombre", placeholder: "Sucursal Ñuñoa", required: true },
+  { name: "city", label: "Ciudad", placeholder: "Santiago" },
+];
+
+export const BUSINESS_FORM_FIELDS = [
+  { name: "name", label: "Nombre del negocio", placeholder: "Distribuidora Santa Elena", required: true },
+  { name: "rut", label: "RUT", placeholder: "76.123.456-7", hint: "Si lo ingresas, se verifica que no esté registrado por otro negocio." },
+  { name: "city", label: "Ciudad", placeholder: "Santiago" },
+];
 
 export function storeLabel(s: StoreItem): string {
   return `${s.name || `Ubicación ${s.store_nbr}`}${s.city ? ` - ${s.city}` : ""}`;

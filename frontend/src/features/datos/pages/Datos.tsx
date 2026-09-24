@@ -7,11 +7,13 @@ import {
 import ReactMarkdown from "react-markdown";
 import {
   listBusinesses, listBusinessStores, listIngests, getIngestRecords, createBusinessStore, storeLabel,
+  STORE_FORM_FIELDS,
   revertIngest, deleteIngest, updateRecord, deleteRecord, IngestLogItem,
 } from "../../../shared/api/data";
 import { chatIngest } from "../../ingest/api/ingest";
 import { StatusBadge } from "../components/StatusBadge";
 import ConfirmModal from "../components/ConfirmModal";
+import FormModal from "../../../shared/ui/FormModal";
 import { useAuthStore } from "../../auth/store/authStore";
 
 type Confirm =
@@ -25,6 +27,7 @@ export default function Datos() {
   const [storeNbr, setStoreNbr] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
+  const [creatingStore, setCreatingStore] = useState(false);
 
   const globalRole = useAuthStore((s) => s.user?.role);
   const businesses = useQuery({ queryKey: ["businesses"], queryFn: listBusinesses });
@@ -38,7 +41,7 @@ export default function Datos() {
   });
 
   const newStoreMut = useMutation({
-    mutationFn: (name: string) => createBusinessStore(businessId!, name),
+    mutationFn: (values: Record<string, string>) => createBusinessStore(businessId!, values as { name: string }),
     onSuccess: (store) => {
       qc.invalidateQueries({ queryKey: ["stores", businessId] });
       setStoreNbr(store.store_nbr);
@@ -122,16 +125,22 @@ export default function Datos() {
         {businessId != null && canManage && (
           <button
             type="button"
-            disabled={newStoreMut.isPending}
-            onClick={() => {
-              const name = prompt("Nombre de la nueva ubicación (ej: Sucursal Ñuñoa):");
-              if (name?.trim()) newStoreMut.mutate(name.trim());
-            }}
-            className="flex items-center gap-1 px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-60"
+            onClick={() => setCreatingStore(true)}
+            className="flex items-center gap-1 px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
           >
             <Plus className="w-4 h-4" /> Nueva ubicación
           </button>
         )}
+
+        <FormModal
+          open={creatingStore}
+          title="Nueva ubicación"
+          description={`Se agrega a ${selectedBusiness?.name ?? "este negocio"}. Después puedes cargar ventas en ella desde Importar datos.`}
+          fields={STORE_FORM_FIELDS}
+          submitLabel="Crear ubicación"
+          onSubmit={newStoreMut.mutateAsync}
+          onClose={() => setCreatingStore(false)}
+        />
       </div>
 
       {/* Resumen */}
