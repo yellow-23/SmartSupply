@@ -29,8 +29,8 @@ _ROOT = os.path.dirname(_BACKEND_DIR)
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-# CSV de ventas limpias (solo se usa para business_id == 1: benchmark Kaggle)
-_CSV_PATH = os.path.join(_ROOT, "datasets", "processed", "train_clean.csv")
+# Recorte de Favorita (tienda 1, 2016-2017) versionado en el repo para que el benchmark corra tambien en produccion
+_CSV_PATH = os.path.join(_ROOT, "datasets", "processed", "benchmark_store1.csv")
 _BENCHMARK_BUSINESS_ID = 1
 _MIN_DAYS = 30
 
@@ -210,6 +210,17 @@ class ForecastService:
     Resultados se cachean en memoria por 1 hora (clave incluye business_id).
     """
 
+    def get_cached(
+        self, business_id: int, sku_id: str, store_nbr: int, horizon_days: int, model: Optional[str] = "auto"
+    ) -> Optional[ForecastResponse]:
+        key = _cache_key(business_id, sku_id, store_nbr, horizon_days, model or "auto")
+        with _cache_lock:
+            if key in _cache:
+                result, ts = _cache[key]
+                if time.monotonic() - ts < _CACHE_TTL:
+                    return result
+        return None
+
     def predict(
         self,
         db: Session,
@@ -219,12 +230,10 @@ class ForecastService:
         horizon_days: int,
         model: Optional[str] = "auto",
     ) -> ForecastResponse:
+        cached = self.get_cached(business_id, sku_id, store_nbr, horizon_days, model)
+        if cached is not None:
+            return cached
         key = _cache_key(business_id, sku_id, store_nbr, horizon_days, model or "auto")
-        with _cache_lock:
-            if key in _cache:
-                result, ts = _cache[key]
-                if time.monotonic() - ts < _CACHE_TTL:
-                    return result
 
         from forecasting.src.ams_pipeline import run_ams_pipeline, load_sku_series
         from forecasting.src.selector import MODELS, calculate_wape

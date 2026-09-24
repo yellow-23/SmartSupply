@@ -15,7 +15,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import api from "../../../shared/api/axios.instance";
-import { useAuthStore } from "../../auth/store/authStore";
+import { useAuthStore, useActiveBusinessId } from "../../auth/store/authStore";
 
 interface DashboardKPIs {
   mape_global: number | null;
@@ -30,13 +30,13 @@ interface ChartPoint {
   forecast: number | null;
 }
 
-async function fetchKPIs(): Promise<DashboardKPIs> {
-  const { data } = await api.get("/dashboard/kpis");
+async function fetchKPIs(businessId: number | null): Promise<DashboardKPIs> {
+  const { data } = await api.get("/dashboard/kpis", { params: { business_id: businessId } });
   return data;
 }
 
-async function fetchChartData(): Promise<ChartPoint[]> {
-  const { data } = await api.get("/dashboard/chart-data");
+async function fetchChartData(businessId: number | null): Promise<ChartPoint[]> {
+  const { data } = await api.get("/dashboard/chart-data", { params: { business_id: businessId } });
   return data;
 }
 
@@ -49,14 +49,15 @@ const quickActions = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
+  const businessId = useActiveBusinessId();
 
   const {
     data: kpis,
     isLoading: kpisLoading,
     isError: kpisError,
   } = useQuery<DashboardKPIs>({
-    queryKey: ["dashboard", "kpis", user?.id],
-    queryFn: fetchKPIs,
+    queryKey: ["dashboard", "kpis", user?.id, businessId],
+    queryFn: () => fetchKPIs(businessId),
     staleTime: 300_000,
     refetchInterval: 300_000,
     enabled: !!user,
@@ -67,8 +68,8 @@ export default function Dashboard() {
     isLoading: chartLoading,
     isSuccess: chartLoaded,
   } = useQuery<ChartPoint[]>({
-    queryKey: ["dashboard", "chart-data", user?.id],
-    queryFn: fetchChartData,
+    queryKey: ["dashboard", "chart-data", user?.id, businessId],
+    queryFn: () => fetchChartData(businessId),
     staleTime: 300_000,
     refetchInterval: 300_000,
     enabled: !!user,

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Send, Sparkles, Trash2, X } from "lucide-react";
-import { useAuthStore } from "../../auth/store/authStore";
+import { useActiveBusinessId } from "../../auth/store/authStore";
 import { chatStocky, StockyMessage } from "../api/stocky";
 import { fetchProducts } from "../../products/api/products";
 
@@ -23,8 +23,7 @@ export default function StockyFloat() {
   const [messages, setMessages] = useState<StockyMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const user = useAuthStore(s => s.user);
-  const businessId = user?.business_id ?? 0;
+  const businessId = useActiveBusinessId() ?? 0;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const productsQuery = useQuery({

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ShoppingCart, CheckCircle, Clock, Truck, Plus, Loader2, XCircle, Download } from 'lucide-react';
-import { useAuthStore } from '../../auth/store/authStore';
+import { useActiveBusinessId } from '../../auth/store/authStore';
 import { fetchOrders, generateOrders, updateOrderStatus, exportOrders, PurchaseOrder } from '../api/orders';
 import { downloadBlob } from '../../../shared/lib/utils';
 import { toast } from '../../../shared/ui/toastStore';
@@ -47,8 +47,7 @@ const fmtDate = (s: string | null) =>
   s ? new Date(s).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 export default function Orders() {
-  const user = useAuthStore((s) => s.user);
-  const businessId = user?.business_id ?? null;
+  const businessId = useActiveBusinessId();
   const queryClient = useQueryClient();
 
   const [storeNbr] = useState(1);

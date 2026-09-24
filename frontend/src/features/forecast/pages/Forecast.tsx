@@ -9,10 +9,11 @@ import {
   fetchForecastAccuracy,
   exportForecastPdf,
   fetchSalesHistory,
+  BENCHMARK_BUSINESS_ID,
   isInsufficientDataError,
   SalesPoint,
 } from '../api/forecast';
-import { useAuthStore } from '../../auth/store/authStore';
+import { useActiveBusinessId } from '../../auth/store/authStore';
 import { useForecastStore } from '../store/forecastStore';
 import { downloadBlob } from '../../../shared/lib/utils';
 
@@ -25,7 +26,9 @@ const MODEL_LABELS: Record<string, string> = {
 
 const Forecast = () => {
   const navigate = useNavigate();
-  const user = useAuthStore(s => s.user);
+  const activeBusinessId = useActiveBusinessId();
+  const [useBenchmark, setUseBenchmark] = useState(false);
+  const businessId = useBenchmark ? BENCHMARK_BUSINESS_ID : activeBusinessId;
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -42,24 +45,32 @@ const Forecast = () => {
     data: options,
     isLoading: optionsLoading,
   } = useQuery({
-    queryKey: ['forecast', 'options'],
-    queryFn: fetchForecastOptions,
+    queryKey: ['forecast', 'options', businessId],
+    queryFn: () => fetchForecastOptions(businessId),
+    enabled: businessId != null,
     staleTime: 60_000,
   });
 
   const { data: accuracy } = useQuery({
-    queryKey: ['forecast', 'accuracy', user?.business_id],
-    queryFn: () => fetchForecastAccuracy(user!.business_id!),
-    enabled: !!user?.business_id,
+    queryKey: ['forecast', 'accuracy', businessId],
+    queryFn: () => fetchForecastAccuracy(businessId!),
+    enabled: businessId != null && !useBenchmark,
     staleTime: 300_000,
   });
 
-  // Inicializar selección con la primera familia/tienda disponibles
+  // Inicializar selección con la primera familia/tienda disponibles; al cambiar de negocio
+  // la seleccion previa puede no existir en el nuevo, asi que se reinicia junto con el resultado.
   useEffect(() => {
     if (!options) return;
-    if (!skuId && options.families.length > 0) setSkuId(options.families[0]);
-    if (storeNbr == null && options.stores.length > 0) setStoreNbr(options.stores[0].store_nbr);
+    if (!options.families.includes(skuId)) setSkuId(options.families[0] ?? '');
+    if (!options.stores.some(s => s.store_nbr === storeNbr)) setStoreNbr(options.stores[0]?.store_nbr ?? null);
   }, [options]);
+
+  useEffect(() => {
+    setResult(null);
+    setChartData([]);
+    setError(null);
+  }, [businessId]);
 
   const selectedStore = useMemo(
     () => options?.stores.find(s => s.store_nbr === storeNbr) ?? null,
@@ -74,8 +85,12 @@ const Forecast = () => {
     if (!skuId || storeNbr == null) return;
     setExporting(true);
     try {
-      const blob = await exportForecastPdf({ sku_id: skuId, store_nbr: storeNbr, horizon_days: horizon, model: 'auto' });
+      const blob = await exportForecastPdf({ business_id: businessId, sku_id: skuId, store_nbr: storeNbr, horizon_days: horizon, model: 'auto' });
       downloadBlob(blob, `forecast_${skuId}_${storeNbr}.pdf`);
+    } catch (e: any) {
+      setError(e?.response?.status === 409
+        ? 'La predicción expiró (se guarda 1 hora). Vuelve a generarla para exportarla.'
+        : 'No se pudo exportar el PDF');
     } finally {
       setExporting(false);
     }
@@ -87,7 +102,7 @@ const Forecast = () => {
     setError(null);
     setResult(null);
     try {
-      const data = await fetchForecast({ sku_id: skuId, store_nbr: storeNbr, horizon_days: horizon, model: 'auto' });
+      const data = await fetchForecast({ business_id: businessId, sku_id: skuId, store_nbr: storeNbr, horizon_days: horizon, model: 'auto' });
       setResult(data);
 
       const firstPredDate = new Date(data.predictions[0].date);
@@ -98,9 +113,9 @@ const Forecast = () => {
       const toISO = (d: Date) => d.toISOString().split('T')[0];
 
       let history: SalesPoint[] = [];
-      if (user?.business_id) {
+      if (businessId != null) {
         history = await fetchSalesHistory(
-          user.business_id, skuId, storeNbr,
+          businessId, skuId, storeNbr,
           toISO(histStart), toISO(histEnd),
         );
       }
@@ -160,6 +175,12 @@ const Forecast = () => {
         >
           Subir mis ventas
         </button>
+        <button
+          onClick={() => setUseBenchmark(true)}
+          className="text-sm text-gray-500 underline hover:text-gray-700"
+        >
+          Probar con el dataset de referencia (Corporación Favorita)
+        </button>
       </div>
     );
   }
@@ -188,6 +209,17 @@ const Forecast = () => {
 
       {/* Filtros */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap items-center gap-4">
+        <div className="min-w-[200px]">
+          <label className="text-xs text-gray-500 font-medium mb-1 block">Datos</label>
+          <select
+            className="w-full px-3 py-2 bg-gray-50 rounded-xl text-sm text-gray-700 border-none focus:ring-2 focus:ring-orange-500"
+            value={useBenchmark ? 'benchmark' : 'mine'}
+            onChange={e => setUseBenchmark(e.target.value === 'benchmark')}
+          >
+            <option value="mine">Mi negocio</option>
+            <option value="benchmark">Dataset de referencia (Favorita)</option>
+          </select>
+        </div>
         <div className="flex-1 min-w-[200px]">
           <label className="text-xs text-gray-500 font-medium mb-1 block">Producto</label>
           <select

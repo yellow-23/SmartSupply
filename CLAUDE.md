@@ -208,7 +208,18 @@ ln -sf python3.11 venv/bin/python3
 ```
 Verificar: `python --version` debe decir `Python 3.11.x`
 
-## Estado actual (2026-09-10)
+## Estado actual (2026-09-23)
+
+### Completado - Cierre de brechas vs casos de uso de la tesis (2026-09-23)
+
+- [x] CU-42: `get_current_user` rechaza `is_active=false` (403); admin no puede desactivarse ni quitarse `platform_admin`; borrar usuario tambien borra `auth.users` (si no, el autoprovision lo recreaba)
+- [x] CU-21/22/23: `sales.py` (date-range, stores, families, history, summary) ahora exige `assert_business_access` (era IDOR) y usa `_effective_sales`: solo cargas activas + ultima gana, igual que `forecast_service`
+- [x] CU-07: negocio activo global (`authStore.activeBusinessId` + `useActiveBusinessId()`), selector en `TopBar` si el usuario tiene >1 negocio. Dashboard/Forecast/Inventario/Ordenes/Stocky lo usan; `/dashboard/*` y `/forecast/*` aceptan `business_id` opcional (`resolve_business_id` en `auth.py`)
+- [x] CU-27: benchmark Favorita versionado en `datasets/processed/benchmark_store1.csv` (tienda 1, 2016-2017, 590KB; `train_clean.csv` ya no existe). Forecast tiene selector "Datos: Mi negocio / Dataset de referencia". `business_id=1` abierto a todo usuario autenticado (solo lectura)
+- [x] CU-26: export PDF lee solo del cache (`ForecastService.get_cached`); sin cache -> 409 y el front pide regenerar
+- [x] CU-01 3a: registro con correo existente muestra error (Supabase devuelve `identities: []` en vez de error)
+- [x] CU-18 ya cumplia: `assert_business_owner` deja pasar a `platform_admin`
+- Tests: `backend/tests/test_use_case_gaps.py`
 
 ### Completado - Tesis cap. 5 Diseño y Arquitectura + fix IDOR ingesta (2026-09-10)
 

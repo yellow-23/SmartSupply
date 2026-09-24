@@ -1,6 +1,9 @@
+import { useEffect } from "react";
 import { Bell, Menu, Search } from "lucide-react";
 import { useLocation } from "react-router-dom";
-import { useAuthStore } from "../../features/auth/store/authStore";
+import { useQuery } from "@tanstack/react-query";
+import { useAuthStore, useActiveBusinessId } from "../../features/auth/store/authStore";
+import { listBusinesses } from "../api/data";
 
 const pageMeta: Record<string, { title: string; subtitle: string }> = {
   "/dashboard":   { title: "Dashboard",         subtitle: `Resumen de operación · ${new Date().toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}` },
@@ -19,6 +22,21 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
   const { pathname } = useLocation();
   const user = useAuthStore((s) => s.user);
   const meta = pageMeta[pathname] ?? { title: "SmartSupply", subtitle: "" };
+  const activeBusinessId = useActiveBusinessId();
+  const setActiveBusiness = useAuthStore((s) => s.setActiveBusiness);
+  const { data: businesses = [] } = useQuery({
+    queryKey: ["businesses", user?.id],
+    queryFn: listBusinesses,
+    enabled: !!user,
+  });
+
+  // Negocio guardado que ya no es accesible (lo quitaron del usuario): volver al principal.
+  useEffect(() => {
+    if (businesses.length && activeBusinessId && !businesses.some((b) => b.id === activeBusinessId)) {
+      setActiveBusiness(user?.business_id ?? businesses[0].id);
+    }
+  }, [businesses, activeBusinessId]);
+
   const initials = user?.name?.split(" ").map((n) => n[0]).slice(0, 2).join("") ?? "CF";
 
   return (
@@ -37,6 +55,18 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
         </div>
       </div>
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+        {businesses.length > 1 && (
+          <select
+            aria-label="Negocio activo"
+            value={activeBusinessId ?? ""}
+            onChange={(e) => setActiveBusiness(Number(e.target.value))}
+            className="max-w-[10rem] sm:max-w-[14rem] truncate px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-nav-active/30 focus:border-nav-active"
+          >
+            {businesses.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        )}
         <div className="relative hidden lg:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input

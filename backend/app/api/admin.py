@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from app.api.auth import require_admin
 from app.database import get_db
@@ -51,7 +51,14 @@ def list_users(db: Session = Depends(get_db)):
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserOut)
-def update_user(user_id: int, body: AdminUserUpdate, db: Session = Depends(get_db)):
+def update_user(
+    user_id: int,
+    body: AdminUserUpdate,
+    current_user: Annotated[User, Depends(require_admin)],
+    db: Session = Depends(get_db),
+):
+    if user_id == current_user.id and (body.is_active is False or (body.role and body.role != "platform_admin")):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No puedes desactivarte ni quitarte el rol de administrador")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
@@ -77,8 +84,12 @@ def delete_user(user_id: int, current_user: Annotated[User, Depends(require_admi
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    supabase_uid = user.supabase_uid
     db.query(UserBusiness).filter(UserBusiness.user_id == user_id).delete()
     db.delete(user)
+    # Si no se borra tambien de auth.users, el autoprovision recrea la cuenta en el proximo login.
+    if supabase_uid:
+        db.execute(text("DELETE FROM auth.users WHERE id = CAST(:uid AS uuid)"), {"uid": supabase_uid})
     db.commit()
 
 

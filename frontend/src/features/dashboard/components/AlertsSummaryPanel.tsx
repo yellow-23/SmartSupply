@@ -2,7 +2,7 @@ import { AlertTriangle, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "../../../shared/api/axios.instance";
-import { useAuthStore } from "../../auth/store/authStore";
+import { useActiveBusinessId } from "../../auth/store/authStore";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -39,8 +39,7 @@ const urgencyStyle: Record<string, string> = {
 
 export default function AlertsSummaryPanel() {
   const navigate = useNavigate();
-  const user = useAuthStore(s => s.user);
-  const businessId = user?.business_id;
+  const businessId = useActiveBusinessId();
 
   const { data, isLoading } = useQuery<AlertsResponse>({
     queryKey: ["inventory", "alerts", businessId, 5],

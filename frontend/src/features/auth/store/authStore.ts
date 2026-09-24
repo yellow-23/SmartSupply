@@ -19,6 +19,8 @@ interface AuthState {
   isInitialized: boolean;
   isLoading: boolean;
   error: string | null;
+  activeBusinessId: number | null;
+  setActiveBusiness: (id: number) => void;
   login: (email: string, password: string, remember?: boolean) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   register: (name: string, email: string, password: string, businessName: string) => Promise<{ needsEmailConfirmation: boolean }>;
@@ -40,6 +42,9 @@ export const useAuthStore = create<AuthState>()(
       isInitialized: false,
       isLoading: false,
       error: null,
+      activeBusinessId: null,
+
+      setActiveBusiness: (id) => set({ activeBusinessId: id }),
 
       login: async (email, password, remember = true) => {
         set({ isLoading: true, error: null });
@@ -73,6 +78,10 @@ export const useAuthStore = create<AuthState>()(
             options: { data: { full_name: name, business_name: businessName } },
           });
           if (error) throw error;
+          // Supabase no devuelve error si el correo ya existe (para no filtrar cuentas): lo marca con identities vacio.
+          if (data.user && data.user.identities?.length === 0) {
+            throw new Error('Este correo ya está registrado. Inicia sesión o recupera tu contraseña.');
+          }
           if (!data.session) {
             // Confirmacion de email activada en Supabase: todavia no hay sesion.
             set({ isLoading: false });
@@ -89,7 +98,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         await supabase.auth.signOut();
-        set({ user: null, isAuthenticated: false, error: null });
+        set({ user: null, isAuthenticated: false, error: null, activeBusinessId: null });
       },
 
       completeOnboarding: async (businessName) => {
@@ -111,9 +120,18 @@ export const useAuthStore = create<AuthState>()(
         }
       },
     }),
-    { name: 'auth-storage', partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }) }
+    {
+      name: 'auth-storage',
+      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated, activeBusinessId: state.activeBusinessId }),
+    }
   )
 );
+
+// Negocio sobre el que trabajan Dashboard/Forecast/Inventario/Ordenes/Stocky (CU-07).
+// Si el usuario nunca eligio otro, es su negocio principal.
+export function useActiveBusinessId(): number | null {
+  return useAuthStore((s) => s.activeBusinessId ?? s.user?.business_id ?? null);
+}
 
 // Mantiene el store sincronizado con la sesion real de Supabase (login, logout, refresh de token,
 // y el regreso del redirect de Google OAuth). onAuthStateChange dispara un evento INITIAL_SESSION

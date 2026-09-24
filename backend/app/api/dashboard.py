@@ -1,11 +1,11 @@
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, resolve_business_id
 from app.database import get_db
 from app.models.orm import IngestLog, PurchaseOrder, SalesHistory, StockLevel, User
 from app.models.schemas import DashboardChartPoint, DashboardKPIs
@@ -17,9 +17,10 @@ router = APIRouter()
 @router.get("/kpis", response_model=DashboardKPIs)
 def get_kpis(
     current_user: Annotated[User, Depends(get_current_user)],
+    business_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    bid = current_user.business_id
+    bid = resolve_business_id(db, current_user, business_id)
 
     # Familias activas del negocio (con al menos un ingest activo)
     families = [
@@ -77,10 +78,11 @@ def get_kpis(
 @router.get("/chart-data", response_model=list[DashboardChartPoint])
 def get_chart_data(
     current_user: Annotated[User, Depends(get_current_user)],
+    business_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     """Ventas reales agregadas por día (últimas 4 semanas), scoped al business del usuario."""
-    bid = current_user.business_id
+    bid = resolve_business_id(db, current_user, business_id)
 
     max_date = (
         db.query(func.max(SalesHistory.date))
