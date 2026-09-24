@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Database, ChevronDown, ChevronRight, RotateCcw, Trash2, Loader2, Sparkles,
-  Layers, CheckCircle2, FileSpreadsheet,
+  Layers, CheckCircle2, FileSpreadsheet, Plus,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import {
-  listBusinesses, listBusinessStores, listIngests, getIngestRecords,
+  listBusinesses, listBusinessStores, listIngests, getIngestRecords, createBusinessStore, storeLabel,
   revertIngest, deleteIngest, updateRecord, deleteRecord, IngestLogItem,
 } from "../../../shared/api/data";
 import { chatIngest } from "../../ingest/api/ingest";
@@ -35,6 +35,14 @@ export default function Datos() {
     queryKey: ["stores", businessId],
     queryFn: () => listBusinessStores(businessId!),
     enabled: businessId != null,
+  });
+
+  const newStoreMut = useMutation({
+    mutationFn: (name: string) => createBusinessStore(businessId!, name),
+    onSuccess: (store) => {
+      qc.invalidateQueries({ queryKey: ["stores", businessId] });
+      setStoreNbr(store.store_nbr);
+    },
   });
 
   const ingests = useQuery({
@@ -105,12 +113,24 @@ export default function Datos() {
             >
               <option value="">Todas las ubicaciones</option>
               {stores.data?.map((s) => (
-                <option key={s.store_nbr} value={s.store_nbr}>
-                  Ubicación {s.store_nbr}{s.city ? ` - ${s.city}` : ""}
-                </option>
+                <option key={s.store_nbr} value={s.store_nbr}>{storeLabel(s)}</option>
               ))}
             </select>
           </div>
+        )}
+
+        {businessId != null && canManage && (
+          <button
+            type="button"
+            disabled={newStoreMut.isPending}
+            onClick={() => {
+              const name = prompt("Nombre de la nueva ubicación (ej: Sucursal Ñuñoa):");
+              if (name?.trim()) newStoreMut.mutate(name.trim());
+            }}
+            className="flex items-center gap-1 px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-60"
+          >
+            <Plus className="w-4 h-4" /> Nueva ubicación
+          </button>
         )}
       </div>
 

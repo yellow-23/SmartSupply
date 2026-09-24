@@ -14,6 +14,7 @@ export interface Business {
 
 export interface StoreItem {
   store_nbr: number;
+  name: string | null;
   city: string | null;
   state: string | null;
   type: string | null;
@@ -62,6 +63,15 @@ export async function createBusiness(payload: {
 export async function listBusinessStores(businessId: number): Promise<StoreItem[]> {
   const { data } = await api.get(`/businesses/${businessId}/stores`);
   return data;
+}
+
+export async function createBusinessStore(businessId: number, name: string): Promise<StoreItem> {
+  const { data } = await api.post(`/businesses/${businessId}/stores`, { name });
+  return data;
+}
+
+export function storeLabel(s: StoreItem): string {
+  return `${s.name || `Ubicación ${s.store_nbr}`}${s.city ? ` - ${s.city}` : ""}`;
 }
 
 export async function listIngests(businessId: number, storeNbr?: number): Promise<IngestLogItem[]> {

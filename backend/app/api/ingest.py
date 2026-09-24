@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import assert_business_access, get_current_user
 from app.database import get_db
-from app.models.orm import Business, Product, SalesHistory, StockLevel, User, IngestLog
+from app.models.orm import Business, Product, SalesHistory, StockLevel, Store, User, IngestLog
 from app.models.schemas import IngestConfirm, IngestPreview, IngestResponse, IngestChatRequest, IngestChatResponse
 from app.services.ingest_service import (
     SUPPORTED_EXCEL_TYPES,
@@ -65,6 +65,11 @@ def confirm_ingest(
     """
     assert_business_access(db, current_user, body.business_id)
     data_type = body.data_type or "sales"
+
+    # Una carga a un numero de tienda no registrado la registra, para que aparezca en Datos y en los selectores.
+    if not db.query(Store).filter(Store.business_id == body.business_id, Store.store_nbr == body.store_nbr).first():
+        db.add(Store(business_id=body.business_id, store_nbr=body.store_nbr, name=f"Tienda {body.store_nbr}"))
+        db.flush()
 
     # ── Stock snapshot ──────────────────────────────────────────────────────────
     if data_type == "stock":

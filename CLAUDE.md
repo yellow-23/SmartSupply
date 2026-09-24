@@ -218,6 +218,7 @@ Verificar: `python --version` debe decir `Python 3.11.x`
 - [x] CU-27: benchmark Favorita versionado en `datasets/processed/benchmark_store1.csv` (tienda 1, 2016-2017, 590KB; `train_clean.csv` ya no existe). Forecast tiene selector "Datos: Mi negocio / Dataset de referencia". `business_id=1` abierto a todo usuario autenticado (solo lectura)
 - [x] CU-26: export PDF lee solo del cache (`ForecastService.get_cached`); sin cache -> 409 y el front pide regenerar
 - [x] CU-01 3a: registro con correo existente muestra error (Supabase devuelve `identities: []` en vez de error)
+- [x] Ubicaciones: no habia forma de crear una. `POST /api/businesses/{id}/stores` (solo owner, asigna el siguiente `store_nbr`) + boton "Nueva ubicacion" en Ingesta y Datos. `POST /api/businesses` ahora crea "Tienda Principal" (antes el negocio nacia sin ubicaciones). `/ingest/confirm` registra la tienda si el `store_nbr` no existe
 - [x] CU-18 ya cumplia: `assert_business_owner` deja pasar a `platform_admin`
 - Tests: `backend/tests/test_use_case_gaps.py`
 

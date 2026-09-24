@@ -38,3 +38,11 @@ def test_export_without_cached_forecast_is_409():
     with pytest.raises(HTTPException) as exc:
         asyncio.run(export_forecast_pdf("NO-EXISTE", MagicMock(id=1), 1, 14, "auto", 1, MagicMock()))
     assert exc.value.status_code == 409
+
+
+def test_create_store_requires_owner():
+    from app.api.businesses import create_business_store
+    from app.models.schemas import StoreCreate
+    with pytest.raises(HTTPException) as exc:
+        create_business_store(999, StoreCreate(name="Sucursal"), MagicMock(id=1, role="business_admin"), _no_membership_db())
+    assert exc.value.status_code == 403

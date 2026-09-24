@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useIngestStore } from "../store/ingestStore";
 import { previewIngest, confirmIngest, chatIngest, IngestPreview, ChatMessage, ChatResponse } from "../api/ingest";
-import { listBusinesses, listBusinessStores, createBusiness } from "../../../shared/api/data";
+import { listBusinesses, listBusinessStores, createBusiness, createBusinessStore, storeLabel } from "../../../shared/api/data";
 
 function inferFileType(name: string): "image" | "excel" | "pdf" {
   const n = name.toLowerCase();
@@ -53,6 +53,15 @@ export default function Ingest() {
     onSuccess: (biz) => {
       queryClient.invalidateQueries({ queryKey: ["businesses"] });
       setBusinessId(biz.id);
+      setStoreNbr(1);
+    },
+  });
+
+  const newStoreMut = useMutation({
+    mutationFn: (name: string) => createBusinessStore(destBusinessId!, name),
+    onSuccess: (store) => {
+      queryClient.invalidateQueries({ queryKey: ["stores", destBusinessId] });
+      setStoreNbr(store.store_nbr);
     },
   });
 
@@ -268,18 +277,35 @@ export default function Ingest() {
                 >
                   {destStoresQuery.data && destStoresQuery.data.length > 0 ? (
                     destStoresQuery.data.map(s => (
-                      <option key={s.store_nbr} value={s.store_nbr}>
-                        Ubicación {s.store_nbr}{s.city ? ` - ${s.city}` : ""}
-                      </option>
+                      <option key={s.store_nbr} value={s.store_nbr}>{storeLabel(s)}</option>
                     ))
                   ) : (
                     <option value={storeNbr}>Ubicación {storeNbr}</option>
                   )}
                 </select>
               )}
+
+              {destBusinessId != null && (
+                <button
+                  type="button"
+                  disabled={newStoreMut.isPending}
+                  onClick={() => {
+                    const name = prompt("Nombre de la nueva ubicación (ej: Sucursal Ñuñoa):");
+                    if (name?.trim()) newStoreMut.mutate(name.trim());
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-60"
+                >
+                  <Plus className="w-4 h-4" /> Nueva ubicación
+                </button>
+              )}
             </div>
             {destBusinessId == null && (
               <p className="text-xs text-amber-700 font-medium">Elige un negocio destino antes de confirmar la carga.</p>
+            )}
+            {newStoreMut.isError && (
+              <p className="text-xs text-red-600 font-medium">
+                {(newStoreMut.error as any)?.response?.data?.detail ?? "No se pudo crear la ubicación"}
+              </p>
             )}
           </div>
 
