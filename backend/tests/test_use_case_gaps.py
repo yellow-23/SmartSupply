@@ -46,3 +46,19 @@ def test_create_store_requires_owner():
     with pytest.raises(HTTPException) as exc:
         create_business_store(999, StoreCreate(name="Sucursal"), MagicMock(id=1, role="business_admin"), _no_membership_db())
     assert exc.value.status_code == 403
+
+
+def test_generate_orders_skips_open_and_rounds(monkeypatch):
+    from app.api import orders
+    monkeypatch.setattr(orders, "assert_business_access", lambda *a: None)
+    monkeypatch.setattr(orders.service, "get_critical_skus", lambda **k: [
+        {"family": "ABARROTES", "order_quantity": 1068.52, "current_stock": 712.4,
+         "reorder_point_s": 815.84, "order_up_to_S": 1780.6},
+        {"family": "BEBIDAS", "order_quantity": 900.1, "current_stock": 500.0,
+         "reorder_point_s": 593.38, "order_up_to_S": 1400.2},
+    ])
+    monkeypatch.setattr("app.services.inventory_service._get_product_params", lambda *a: {"lead_time_days": 7})
+    db = MagicMock()
+    db.query.return_value.filter.return_value.distinct.return_value = [("ABARROTES",)]
+    created = asyncio.run(orders.generate_automatic_orders(9, 1, MagicMock(id=1), db))
+    assert [(o.family, o.quantity, o.reorder_point_s) for o in created] == [("BEBIDAS", 901, 593)]

@@ -1,3 +1,4 @@
+import math
 from datetime import date, timedelta
 from io import BytesIO
 from typing import Annotated, Optional
@@ -114,8 +115,19 @@ async def generate_automatic_orders(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+    open_families = {
+        f for (f,) in db.query(PurchaseOrder.family).filter(
+            PurchaseOrder.business_id == business_id,
+            PurchaseOrder.store_nbr == store_nbr,
+            PurchaseOrder.status.in_(["pending", "confirmed", "in_transit"]),
+        ).distinct()
+    }
+
     created = []
     for sku in critical_skus:
+        if sku["family"] in open_families:
+            # Ya hay una orden abierta que cubre este SKU; generar otra la duplicaria.
+            continue
         if sku.get("needs_cost_setup"):
             # Sin unit_cost configurado el calculo de cantidad no es confiable -- no se genera
             # orden automatica para este SKU hasta que se cargue el costo (ver /inventory/alerts).
@@ -130,10 +142,10 @@ async def generate_automatic_orders(
             business_id=business_id,
             store_nbr=store_nbr,
             family=sku["family"],
-            quantity=sku["order_quantity"],
-            trigger_stock=sku["current_stock"],
-            reorder_point_s=sku["reorder_point_s"],
-            order_up_to_S=sku["order_up_to_S"],
+            quantity=math.ceil(sku["order_quantity"]),
+            trigger_stock=round(sku["current_stock"]),
+            reorder_point_s=round(sku["reorder_point_s"]),
+            order_up_to_S=round(sku["order_up_to_S"]),
             policy_used="s_s",
             status="pending",
             expected_delivery=date.today() + timedelta(days=lead_time),
