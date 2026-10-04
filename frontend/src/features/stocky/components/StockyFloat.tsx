@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Send, Sparkles, Trash2, X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { useActiveBusinessId } from "../../auth/store/authStore";
 import { chatStocky, StockyMessage } from "../api/stocky";
 import { fetchProducts } from "../../products/api/products";
@@ -159,12 +160,12 @@ export default function StockyFloat() {
 
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap leading-relaxed ${
+                <div className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
                   m.role === "user"
-                    ? "bg-orange-500 text-white rounded-br-sm"
-                    : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                    ? "bg-orange-500 text-white rounded-br-sm whitespace-pre-wrap"
+                    : "bg-gray-100 text-gray-800 rounded-bl-sm space-y-2 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-4 [&_ol]:pl-4 [&_li]:mt-1 [&_strong]:font-semibold"
                 }`}>
-                  {m.content}
+                  {m.role === "user" ? m.content : <ReactMarkdown>{m.content}</ReactMarkdown>}
                 </div>
               </div>
             ))}
