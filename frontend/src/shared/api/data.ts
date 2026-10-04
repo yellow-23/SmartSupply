@@ -117,3 +117,22 @@ export async function updateRecord(
 export async function deleteRecord(recordId: number): Promise<void> {
   await api.delete(`/sales/record/${recordId}`);
 }
+
+export interface SalesSummaryItem {
+  family: string;
+  total_sales: number;
+  avg_daily_sales: number;
+  days_on_promotion: number;
+}
+
+export async function getSalesDateRange(businessId: number): Promise<{ start: string; end: string }> {
+  const { data } = await api.get("/sales/date-range", { params: { business_id: businessId } });
+  return data;
+}
+
+export async function getSalesSummary(businessId: number, storeNbr?: number): Promise<SalesSummaryItem[]> {
+  const params: Record<string, number> = { business_id: businessId };
+  if (storeNbr != null) params.store_nbr = storeNbr;
+  const { data } = await api.get("/sales/summary", { params });
+  return data;
+}

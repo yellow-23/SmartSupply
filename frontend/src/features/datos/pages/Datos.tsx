@@ -9,6 +9,7 @@ import {
   listBusinesses, listBusinessStores, listIngests, getIngestRecords, createBusinessStore, storeLabel,
   STORE_FORM_FIELDS,
   revertIngest, deleteIngest, updateRecord, deleteRecord, IngestLogItem,
+  getSalesDateRange, getSalesSummary,
 } from "../../../shared/api/data";
 import { chatIngest } from "../../ingest/api/ingest";
 import { StatusBadge } from "../components/StatusBadge";
@@ -54,14 +55,27 @@ export default function Datos() {
     enabled: businessId != null,
   });
 
+  const dateRange = useQuery({
+    queryKey: ["sales", "date-range", businessId],
+    queryFn: () => getSalesDateRange(businessId!),
+    enabled: businessId != null,
+    retry: false,
+  });
+
+  const salesSummary = useQuery({
+    queryKey: ["sales", "summary", businessId, storeNbr],
+    queryFn: () => getSalesSummary(businessId!, storeNbr ?? undefined),
+    enabled: businessId != null,
+  });
+
   const revertMut = useMutation({
     mutationFn: (id: number) => revertIngest(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["ingests"] }); setConfirm(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["ingests"] }); qc.invalidateQueries({ queryKey: ["sales"] }); setConfirm(null); },
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: number) => deleteIngest(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["ingests"] }); setConfirm(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["ingests"] }); qc.invalidateQueries({ queryKey: ["sales"] }); setConfirm(null); },
   });
 
   const loads = ingests.data ?? [];
@@ -160,6 +174,43 @@ export default function Datos() {
         </div>
       )}
 
+      {/* Rango de fechas y resumen por familia (CU-21, CU-23) */}
+      {businessId != null && dateRange.data && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold text-gray-900">Resumen de ventas por familia</h2>
+            <p className="text-xs text-gray-500">
+              Datos disponibles del negocio: <span className="font-medium text-gray-800">{dateRange.data.start}</span> al{" "}
+              <span className="font-medium text-gray-800">{dateRange.data.end}</span>
+            </p>
+          </div>
+          {salesSummary.data && salesSummary.data.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {["#", "Familia", "Venta total", "Promedio diario", "Días en promoción"].map((h) => (
+                      <th key={h} className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {salesSummary.data.map((s, i) => (
+                    <tr key={s.family}>
+                      <td className="px-4 py-2 text-gray-400">{i + 1}</td>
+                      <td className="px-4 py-2 font-medium text-gray-800">{s.family}</td>
+                      <td className="px-4 py-2 text-gray-700">{s.total_sales.toLocaleString("es-CL")}</td>
+                      <td className="px-4 py-2 text-gray-500">{s.avg_daily_sales.toLocaleString("es-CL")}</td>
+                      <td className="px-4 py-2 text-gray-500">{s.days_on_promotion}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tabla de cargas */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         {businessId == null ? (
@@ -254,13 +305,17 @@ function RowGroup({ log, open, canManage, onToggle, onRevert, onDelete }: {
 
   const editMut = useMutation({
     mutationFn: ({ id, sales }: { id: number; sales: number }) => updateRecord(id, { sales }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["ingest-records", log.id] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ingest-records", log.id] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+    },
   });
   const delRecMut = useMutation({
     mutationFn: (id: number) => deleteRecord(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ingest-records", log.id] });
       qc.invalidateQueries({ queryKey: ["ingests"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
       setRecordToDelete(null);
     },
   });
