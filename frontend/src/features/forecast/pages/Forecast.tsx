@@ -82,11 +82,12 @@ const Forecast = () => {
   const hasAnyData = !!options && options.families.length > 0 && options.stores.length > 0;
 
   const handleExport = async () => {
-    if (!skuId || storeNbr == null) return;
+    if (!result) return;
     setExporting(true);
     try {
-      const blob = await exportForecastPdf({ business_id: businessId, sku_id: skuId, store_nbr: storeNbr, horizon_days: horizon, model: 'auto' });
-      downloadBlob(blob, `forecast_${skuId}_${storeNbr}.pdf`);
+      // Exporta la prediccion en pantalla, no la seleccion actual (que puede haber cambiado sin regenerar)
+      const blob = await exportForecastPdf({ business_id: businessId, sku_id: result.sku_id, store_nbr: result.store_nbr, horizon_days: result.horizon_days, model: 'auto' });
+      downloadBlob(blob, `forecast_${result.sku_id}_${result.store_nbr}.pdf`);
     } catch (e: any) {
       setError(e?.response?.status === 409
         ? 'La predicción expiró (se guarda 1 hora). Vuelve a generarla para exportarla.'
