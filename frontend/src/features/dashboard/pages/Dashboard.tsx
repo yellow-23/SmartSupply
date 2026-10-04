@@ -16,6 +16,8 @@ import {
 } from "recharts";
 import api from "../../../shared/api/axios.instance";
 import { useAuthStore, useActiveBusinessId } from "../../auth/store/authStore";
+import { exportAlerts } from "../../inventory/api/inventory";
+import { downloadBlob } from "../../../shared/lib/utils";
 
 interface DashboardKPIs {
   mape_global: number | null;
@@ -43,7 +45,7 @@ async function fetchChartData(businessId: number | null): Promise<ChartPoint[]> 
 const quickActions = [
   { label: "Predecir demanda", icon: RefreshCw, href: "/forecasting" },
   { label: "Subir más ventas",  icon: Upload,   href: "/ingest" },
-  { label: "Exportar reporte",  icon: FileDown, href: "#" },
+  { label: "Exportar alertas (Excel)", icon: FileDown, href: null },
 ];
 
 export default function Dashboard() {
@@ -205,7 +207,9 @@ export default function Dashboard() {
               {quickActions.map((action) => (
                 <button
                   key={action.label}
-                  onClick={() => navigate(action.href)}
+                  onClick={() => action.href
+                    ? navigate(action.href)
+                    : businessId && exportAlerts(businessId).then(b => downloadBlob(b, `alertas_inventario_${businessId}.xlsx`))}
                   className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors active:scale-[0.98] group"
                 >
                   <div className="flex items-center gap-3">
