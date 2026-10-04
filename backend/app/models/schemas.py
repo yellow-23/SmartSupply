@@ -23,6 +23,12 @@ class DashboardChartPoint(BaseModel):
     forecast: Optional[float] = None
 
 
+class DashboardChartData(BaseModel):
+    points: list[DashboardChartPoint]
+    forecast_skus: list[str]  # SKUs incluidos en ambas lineas; vacio = total del negocio sin prediccion
+    total_skus: int
+
+
 # ─── Productos / SKUs ──────────────────────────────────────────────────────────
 
 class ProductCreate(BaseModel):

@@ -37,7 +37,13 @@ async function fetchKPIs(businessId: number | null): Promise<DashboardKPIs> {
   return data;
 }
 
-async function fetchChartData(businessId: number | null): Promise<ChartPoint[]> {
+interface ChartData {
+  points: ChartPoint[];
+  forecast_skus: string[];
+  total_skus: number;
+}
+
+async function fetchChartData(businessId: number | null): Promise<ChartData> {
   const { data } = await api.get("/dashboard/chart-data", { params: { business_id: businessId } });
   return data;
 }
@@ -66,10 +72,10 @@ export default function Dashboard() {
   });
 
   const {
-    data: chartData = [],
+    data: chart,
     isLoading: chartLoading,
     isSuccess: chartLoaded,
-  } = useQuery<ChartPoint[]>({
+  } = useQuery<ChartData>({
     queryKey: ["dashboard", "chart-data", user?.id, businessId],
     queryFn: () => fetchChartData(businessId),
     staleTime: 300_000,
@@ -77,6 +83,13 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
+  const chartData = chart?.points ?? [];
+  const forecastSkus = chart?.forecast_skus ?? [];
+  const chartScope = forecastSkus.length === 0
+    ? "Total del negocio · sin predicción"
+    : forecastSkus.length <= 2
+      ? forecastSkus.join(", ")
+      : `${forecastSkus.length} de ${chart?.total_skus} productos`;
   const isEmptyState = chartLoaded && chartData.length === 0;
 
   const fmt = (v: number | null | undefined, suffix = "") =>
@@ -154,7 +167,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-semibold text-gray-700">Ventas vs predicción · 28 días</span>
+            <div>
+              <span className="text-sm font-semibold text-gray-700">Ventas vs predicción · 28 días</span>
+              <p className="text-xs text-gray-400">
+                {chartScope}
+                {forecastSkus.length === 0 && " (corre un pronóstico en Predecir demanda)"}
+              </p>
+            </div>
             <div className="flex items-center gap-4 text-xs text-gray-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block" />

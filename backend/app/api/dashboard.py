@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.auth import get_current_user, resolve_business_id
 from app.database import get_db
 from app.models.orm import IngestLog, PurchaseOrder, SalesHistory, StockLevel, User
-from app.models.schemas import DashboardChartPoint, DashboardKPIs
+from app.models.schemas import DashboardChartData, DashboardChartPoint, DashboardKPIs
 from app.services.forecast_service import get_business_cached_forecasts, get_business_wapes
 
 router = APIRouter()
@@ -75,7 +75,7 @@ def get_kpis(
     )
 
 
-@router.get("/chart-data", response_model=list[DashboardChartPoint])
+@router.get("/chart-data", response_model=DashboardChartData)
 def get_chart_data(
     current_user: Annotated[User, Depends(get_current_user)],
     business_id: int | None = Query(default=None),
@@ -90,9 +90,15 @@ def get_chart_data(
         .scalar()
     )
     if not max_date:
-        return []
+        return DashboardChartData(points=[], forecast_skus=[], total_skus=0)
 
     start_date = max_date - timedelta(days=27)
+    total_skus = (
+        db.query(SalesHistory.family, SalesHistory.store_nbr)
+        .filter(SalesHistory.business_id == bid, SalesHistory.date >= start_date)
+        .distinct()
+        .count()
+    )
 
     cached_forecasts = get_business_cached_forecasts(bid)
 
@@ -135,4 +141,8 @@ def get_chart_data(
             forecast=round(forecast_by_date[d], 1),
         ))
 
-    return points
+    return DashboardChartData(
+        points=points,
+        forecast_skus=sorted({c.sku_id for c in cached_forecasts}),
+        total_skus=total_skus,
+    )
