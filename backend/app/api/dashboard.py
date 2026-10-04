@@ -2,7 +2,7 @@ from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import func, tuple_
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user, resolve_business_id
@@ -94,14 +94,19 @@ def get_chart_data(
 
     start_date = max_date - timedelta(days=27)
 
-    rows = (
+    cached_forecasts = get_business_cached_forecasts(bid)
+
+    q = (
         db.query(SalesHistory.date, func.sum(SalesHistory.sales).label("real"))
         .filter(SalesHistory.business_id == bid)
         .filter(SalesHistory.date >= start_date)
-        .group_by(SalesHistory.date)
-        .order_by(SalesHistory.date)
-        .all()
     )
+    if cached_forecasts:
+        # La linea real debe sumar los mismos SKUs que la prediccion, si no no son comparables
+        q = q.filter(tuple_(SalesHistory.family, SalesHistory.store_nbr).in_(
+            [(c.sku_id, c.store_nbr) for c in cached_forecasts]
+        ))
+    rows = q.group_by(SalesHistory.date).order_by(SalesHistory.date).all()
 
     points = [
         DashboardChartPoint(
@@ -115,7 +120,7 @@ def get_chart_data(
     # Suma la prediccion cacheada por dia entre los SKUs para los que el usuario
     # ya corrio un forecast (pagina Forecast). Si no hay ninguno, no se agrega nada.
     forecast_by_date: dict = {}
-    for cached in get_business_cached_forecasts(bid):
+    for cached in cached_forecasts:
         for point in cached.predictions:
             if point.date > max_date:
                 forecast_by_date[point.date] = forecast_by_date.get(point.date, 0.0) + point.predicted_sales
