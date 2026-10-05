@@ -9,7 +9,7 @@ from app.services.notify_service import check_low_stock_and_notify, send_weekly_
 
 router = APIRouter()
 
-CRON_SECRET = os.environ["CRON_SECRET"]
+CRON_SECRET = os.environ.get("CRON_SECRET", "")
 
 
 def _verify_cron_secret(x_cron_secret: Annotated[str | None, Header()] = None) -> None:

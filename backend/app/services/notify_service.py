@@ -255,7 +255,6 @@ def send_weekly_digest(db: Session, business_id: int | None = None) -> dict:
         if total_sales is None:
             continue
 
-        # ponytail: toma la unidad de una fila cualquiera; un negocio con cargas CLP y uds mezcladas mostraria solo una
         sales_unit = (
             db.query(SalesHistory.sales_unit).filter(SalesHistory.business_id == business.id).limit(1).scalar()
             or "units"
