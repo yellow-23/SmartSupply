@@ -167,16 +167,38 @@ class AutoModelSelector:
         winner.fit(series, **fit_kwargs)
         final_pred = winner.predict(self.horizon)
 
-        wape_final = (
+        # WAPE reportado: se mide sobre el 15% de PRUEBA (test), no sobre el de
+        # validacion (val) con el que se eligio el ganador — si se reportara
+        # sobre val, el numero estaria inflado a favor del propio criterio de
+        # seleccion. Se reentrena el ganador solo sobre train+val (sin tocar
+        # test) para poder medir ese error de forma honesta.
+        test = series.iloc[val_end:]
+        wape_test = np.nan
+        if len(test) > 0:
+            try:
+                winner_for_test = self._models[best_name]()
+                test_fit_kwargs = {"epochs": 50} if best_name == "lstm" else {}
+                winner_for_test.fit(train_val, **test_fit_kwargs)
+                test_pred = winner_for_test.predict(len(test))
+                wape_test = calculate_wape(test.values, test_pred.values[: len(test)])
+            except Exception as exc:
+                print(f"    [{best_name.upper():8s}] ERROR midiendo WAPE de test: {exc}")
+
+        wape_selection = (
             wapes_cv.get(best_name, wapes_single[best_name])
             if self.cv
             else wapes_single[best_name]
         )
+        # Si el fold de test fallo o esta vacio, se cae de vuelta al WAPE de
+        # seleccion (val/cv) en lugar de reportar un WAPE nulo.
+        wape_final = wape_test if np.isfinite(wape_test) else wape_selection
 
         self.results = {
             "sku": sku_id,
             "model": best_name,
             "wape": round(wape_final, 2) if np.isfinite(wape_final) else None,
+            "wape_test": round(wape_test, 2) if np.isfinite(wape_test) else None,
+            "wape_selection": round(wape_selection, 2) if np.isfinite(wape_selection) else None,
             "wape_cv": (
                 round(wapes_cv[best_name], 2)
                 if self.cv and np.isfinite(wapes_cv.get(best_name, np.nan))

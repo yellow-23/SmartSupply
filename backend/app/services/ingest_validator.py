@@ -6,7 +6,9 @@ Detecta problemas en los registros extraidos por el AI antes de cargarlos:
 - Saltos de escala entre periodos (posible mezcla de unidades)
 
 Se invoca al final del preview para que el usuario vea los warnings antes
-de confirmar la carga.
+de confirmar la carga. Un issue con severity="error" (hoy solo
+MIXED_GRANULARITY) ademas bloquea POST /api/ingest/confirm en el backend
+(ver ingest.py::confirm_ingest), no solo el boton del frontend.
 """
 
 from __future__ import annotations
@@ -80,16 +82,17 @@ def validate_ingest_records(records: Iterable[IngestRecord]) -> list[QualityIssu
         min_gap = min(gaps)
         max_gap = max(gaps)
 
-        # Granularidad inconsistente
+        # Granularidad inconsistente — bloquea la carga: mezclar granularidades
+        # rompe la asuncion de serie diaria que usan ARIMA/Prophet/XGBoost/LSTM.
         if max_gap > 7 and (max_gap / max(min_gap, 1)) > MIXED_GAP_RATIO:
             issues.append(QualityIssue(
-                severity="warning",
+                severity="error",
                 code="MIXED_GRANULARITY",
                 family=family,
                 message=(
                     f"{family}: granularidad inconsistente (gaps entre {min_gap} y {max_gap} dias). "
-                    f"Puede haber dias sin venta mezclados con periodos sin registro. "
-                    f"Se cargara igual — los modelos usaran los datos disponibles."
+                    f"Parece mezclar periodos con distinta frecuencia (ej. diario y mensual). "
+                    f"Corrige el archivo fuente o separa la carga por periodo antes de confirmar."
                 ),
             ))
         elif median_gap >= MONTHLY_GAP_DAYS:

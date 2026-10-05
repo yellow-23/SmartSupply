@@ -1,0 +1,7 @@
+family,arima_wape_test,prophet_wape_test,xgboost_wape_test,best_single_model,best_single_wape_test,ensemble_simple_wape_test,ensemble_weighted_wape_test
+GROCERY I,14.66,14.0,21.1,prophet,14.0,15.53,15.16
+BREAD/BAKERY,18.72,16.19,18.34,prophet,16.19,15.37,15.6
+DAIRY,13.19,13.03,19.13,prophet,13.03,14.37,13.81
+CELEBRATION,41.63,47.74,50.53,arima,41.63,41.67,41.48
+MAGAZINES,48.03,49.4,76.57,arima,48.03,55.81,56.35
+SEAFOOD,25.7,24.81,31.57,prophet,24.81,26.39,25.73

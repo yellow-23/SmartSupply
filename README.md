@@ -1,10 +1,10 @@
-# SmartSupply — Plataforma de Predicción de Demanda y Reabastecimiento Automático
+# SmartSupply
 
-> **Universidad Andrés Bello · Ingeniería Civil en Informática · Proyecto de Tesis 2025**
+Tesis de Ingeniería Civil en Informática — Universidad Andrés Bello, 2025-2026.
 
-Sistema que entrena modelos de forecasting por SKU (ARIMA, Prophet, XGBoost, LSTM), selecciona automáticamente el mejor modelo por producto y genera políticas de reabastecimiento óptimas (EOQ y política (s,S)) con restricciones reales de proveedor.
+Plataforma de predicción de demanda y reabastecimiento automático para distribuidoras chilenas. Entrena varios modelos de forecasting por SKU (ARIMA, Prophet, XGBoost, LSTM), selecciona automáticamente el mejor por producto (AMS) y calcula políticas de reabastecimiento (EOQ y (s, S)).
 
-**Hipótesis:** *"La selección automática de modelo de forecasting por SKU reduce el error de predicción (MAPE) y el capital inmovilizado en inventario vs. un modelo único aplicado a todos los productos."*
+**Hipótesis:** la asignación automática de modelo por SKU (AMS) empata la precisión del mejor estimador individual y reduce el riesgo de aplicar un modelo subóptimo a todo el catálogo, frente a usar un único modelo fijo para todos los productos.
 
 ---
 
@@ -12,87 +12,70 @@ Sistema que entrena modelos de forecasting por SKU (ARIMA, Prophet, XGBoost, LST
 
 ```
 SmartSupply/
-├── forecasting/        # Int.1 — Modelos de predicción de demanda
-│   ├── data/           # Dataset Kaggle (NO subir al repo → .gitignore)
-│   ├── notebooks/      # Análisis EDA + entrenamiento de modelos
-│   ├── models/         # Modelos serializados (.pkl, .pt)
-│   └── src/            # Código fuente de modelos y selector automático
-│
-├── inventory/          # Int.2 — Modelos de inventario
-│   ├── notebooks/      # EOQ y política (s,S) exploración
-│   └── src/            # EOQ, (s,S), generador de órdenes, simulador
-│
-├── backend/            # Int.3 — API REST (FastAPI)
+├── backend/            # API REST (FastAPI) + servicios de negocio
 │   └── app/
-│       ├── api/        # Endpoints: forecast, inventory, products, orders
-│       ├── models/     # Pydantic schemas
-│       └── services/   # Lógica de negocio
+│       ├── api/        # Routers: auth, forecast, inventory, orders, ingest, stocky, admin, notify...
+│       ├── models/     # Schemas Pydantic + ORM
+│       └── services/   # Lógica: forecast, inventario, ingesta IA, Stocky, notificaciones
 │
-├── etl/                # Int.3 — Pipeline ETL
-│   └── scripts/        # Descarga → limpieza → carga a base de datos
-│
-├── frontend/           # Int.3 — Dashboard web (React)
+├── forecasting/        # Modelos de predicción (ARIMA, Prophet, XGBoost, LSTM) + selector AMS
+│   ├── data/           # Dataset Kaggle (no se sube al repo)
 │   └── src/
-│       ├── components/ # Componentes reutilizables
-│       ├── pages/      # Páginas de la app
-│       └── api/        # Llamadas al backend
 │
-└── docs/               # Documentos de tesis
+├── inventory/          # EOQ, política (s, S), generador de órdenes, simulador
+│   └── src/
+│
+├── etl/                # Descarga → limpieza → carga a Supabase del dataset de benchmarking
+│   └── scripts/
+│
+├── frontend/           # Dashboard (React + Vite)
+│   └── src/
+│
+└── docs/               # Documento de tesis y diagramas
 ```
 
 ---
 
-## Integrantes y responsabilidades
+## Integrantes
 
-| Rol | Módulo | Tareas principales |
-|-----|--------|--------------------|
-| **Int. 1** | Forecasting | ARIMA, Prophet, XGBoost, LSTM + selector automático (AMS) |
-| **Int. 2** | Inventario | EOQ clásico, política (s,S), simulador, métricas de inventario |
-| **Int. 3** | Backend/ETL/UI | FastAPI, pipeline ETL, PostgreSQL, dashboard React |
+| Integrante | Módulo | Responsabilidad |
+|---|---|---|
+| Ignacio Duarte | `forecasting/` | ARIMA, Prophet, XGBoost, LSTM, AMS |
+| Matias Muñoz | `inventory/` | EOQ, política (s, S), simulador |
+| Cristobal Flores | `backend/`, `etl/`, `frontend/` | API, ETL, dashboard, ingesta IA |
 
 ---
 
-## Setup del entorno
+## Setup
 
-### Requisitos previos
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 15+ (o cuenta Supabase)
-- Git
+Requisitos: Python 3.11, Node 18+, cuenta Supabase, Git.
 
-### Backend (FastAPI)
+### Backend
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+python -m venv venv        # o usar el venv de la raíz del repo
+venv\Scripts\activate       # Linux/Mac: source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env            # Completar con tus credenciales
+```
+
+Creá `backend/.env` con:
+
+```
+DATABASE_URL=postgresql://...@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_KEY=anon-key
+ANTHROPIC_API_KEY=sk-ant-...
+CRON_SECRET=cualquier-string   # solo hace falta si vas a probar /api/notify
+```
+
+```bash
 uvicorn app.main:app --reload
 ```
 
-La API queda disponible en `http://localhost:8000`
-Documentación automática: `http://localhost:8000/docs`
+API en `http://localhost:8000`, docs en `http://localhost:8000/docs`.
 
-### Forecasting
-
-```bash
-cd forecasting
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### Inventario
-
-```bash
-cd inventory
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### Frontend (React)
+### Frontend
 
 ```bash
 cd frontend
@@ -100,54 +83,54 @@ npm install
 npm run dev
 ```
 
-### ETL (cargar dataset)
+Necesita `VITE_API_URL`, `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (mismos valores de Supabase que el backend).
+
+### Forecasting / Inventory
+
+```bash
+cd forecasting  # o inventory
+pip install -r requirements.txt
+```
+
+### ETL (cargar el dataset de benchmarking)
 
 ```bash
 cd etl
-# Asegurarse de tener el .env con las credenciales de BD
-python scripts/01_download_kaggle.py   # Descomprime el dataset
-python scripts/02_clean.py             # Limpieza y normalización
-python scripts/03_load_supabase.py     # Carga a PostgreSQL/Supabase
+python scripts/01_download_kaggle.py
+python scripts/02_clean.py
+python scripts/03_load_supabase.py
 ```
 
 ---
 
-## Dataset
+## Dataset de benchmarking
 
-**Store Sales — Time Series Forecasting** (Kaggle)
-- Fuente: Corporación Favorita (Ecuador), datos públicos
-- Período: 2013-01-01 → 2017-08-15
-- 3.000.888 registros · 54 tiendas · 33 familias de productos
-- Archivos: `datasets/store-sales-time-series-forecasting.zip`
-- Los CSV descomprimidos van en `forecasting/data/` (ignorados por .gitignore)
+**Store Sales — Corporación Favorita** (Kaggle): 3.000.888 filas, 54 tiendas, 33 familias de productos, 2013-01-01 a 2017-08-15. Se usa para validar la hipótesis del AMS. No reemplaza la ingesta IA — son complementarios: cualquier negocio real carga sus propios datos vía imagen/Excel/PDF.
 
 ---
 
-## Stack tecnológico
+## Stack
 
 | Capa | Tecnología |
-|------|-----------|
-| Forecasting | Python, statsmodels (ARIMA), Prophet, XGBoost, TensorFlow/Keras (LSTM) |
+|---|---|
+| Forecasting | Python, statsmodels (ARIMA), Prophet, XGBoost, PyTorch (LSTM) |
 | Inventario | Python, NumPy, SciPy |
 | Backend | FastAPI, Pydantic, SQLAlchemy |
-| Base de datos | PostgreSQL / Supabase |
-| ETL | Python, Pandas |
-| Frontend | React, Vite, Recharts |
-| Deploy | GCP / Render |
+| Auth | Supabase Auth (email/password + Google OAuth) |
+| Base de datos | PostgreSQL (Supabase) |
+| Ingesta IA | Claude (Anthropic) — visión, Excel, agente Stocky |
+| Frontend | React, Vite, Recharts, TanStack Query, Zustand |
+| Deploy | Render (backend) + Cloudflare Pages (frontend) |
 
 ---
 
-## Convenciones de ramas y commits
+## Ramas y commits
 
-Ver [`CONVENTIONS.md`](./CONVENTIONS.md) para la guía completa.
+Ver [`CONVENTIONS.md`](./CONVENTIONS.md).
 
 ```
-main          → rama principal, siempre estable
-feat/xxx      → nuevas funcionalidades
-fix/xxx       → correcciones de bugs
-docs/xxx      → cambios solo de documentación
+main      → estable
+feat/xxx  → funcionalidad nueva
+fix/xxx   → corrección de bug
+docs/xxx  → solo documentación
 ```
-
----
-
-*Documento preparado para presentación — Mayo 2025*
