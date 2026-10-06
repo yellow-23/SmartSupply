@@ -7,6 +7,8 @@ se sigue leyendo desde el CSV procesado para no romper la validación de la tesi
 Cualquier otro business_id usa el historial real del usuario en Supabase.
 """
 
+import ctypes
+import gc
 import os
 import sys
 import time
@@ -38,6 +40,19 @@ _MIN_DAYS = 30
 _CACHE_TTL = int(os.getenv("FORECAST_CACHE_TTL", "3600"))  # override con env var para dev
 _cache: dict[str, tuple] = {}
 _cache_lock = threading.Lock()
+# ponytail: un solo entrenamiento a la vez (Render Starter = 512MB; dos AMS en paralelo lo revientan).
+# Si hace falta paralelismo real, mover el AMS a un worker aparte con mas memoria.
+_training_lock = threading.Lock()
+
+
+def _release_memory() -> None:
+    """Tras entrenar, devuelve al SO la memoria libre: glibc la retiene y el proceso crece forecast a forecast."""
+    gc.collect()
+    if sys.platform.startswith("linux"):
+        try:
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except OSError:
+            pass
 
 # Cache de WAPE por SKU: (business_id, store_nbr, family) -> wape
 # Se llena cada vez que el usuario corre un forecast. Leído por el dashboard.
@@ -233,6 +248,25 @@ class ForecastService:
         cached = self.get_cached(business_id, sku_id, store_nbr, horizon_days, model)
         if cached is not None:
             return cached
+        with _training_lock:
+            # Otro request pudo haber entrenado este mismo SKU mientras esperabamos el lock
+            cached = self.get_cached(business_id, sku_id, store_nbr, horizon_days, model)
+            if cached is not None:
+                return cached
+            try:
+                return self._train(db, business_id, sku_id, store_nbr, horizon_days, model)
+            finally:
+                _release_memory()
+
+    def _train(
+        self,
+        db: Session,
+        business_id: int,
+        sku_id: str,
+        store_nbr: int,
+        horizon_days: int,
+        model: Optional[str],
+    ) -> ForecastResponse:
         key = _cache_key(business_id, sku_id, store_nbr, horizon_days, model or "auto")
 
         from forecasting.src.ams_pipeline import run_ams_pipeline, load_sku_series
