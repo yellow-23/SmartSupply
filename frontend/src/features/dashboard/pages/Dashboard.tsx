@@ -1,4 +1,5 @@
 import { Target, AlertTriangle, ClipboardList, Activity, RefreshCw, Upload, FileDown, Zap, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { KpiCard } from "../components/KpiCard";
@@ -43,8 +44,8 @@ interface ChartData {
   total_skus: number;
 }
 
-async function fetchChartData(businessId: number | null): Promise<ChartData> {
-  const { data } = await api.get("/dashboard/chart-data", { params: { business_id: businessId } });
+async function fetchChartData(businessId: number | null, family: string): Promise<ChartData> {
+  const { data } = await api.get("/dashboard/chart-data", { params: { business_id: businessId, family: family || undefined } });
   return data;
 }
 
@@ -58,6 +59,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
   const businessId = useActiveBusinessId();
+  const [family, setFamily] = useState("");
 
   const {
     data: kpis,
@@ -76,8 +78,8 @@ export default function Dashboard() {
     isLoading: chartLoading,
     isSuccess: chartLoaded,
   } = useQuery<ChartData>({
-    queryKey: ["dashboard", "chart-data", user?.id, businessId],
-    queryFn: () => fetchChartData(businessId),
+    queryKey: ["dashboard", "chart-data", user?.id, businessId, family],
+    queryFn: () => fetchChartData(businessId, family),
     staleTime: 300_000,
     refetchInterval: 300_000,
     enabled: !!user,
@@ -85,9 +87,15 @@ export default function Dashboard() {
 
   const chartData = chart?.points ?? [];
   const forecastSkus = chart?.forecast_skus ?? [];
+  // Si el forecast de la familia elegida expiro del cache, volver a "todos"
+  useEffect(() => {
+    if (family && chartLoaded && !forecastSkus.includes(family)) setFamily("");
+  }, [family, chartLoaded, forecastSkus]);
   const chartScope = forecastSkus.length === 0
     ? "Total del negocio · sin predicción"
-    : forecastSkus.length <= 2
+    : family
+      ? family
+      : forecastSkus.length <= 2
       ? forecastSkus.join(", ")
       : `${forecastSkus.length} de ${chart?.total_skus} productos`;
   const isEmptyState = chartLoaded && chartData.length === 0;
@@ -174,6 +182,17 @@ export default function Dashboard() {
                 {forecastSkus.length === 0 && " (corre un pronóstico en Predecir demanda)"}
               </p>
             </div>
+            {forecastSkus.length > 1 && (
+              <select
+                value={family}
+                onChange={e => setFamily(e.target.value)}
+                aria-label="Filtrar por producto"
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+              >
+                <option value="">Todos los pronosticados</option>
+                {forecastSkus.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            )}
             <div className="flex items-center gap-4 text-xs text-gray-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block" />

@@ -50,7 +50,7 @@ def _insufficient_data_response(err: InsufficientDataError) -> HTTPException:
 
 
 @router.post("/predict", response_model=ForecastResponse)
-async def predict_demand(
+def predict_demand(
     request: ForecastRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     business_id: int | None = Query(default=None, description="Negocio activo; 1 = dataset de referencia"),
@@ -158,7 +158,7 @@ def clear_forecast_cache(
 
 
 @router.get("/{sku_id}/export")
-async def export_forecast_pdf(
+def export_forecast_pdf(
     sku_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
     store_nbr: int = Query(default=1, description="Número de tienda"),
@@ -223,7 +223,7 @@ async def export_forecast_pdf(
 
 
 @router.get("/models")
-async def list_available_models():
+def list_available_models():
     """Lista los modelos de forecasting disponibles."""
     return {
         "models": ["arima", "prophet", "xgboost", "lstm"],
@@ -238,7 +238,7 @@ async def list_available_models():
 
 
 @router.get("/{sku_id}", response_model=ForecastResponse)
-async def get_forecast_for_sku(
+def get_forecast_for_sku(
     sku_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
     store_nbr: int = Query(default=1, description="Número de tienda"),

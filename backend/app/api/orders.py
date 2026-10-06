@@ -28,7 +28,7 @@ _TRANSITIONS = {
 
 
 @router.get("", response_model=list[PurchaseOrderResponse])
-async def list_orders(
+def list_orders(
     business_id: int,
     store_nbr: int = 1,
     status: Optional[str] = None,
@@ -47,7 +47,7 @@ async def list_orders(
 
 
 @router.get("/export")
-async def export_orders(
+def export_orders(
     business_id: int,
     store_nbr: int = 1,
     status: Optional[str] = None,
@@ -99,7 +99,7 @@ async def export_orders(
 
 
 @router.post("/generate", response_model=list[PurchaseOrderResponse])
-async def generate_automatic_orders(
+def generate_automatic_orders(
     business_id: int,
     store_nbr: int = 1,
     current_user: Annotated[User, Depends(get_current_user)] = None,
@@ -161,7 +161,7 @@ async def generate_automatic_orders(
 
 
 @router.patch("/{order_id}/status", response_model=PurchaseOrderResponse)
-async def update_order_status(
+def update_order_status(
     order_id: int,
     new_status: str,
     business_id: int,
@@ -216,7 +216,7 @@ async def update_order_status(
 
 
 @router.get("/{order_id}", response_model=PurchaseOrderResponse)
-async def get_order(
+def get_order(
     order_id: int,
     business_id: int,
     current_user: Annotated[User, Depends(get_current_user)] = None,

@@ -73,6 +73,8 @@ class XGBoostModel:
             reg_lambda=1.5,
             random_state=42,
             verbosity=0,
+            # Con datos chicos el paralelismo entre hilos cuesta mas de lo que ahorra (46s -> 12s medido)
+            n_jobs=1,
         )
 
     def _build_feature_matrix(
@@ -117,7 +119,8 @@ class XGBoostModel:
         X = df.drop(columns=["y", "target"])
         return X, df["target"].values
 
-    def fit(self, series: pd.Series):
+    def fit(self, series: pd.Series, max_k: int | None = None):
+        """max_k: pasos a entrenar; si se conoce el horizonte a predecir evita entrenar los 90 modelos."""
         series = series.astype(float)
         idx = pd.to_datetime(series.index)
         vals = series.values
@@ -127,6 +130,8 @@ class XGBoostModel:
 
         # Parámetros adaptativos según longitud de la serie
         self._effective_lags, self._effective_max_k = self._compute_adaptive_params(n)
+        if max_k:
+            self._effective_max_k = min(self._effective_max_k, max_k)
         min_history = max(self._effective_lags)  # lag máximo → historia mínima
 
         # Guardar min_history+1 valores: lag_L en inferencia = tail_vals[-(L+1)]

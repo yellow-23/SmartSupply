@@ -31,6 +31,24 @@ const Forecast = () => {
   const businessId = useBenchmark ? BENCHMARK_BUSINESS_ID : activeBusinessId;
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!loading) return;
+    setElapsed(0);
+    const t = setInterval(() => setElapsed(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [loading]);
+
+  // ponytail: etapas estimadas por tiempo transcurrido, no progreso real del backend
+  const ESTIMATED_SECONDS = 60;
+  const stage = elapsed < 5
+    ? 'Cargando el historial de ventas...'
+    : elapsed < 40
+      ? 'Probando ARIMA, Prophet y XGBoost para ver cuál predice mejor...'
+      : elapsed < ESTIMATED_SECONDS
+        ? 'Entrenando el modelo ganador con todo el historial...'
+        : 'Está tardando más de lo normal, sigue trabajando...';
 
   const {
     skuId, setSkuId,
@@ -318,8 +336,16 @@ const Forecast = () => {
       {loading && (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-2xl border border-gray-100">
           <Loader2 className="w-10 h-10 animate-spin mb-3 text-orange-500" />
-          <p className="text-sm font-medium text-gray-600">Entrenando modelos ARIMA, Prophet, XGBoost y LSTM...</p>
-          <p className="text-xs text-gray-400 mt-1">Esto puede tomar entre 30 y 90 segundos</p>
+          <p className="text-sm font-medium text-gray-600">{stage}</p>
+          <div className="w-64 h-1.5 bg-gray-100 rounded-full mt-3 overflow-hidden">
+            <div
+              className="h-full bg-orange-500 transition-all duration-1000"
+              style={{ width: `${Math.min(95, (elapsed / ESTIMATED_SECONDS) * 100)}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            {elapsed}s · suele tomar menos de 1 minuto. Si repites este producto en la próxima hora, es instantáneo.
+          </p>
         </div>
       )}
 

@@ -79,6 +79,7 @@ def get_kpis(
 def get_chart_data(
     current_user: Annotated[User, Depends(get_current_user)],
     business_id: int | None = Query(default=None),
+    family: str | None = Query(default=None, description="Ver solo esta familia (debe tener forecast cacheado)"),
     db: Session = Depends(get_db),
 ):
     """Ventas reales agregadas por día (últimas 4 semanas), scoped al business del usuario."""
@@ -100,7 +101,8 @@ def get_chart_data(
         .count()
     )
 
-    cached_forecasts = get_business_cached_forecasts(bid)
+    all_cached = get_business_cached_forecasts(bid)
+    cached_forecasts = [c for c in all_cached if not family or c.sku_id == family]
 
     q = (
         db.query(SalesHistory.date, func.sum(SalesHistory.sales).label("real"))
@@ -143,6 +145,6 @@ def get_chart_data(
 
     return DashboardChartData(
         points=points,
-        forecast_skus=sorted({c.sku_id for c in cached_forecasts}),
+        forecast_skus=sorted({c.sku_id for c in all_cached}),
         total_skus=total_skus,
     )

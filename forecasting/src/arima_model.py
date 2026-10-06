@@ -65,7 +65,9 @@ class ARIMAModel:
         self._scale = mean if mean > 0 else 1.0
         scaled = series / self._scale
 
-        self.order, self.seasonal_order = self._select_order(scaled)
+        # Orden ya fijado (p.ej. elegido en el split de validacion): se salta el grid de 144 ajustes
+        if self.order is None:
+            self.order, self.seasonal_order = self._select_order(scaled)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             self.fitted_model = SARIMAX(

@@ -1,4 +1,3 @@
-import asyncio
 from unittest.mock import MagicMock
 
 import pytest
@@ -36,7 +35,7 @@ def test_admin_cannot_deactivate_or_demote_self():
 
 def test_export_without_cached_forecast_is_409():
     with pytest.raises(HTTPException) as exc:
-        asyncio.run(export_forecast_pdf("NO-EXISTE", MagicMock(id=1), 1, 14, "auto", 1, MagicMock()))
+        export_forecast_pdf("NO-EXISTE", MagicMock(id=1), 1, 14, "auto", 1, MagicMock())
     assert exc.value.status_code == 409
 
 
@@ -60,5 +59,5 @@ def test_generate_orders_skips_open_and_rounds(monkeypatch):
     monkeypatch.setattr("app.services.inventory_service._get_product_params", lambda *a: {"lead_time_days": 7})
     db = MagicMock()
     db.query.return_value.filter.return_value.distinct.return_value = [("ABARROTES",)]
-    created = asyncio.run(orders.generate_automatic_orders(9, 1, MagicMock(id=1), db))
+    created = orders.generate_automatic_orders(9, 1, MagicMock(id=1), db)
     assert [(o.family, o.quantity, o.reorder_point_s) for o in created] == [("BEBIDAS", 901, 593)]

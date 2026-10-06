@@ -28,7 +28,7 @@ def _urgency(current_stock: float, reorder_point_s: float) -> str:
 
 
 @router.get("/alerts")
-async def get_stock_alerts(
+def get_stock_alerts(
     business_id: int,
     store_nbr: int = 1,
     limit: int = 50,
@@ -75,7 +75,7 @@ async def get_stock_alerts(
 
 
 @router.get("/alerts/export")
-async def export_stock_alerts(
+def export_stock_alerts(
     business_id: int,
     store_nbr: int = 1,
     current_user: Annotated[User, Depends(get_current_user)] = None,
@@ -121,7 +121,7 @@ async def export_stock_alerts(
 
 
 @router.get("/{family}", response_model=InventoryStatus)
-async def get_inventory_status(
+def get_inventory_status(
     family: str,
     business_id: int,
     store_nbr: int = 1,
@@ -140,7 +140,7 @@ async def get_inventory_status(
 
 
 @router.get("/{family}/metrics", response_model=InventoryMetrics)
-async def get_inventory_metrics(
+def get_inventory_metrics(
     family: str,
     business_id: int,
     store_nbr: int = 1,

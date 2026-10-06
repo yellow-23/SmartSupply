@@ -5,6 +5,12 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SmartSupply</title>
+    <script>
+      // Dominio oficial: los previews por rama (*.smartsupply-frontend.pages.dev) no se redirigen
+      if (location.hostname === "smartsupply-frontend.pages.dev") {
+        location.replace("https://app.smart-supply.cl" + location.pathname + location.search + location.hash);
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />

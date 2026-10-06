@@ -125,13 +125,29 @@ class AutoModelSelector:
         wapes_single: dict[str, float] = {}
         wapes_cv: dict[str, float] = {}
         val_preds: dict[str, pd.Series] = {}
+        fitted: dict[str, object] = {}
+
+        def fit_kwargs_for(name: str, steps: int, epochs: int) -> dict:
+            if name == "lstm":
+                return {"epochs": epochs}
+            if name == "xgboost":
+                return {"max_k": steps}  # solo los pasos que se van a predecir
+            return {}
+
+        def new_model(name: str):
+            m = self._models[name]()
+            # ARIMA reutiliza el orden elegido por AIC en el split de train: evita repetir el grid
+            prev = fitted.get(name)
+            if name == "arima" and prev is not None:
+                m.order, m.seasonal_order = prev.order, prev.seasonal_order
+            return m
 
         for name, ModelClass in self._models.items():
             # ── Split único (siempre se calcula) ───────────────────────────
             try:
                 m = ModelClass()
-                fit_kwargs = {"epochs": 30} if name == "lstm" else {}
-                m.fit(train, **fit_kwargs)
+                m.fit(train, **fit_kwargs_for(name, len(val), 30))
+                fitted[name] = m
                 pred = m.predict(len(val))
                 pred_values = pred.values[: len(val)]
                 wapes_single[name] = calculate_wape(val.values, pred_values)
@@ -162,9 +178,8 @@ class AutoModelSelector:
         )
 
         # Reentrenar ganador sobre la serie COMPLETA (100%) y predecir horizonte futuro
-        winner = self._models[best_name]()
-        fit_kwargs = {"epochs": 50} if best_name == "lstm" else {}
-        winner.fit(series, **fit_kwargs)
+        winner = new_model(best_name)
+        winner.fit(series, **fit_kwargs_for(best_name, self.horizon, 50))
         final_pred = winner.predict(self.horizon)
 
         # WAPE reportado: se mide sobre el 15% de PRUEBA (test), no sobre el de
@@ -176,9 +191,8 @@ class AutoModelSelector:
         wape_test = np.nan
         if len(test) > 0:
             try:
-                winner_for_test = self._models[best_name]()
-                test_fit_kwargs = {"epochs": 50} if best_name == "lstm" else {}
-                winner_for_test.fit(train_val, **test_fit_kwargs)
+                winner_for_test = new_model(best_name)
+                winner_for_test.fit(train_val, **fit_kwargs_for(best_name, len(test), 50))
                 test_pred = winner_for_test.predict(len(test))
                 wape_test = calculate_wape(test.values, test_pred.values[: len(test)])
             except Exception as exc:

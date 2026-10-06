@@ -27,7 +27,7 @@ service = IngestService()
 
 
 @router.post("/preview", response_model=IngestPreview)
-async def preview_ingest(file: UploadFile = File(...)):
+def preview_ingest(file: UploadFile = File(...)):
     """
     Paso 1: Sube un archivo y Claude extrae los datos de ventas.
     Devuelve un preview para que el usuario revise antes de confirmar la carga.
@@ -38,7 +38,7 @@ async def preview_ingest(file: UploadFile = File(...)):
     - PDF: reportes o facturas escaneadas
     """
     content_type = file.content_type or ""
-    file_bytes = await file.read()
+    file_bytes = file.file.read()
 
     if content_type in SUPPORTED_IMAGE_TYPES:
         return service.preview_from_image(file_bytes, content_type)
