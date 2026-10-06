@@ -15,7 +15,9 @@ import {
   CartesianGrid,
 } from "recharts";
 import api from "../../../shared/api/axios.instance";
-import { useAuthStore } from "../../auth/store/authStore";
+import { useAuthStore, useActiveBusinessId } from "../../auth/store/authStore";
+import { exportAlerts } from "../../inventory/api/inventory";
+import { downloadBlob } from "../../../shared/lib/utils";
 
 interface DashboardKPIs {
   mape_global: number | null;
@@ -30,50 +32,64 @@ interface ChartPoint {
   forecast: number | null;
 }
 
-async function fetchKPIs(): Promise<DashboardKPIs> {
-  const { data } = await api.get("/dashboard/kpis");
+async function fetchKPIs(businessId: number | null): Promise<DashboardKPIs> {
+  const { data } = await api.get("/dashboard/kpis", { params: { business_id: businessId } });
   return data;
 }
 
-async function fetchChartData(): Promise<ChartPoint[]> {
-  const { data } = await api.get("/dashboard/chart-data");
+interface ChartData {
+  points: ChartPoint[];
+  forecast_skus: string[];
+  total_skus: number;
+}
+
+async function fetchChartData(businessId: number | null): Promise<ChartData> {
+  const { data } = await api.get("/dashboard/chart-data", { params: { business_id: businessId } });
   return data;
 }
 
 const quickActions = [
   { label: "Predecir demanda", icon: RefreshCw, href: "/forecasting" },
   { label: "Subir más ventas",  icon: Upload,   href: "/ingest" },
-  { label: "Exportar reporte",  icon: FileDown, href: "#" },
+  { label: "Exportar alertas (Excel)", icon: FileDown, href: null },
 ];
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
+  const businessId = useActiveBusinessId();
 
   const {
     data: kpis,
     isLoading: kpisLoading,
     isError: kpisError,
   } = useQuery<DashboardKPIs>({
-    queryKey: ["dashboard", "kpis", user?.id],
-    queryFn: fetchKPIs,
+    queryKey: ["dashboard", "kpis", user?.id, businessId],
+    queryFn: () => fetchKPIs(businessId),
     staleTime: 300_000,
     refetchInterval: 300_000,
     enabled: !!user,
   });
 
   const {
-    data: chartData = [],
+    data: chart,
     isLoading: chartLoading,
     isSuccess: chartLoaded,
-  } = useQuery<ChartPoint[]>({
-    queryKey: ["dashboard", "chart-data", user?.id],
-    queryFn: fetchChartData,
+  } = useQuery<ChartData>({
+    queryKey: ["dashboard", "chart-data", user?.id, businessId],
+    queryFn: () => fetchChartData(businessId),
     staleTime: 300_000,
     refetchInterval: 300_000,
     enabled: !!user,
   });
 
+  const chartData = chart?.points ?? [];
+  const forecastSkus = chart?.forecast_skus ?? [];
+  const chartScope = forecastSkus.length === 0
+    ? "Total del negocio · sin predicción"
+    : forecastSkus.length <= 2
+      ? forecastSkus.join(", ")
+      : `${forecastSkus.length} de ${chart?.total_skus} productos`;
   const isEmptyState = chartLoaded && chartData.length === 0;
 
   const fmt = (v: number | null | undefined, suffix = "") =>
@@ -151,7 +167,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-semibold text-gray-700">Ventas vs predicción · 28 días</span>
+            <div>
+              <span className="text-sm font-semibold text-gray-700">Ventas vs predicción · 28 días</span>
+              <p className="text-xs text-gray-400">
+                {chartScope}
+                {forecastSkus.length === 0 && " (corre un pronóstico en Predecir demanda)"}
+              </p>
+            </div>
             <div className="flex items-center gap-4 text-xs text-gray-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block" />
@@ -204,7 +226,9 @@ export default function Dashboard() {
               {quickActions.map((action) => (
                 <button
                   key={action.label}
-                  onClick={() => navigate(action.href)}
+                  onClick={() => action.href
+                    ? navigate(action.href)
+                    : businessId && exportAlerts(businessId).then(b => downloadBlob(b, `alertas_inventario_${businessId}.xlsx`))}
                   className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors active:scale-[0.98] group"
                 >
                   <div className="flex items-center gap-3">

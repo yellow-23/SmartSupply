@@ -6,7 +6,11 @@ import ReactMarkdown from "react-markdown";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useIngestStore } from "../store/ingestStore";
 import { previewIngest, confirmIngest, chatIngest, IngestPreview, ChatMessage, ChatResponse } from "../api/ingest";
-import { listBusinesses, listBusinessStores, createBusiness } from "../../../shared/api/data";
+import {
+  listBusinesses, listBusinessStores, createBusiness, createBusinessStore, storeLabel,
+  STORE_FORM_FIELDS, BUSINESS_FORM_FIELDS,
+} from "../../../shared/api/data";
+import FormModal from "../../../shared/ui/FormModal";
 
 function inferFileType(name: string): "image" | "excel" | "pdf" {
   const n = name.toLowerCase();
@@ -23,6 +27,7 @@ export default function Ingest() {
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [creating, setCreating] = useState<"business" | "store" | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -49,10 +54,19 @@ export default function Ingest() {
   });
 
   const newBusinessMut = useMutation({
-    mutationFn: (name: string) => createBusiness({ name }),
+    mutationFn: (values: Record<string, string>) => createBusiness(values as { name: string }),
     onSuccess: (biz) => {
       queryClient.invalidateQueries({ queryKey: ["businesses"] });
       setBusinessId(biz.id);
+      setStoreNbr(1);
+    },
+  });
+
+  const newStoreMut = useMutation({
+    mutationFn: (values: Record<string, string>) => createBusinessStore(destBusinessId!, values as { name: string }),
+    onSuccess: (store) => {
+      queryClient.invalidateQueries({ queryKey: ["stores", destBusinessId] });
+      setStoreNbr(store.store_nbr);
     },
   });
 
@@ -174,18 +188,6 @@ export default function Ingest() {
       {/* Step 1: Upload */}
       {step === "upload" && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-gray-600">Tienda</label>
-            <input
-              type="number"
-              min={1}
-              value={storeNbr}
-              onChange={e => setStoreNbr(Number(e.target.value))}
-              className="w-20 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
-            />
-            <span className="text-xs text-gray-400">Si solo tienes una tienda, deja 1.</span>
-          </div>
-
           <div
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
@@ -251,10 +253,7 @@ export default function Ingest() {
 
               <button
                 type="button"
-                onClick={() => {
-                  const name = prompt("Nombre del nuevo negocio:");
-                  if (name?.trim()) newBusinessMut.mutate(name.trim());
-                }}
+                onClick={() => setCreating("business")}
                 className="flex items-center gap-1 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
               >
                 <Plus className="w-4 h-4" /> Nuevo negocio
@@ -268,20 +267,47 @@ export default function Ingest() {
                 >
                   {destStoresQuery.data && destStoresQuery.data.length > 0 ? (
                     destStoresQuery.data.map(s => (
-                      <option key={s.store_nbr} value={s.store_nbr}>
-                        Ubicación {s.store_nbr}{s.city ? ` - ${s.city}` : ""}
-                      </option>
+                      <option key={s.store_nbr} value={s.store_nbr}>{storeLabel(s)}</option>
                     ))
                   ) : (
                     <option value={storeNbr}>Ubicación {storeNbr}</option>
                   )}
                 </select>
               )}
+
+              {destBusinessId != null && (
+                <button
+                  type="button"
+                  onClick={() => setCreating("store")}
+                  className="flex items-center gap-1 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Nueva ubicación
+                </button>
+              )}
             </div>
             {destBusinessId == null && (
               <p className="text-xs text-amber-700 font-medium">Elige un negocio destino antes de confirmar la carga.</p>
             )}
           </div>
+
+          <FormModal
+            open={creating === "business"}
+            title="Nuevo negocio"
+            description="Quedarás como dueño. Se crea con una ubicación inicial (Tienda Principal)."
+            fields={BUSINESS_FORM_FIELDS}
+            submitLabel="Crear negocio"
+            onSubmit={newBusinessMut.mutateAsync}
+            onClose={() => setCreating(null)}
+          />
+          <FormModal
+            open={creating === "store"}
+            title="Nueva ubicación"
+            description={`Se agrega a ${businessesQuery.data?.find(b => b.id === destBusinessId)?.name ?? "este negocio"} y queda seleccionada como destino de la carga.`}
+            fields={STORE_FORM_FIELDS}
+            submitLabel="Crear ubicación"
+            onSubmit={newStoreMut.mutateAsync}
+            onClose={() => setCreating(null)}
+          />
 
           {/* Summary bar */}
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

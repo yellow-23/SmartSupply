@@ -23,6 +23,12 @@ class DashboardChartPoint(BaseModel):
     forecast: Optional[float] = None
 
 
+class DashboardChartData(BaseModel):
+    points: list[DashboardChartPoint]
+    forecast_skus: list[str]  # SKUs incluidos en ambas lineas; vacio = total del negocio sin prediccion
+    total_skus: int
+
+
 # ─── Productos / SKUs ──────────────────────────────────────────────────────────
 
 class ProductCreate(BaseModel):
@@ -188,6 +194,11 @@ class BusinessCreate(BaseModel):
     type: Optional[Literal["retail", "distributor", "wholesale", "demo"]] = "distributor"
 
 
+class StoreCreate(BaseModel):
+    name: str = Field(..., example="Sucursal Ñuñoa")
+    city: Optional[str] = Field(None, example="Santiago")
+
+
 class BusinessResponse(BaseModel):
     id: int
     name: str
@@ -206,6 +217,7 @@ class BusinessResponse(BaseModel):
 
 class StoreResponse(BaseModel):
     store_nbr: int
+    name: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     type: Optional[str] = None

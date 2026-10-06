@@ -74,11 +74,15 @@ def get_current_user(
 
     user = db.query(User).filter(User.supabase_uid == supabase_uid).first()
     if user:
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tu cuenta fue desactivada por un administrador")
         return user
 
     # Migracion: cuenta creada antes de Supabase Auth, mismo email, todavia sin enlazar.
     user = db.query(User).filter(User.email == email, User.supabase_uid.is_(None)).first()
     if user:
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tu cuenta fue desactivada por un administrador")
         user.supabase_uid = supabase_uid
         db.commit()
         db.refresh(user)
@@ -126,6 +130,13 @@ def assert_business_access(db: Session, user: User, business_id: int) -> None:
     ).first()
     if not has_access:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a este negocio")
+
+
+def resolve_business_id(db: Session, user: User, business_id: int | None) -> int:
+    """Negocio activo elegido en el frontend (CU-07); si no viene, el negocio principal del usuario."""
+    bid = business_id or user.business_id
+    assert_business_access(db, user, bid)
+    return bid
 
 
 def assert_business_owner(db: Session, user: User, business_id: int) -> None:

@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
 from app.models.orm import Product, StockLevel, PurchaseOrder
+from app.services.inventory_service import _load_demand_series, _get_product_params, _calc_s_S
 
 load_dotenv(Path(__file__).parents[3] / "backend" / ".env")
 
@@ -23,8 +24,12 @@ Cuando el usuario confirme una acción, ejecútala directamente.
 Reglas:
 - Responde siempre en español, sé directo y conciso
 - Para costos usa formato chileno: $1.500 no 1500
-- Usa listas cuando presentes múltiples registros
-- Si vas a modificar datos, confirma brevemente qué cambiaste y qué valor quedó"""
+- Usa listas cuando presentes múltiples registros; nunca tablas (el chat es angosto)
+- Si vas a modificar datos, confirma brevemente qué cambiaste y qué valor quedó
+- Cantidades en unidades enteras con separador de miles (1.069, no 1068.52)
+- Sin emojis ni nombres técnicos de campos (di "nivel objetivo", no order_up_to_S)
+- Para evaluar riesgo usa solo los datos de list_stock_levels: un producto está en riesgo si su stock está en o bajo el punto de reorden (reorder_point_s) o si sus días de cobertura son menores al lead time. No supongas consumos ni compares familias entre sí
+- Al hablar de riesgo, considera las órdenes pending/confirmed/in_transit que ya cubren ese producto"""
 
 _TOOLS = [
     {
@@ -40,7 +45,7 @@ _TOOLS = [
     },
     {
         "name": "list_stock_levels",
-        "description": "Lista niveles de stock actuales del negocio.",
+        "description": "Lista niveles de stock con demanda diaria promedio (últimos 90 días), días de cobertura, punto de reorden s, nivel objetivo S y lead time.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -140,7 +145,24 @@ def _list_stock(db: Session, business_id: int, inp: dict) -> str:
     stocks = q.all()
     if not stocks:
         return "No hay niveles de stock registrados."
-    rows = [{"family": s.family, "store_nbr": s.store_nbr, "quantity": float(s.quantity)} for s in stocks]
+    rows = []
+    for st in stocks:
+        qty = float(st.quantity)
+        series = _load_demand_series(db, business_id, st.store_nbr, st.family, days=90)
+        params = _get_product_params(db, business_id, st.store_nbr, st.family)
+        s_point, big_s, _ = _calc_s_S(series, params)
+        daily = float(series.mean()) if len(series) else 0.0
+        rows.append({
+            "family": st.family,
+            "store_nbr": st.store_nbr,
+            "quantity": round(qty),
+            "avg_daily_demand": round(daily, 1),
+            "days_of_coverage": round(qty / daily, 1) if daily > 0 else None,
+            "reorder_point_s": round(s_point),
+            "order_up_to_S": round(big_s),
+            "lead_time_days": params.get("lead_time_days"),
+            "below_reorder_point": qty <= s_point,
+        })
     return json.dumps(rows, ensure_ascii=False)
 
 
@@ -159,7 +181,7 @@ def _list_orders(db: Session, business_id: int, inp: dict) -> str:
         "id": o.id,
         "family": o.family,
         "store_nbr": o.store_nbr,
-        "quantity": float(o.quantity),
+        "quantity": round(float(o.quantity)),
         "status": o.status,
         "created_at": str(o.created_at.date()) if o.created_at else None,
         "expected_delivery": str(o.expected_delivery) if o.expected_delivery else None,

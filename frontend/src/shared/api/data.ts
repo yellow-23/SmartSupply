@@ -14,6 +14,7 @@ export interface Business {
 
 export interface StoreItem {
   store_nbr: number;
+  name: string | null;
   city: string | null;
   state: string | null;
   type: string | null;
@@ -64,6 +65,26 @@ export async function listBusinessStores(businessId: number): Promise<StoreItem[
   return data;
 }
 
+export async function createBusinessStore(businessId: number, payload: { name: string; city?: string }): Promise<StoreItem> {
+  const { data } = await api.post(`/businesses/${businessId}/stores`, payload);
+  return data;
+}
+
+export const STORE_FORM_FIELDS = [
+  { name: "name", label: "Nombre", placeholder: "Sucursal Ñuñoa", required: true },
+  { name: "city", label: "Ciudad", placeholder: "Santiago" },
+];
+
+export const BUSINESS_FORM_FIELDS = [
+  { name: "name", label: "Nombre del negocio", placeholder: "Distribuidora Santa Elena", required: true },
+  { name: "rut", label: "RUT", placeholder: "76.123.456-7", hint: "Si lo ingresas, se verifica que no esté registrado por otro negocio." },
+  { name: "city", label: "Ciudad", placeholder: "Santiago" },
+];
+
+export function storeLabel(s: StoreItem): string {
+  return `${s.name || `Ubicación ${s.store_nbr}`}${s.city ? ` - ${s.city}` : ""}`;
+}
+
 export async function listIngests(businessId: number, storeNbr?: number): Promise<IngestLogItem[]> {
   const params: Record<string, number> = { business_id: businessId };
   if (storeNbr != null) params.store_nbr = storeNbr;
@@ -95,4 +116,23 @@ export async function updateRecord(
 
 export async function deleteRecord(recordId: number): Promise<void> {
   await api.delete(`/sales/record/${recordId}`);
+}
+
+export interface SalesSummaryItem {
+  family: string;
+  total_sales: number;
+  avg_daily_sales: number;
+  days_on_promotion: number;
+}
+
+export async function getSalesDateRange(businessId: number): Promise<{ start: string; end: string }> {
+  const { data } = await api.get("/sales/date-range", { params: { business_id: businessId } });
+  return data;
+}
+
+export async function getSalesSummary(businessId: number, storeNbr?: number): Promise<SalesSummaryItem[]> {
+  const params: Record<string, number> = { business_id: businessId };
+  if (storeNbr != null) params.store_nbr = storeNbr;
+  const { data } = await api.get("/sales/summary", { params });
+  return data;
 }

@@ -1,12 +1,13 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import assert_business_owner, get_current_user
 from app.database import get_db
 from app.models.orm import Business, Store, User, UserBusiness
-from app.models.schemas import BusinessCreate, BusinessResponse, StoreResponse
+from app.models.schemas import BusinessCreate, BusinessResponse, StoreCreate, StoreResponse
 
 
 def _with_role(biz: Business, role: str | None) -> BusinessResponse:
@@ -76,6 +77,8 @@ def create_business(
     db.add(biz)
     db.flush()
     db.add(UserBusiness(user_id=current_user.id, business_id=biz.id, role="owner"))
+    # Igual que el autoprovision: todo negocio nace con una ubicacion para poder recibir cargas.
+    db.add(Store(business_id=biz.id, store_nbr=1, name="Tienda Principal", city=body.city))
     db.commit()
     db.refresh(biz)
     return biz
@@ -99,3 +102,23 @@ def list_business_stores(
         .order_by(Store.store_nbr)
         .all()
     )
+
+
+@router.post("/{business_id}/stores", response_model=StoreResponse, status_code=201)
+def create_business_store(
+    business_id: int,
+    body: StoreCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+):
+    """Agrega una ubicacion (sucursal) al negocio con el siguiente store_nbr libre."""
+    assert_business_owner(db, current_user, business_id)
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="El nombre de la ubicación no puede estar vacío")
+    next_nbr = (db.query(func.max(Store.store_nbr)).filter(Store.business_id == business_id).scalar() or 0) + 1
+    store = Store(business_id=business_id, store_nbr=next_nbr, name=name, city=body.city)
+    db.add(store)
+    db.commit()
+    db.refresh(store)
+    return store

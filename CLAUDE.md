@@ -208,7 +208,36 @@ ln -sf python3.11 venv/bin/python3
 ```
 Verificar: `python --version` debe decir `Python 3.11.x`
 
-## Estado actual (2026-08-26)
+## Estado actual (2026-09-23)
+
+### Completado - Cierre de brechas vs casos de uso de la tesis (2026-09-23)
+
+- [x] CU-42: `get_current_user` rechaza `is_active=false` (403); admin no puede desactivarse ni quitarse `platform_admin`; borrar usuario tambien borra `auth.users` (si no, el autoprovision lo recreaba)
+- [x] CU-21/22/23: `sales.py` (date-range, stores, families, history, summary) ahora exige `assert_business_access` (era IDOR) y usa `_effective_sales`: solo cargas activas + ultima gana, igual que `forecast_service`
+- [x] CU-07: negocio activo global (`authStore.activeBusinessId` + `useActiveBusinessId()`), selector en `TopBar` si el usuario tiene >1 negocio. Dashboard/Forecast/Inventario/Ordenes/Stocky lo usan; `/dashboard/*` y `/forecast/*` aceptan `business_id` opcional (`resolve_business_id` en `auth.py`)
+- [x] CU-27: benchmark Favorita versionado en `datasets/processed/benchmark_store1.csv` (tienda 1, 2016-2017, 590KB; `train_clean.csv` ya no existe). Forecast tiene selector "Datos: Mi negocio / Dataset de referencia". `business_id=1` abierto a todo usuario autenticado (solo lectura)
+- [x] CU-26: export PDF lee solo del cache (`ForecastService.get_cached`); sin cache -> 409 y el front pide regenerar
+- [x] CU-01 3a: registro con correo existente muestra error (Supabase devuelve `identities: []` en vez de error)
+- [x] Ubicaciones: no habia forma de crear una. `POST /api/businesses/{id}/stores` (solo owner, asigna el siguiente `store_nbr`) + boton "Nueva ubicacion" en Ingesta y Datos. `POST /api/businesses` ahora crea "Tienda Principal" (antes el negocio nacia sin ubicaciones). `/ingest/confirm` registra la tienda si el `store_nbr` no existe
+- [x] CU-18 ya cumplia: `assert_business_owner` deja pasar a `platform_admin`
+- Tests: `backend/tests/test_use_case_gaps.py`
+
+### Completado - Tesis cap. 5 Diseño y Arquitectura + fix IDOR ingesta (2026-09-10)
+
+- [x] `docs/SmartSupply_Tesis.tex` no compilaba desde junio (BOM + `q` suelta en linea 1, ruta `figure/logo_unab.png` -> `figuras/`, `\,\%` dentro de formula). Arreglado; compila con `pdflatex` (2 pasadas), 49 paginas
+- [x] Capitulo 5 nuevo: arquitectura en capas, despliegue, modelo de datos (10 tablas), auth/acceso, ingesta IA, pipeline AMS, inventario/ordenes, Stocky, notificaciones, routers API
+- [x] Diagramas TikZ en `docs/figuras/` reescritos al sistema actual (componentes, despliegue, ERD, secuencia forecast) + nuevo `secuencia_ingesta`. Compilar cada uno con `pdflatex X.tex` dentro de `docs/figuras/`. BasicTeX necesito `tlmgr --usermode install standalone helvetic`
+- [x] Seguridad: `POST /api/ingest/confirm` no llamaba `assert_business_access` (IDOR: cualquier usuario podia cargar ventas/stock/productos en otro negocio). Arreglado + `backend/tests/test_ingest_access.py`
+- Correcciones a este archivo detectadas al revisar el codigo: Stocky global usa `claude-sonnet-5` (no Haiku); `MIXED_GRANULARITY` es warning (no bloquea); el AMS de la API corre con `include_lstm=False` (LSTM solo en modo forzado)
+
+### Completado - Correos de Stocky (2026-09-07 a 2026-09-10)
+
+- [x] `backend/app/services/notify_service.py` + `backend/app/api/notify.py`: `POST /api/notify/low-stock` (diario) y `POST /api/notify/weekly-digest` (lunes), protegidos con header `X-Cron-Secret` (env `CRON_SECRET`). Envio via API HTTP de Resend (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`, dominio `smart-supply.cl`). Destinatario: dueno del negocio (`businesses.owner_user_id`)
+- [x] Cron en `.github/workflows/stocky-notify.yml` (13:00 UTC). `workflow_dispatch` acepta `job` y `business_id` opcional para probar contra un solo negocio: `gh workflow run stocky-notify.yml -R yellow-23/SmartSupply -f job=weekly-digest -f business_id=N`
+- [x] HTML de ambos correos con el estilo de la app (barra navy, acento `#EA580C`, DM Sans). Logo servido como PNG desde `frontend/public/email/logo.png` (Gmail no muestra SVG). Probado end-to-end en produccion con una cuenta de prueba (ya borrada)
+- [x] `RESEND_API_KEY` solo esta en Render; en `backend/.env` local esta vacia, asi que desde local los envios quedan `skipped` (se loguea el motivo)
+- Deuda conocida: el correo de stock bajo se repite todos los dias mientras un SKU siga critico (no hay dedup ni opt-out)
+
 
 ### Completado - Deploy produccion + Auth Supabase + mobile (2026-08-24 a 2026-08-26, yellow-23)
 
@@ -439,14 +468,14 @@ Jerarquia nueva: Usuario -> Negocios -> Ubicaciones -> Cargas -> Registros. Spec
 ### Pendiente
 
 **Proximo (top priority):**
-- [ ] Admin panel (falta definir alcance: gestion de usuarios, negocios, o ambos) -- unico item grande de S5 sin arrancar
+- [x] ~~Admin panel~~ HECHO (commit `3c7e256`): ruta `/admin` solo para `platform_admin`, backend en `backend/app/api/admin.py`
 - [ ] S6: QA final + Tesis (`dev`/`main` ya sincronizadas, `dev -> main` sera solo el merge de cierre cuando corresponda)
 - [x] ~~Recuperacion de contrasena por email real~~ RESUELTO 2026-08-26: viene gratis con Supabase Auth (`supabase.auth.resetPasswordForEmail`), sin necesidad de SMTP/Resend
 - [x] ~~Reportes exportables (PDF/Excel)~~ RESUELTO 2026-08-27: ver seccion de arriba
 
 **Cosas sueltas sin confirmar (sesion 2026-08-24/27):**
-- [ ] Confirmar que se borro `client_secret_*.json` del filesystem (credenciales OAuth de Google descargadas) -- esta en `.gitignore`, nunca se subio, pero convendria sacarlo del disco
-- [ ] Confirmar si se corrio la query de borrado de las cuentas de prueba `cristobal.pello@gmail.com` (business_id=2) y `test.cristobal23@gmail.com` (business_id=3) -- se le paso la query al usuario, no confirmado si la ejecuto. Ojo: borrar de `public.users`/`businesses` no borra la cuenta de `auth.users` en Supabase (necesita Authentication -> Users en el dashboard), si no se hace ahi tambien el autoprovision la recrea en el proximo login
+- [x] ~~Borrar `client_secret_*.json` (credenciales OAuth de Google) del disco~~ VERIFICADO 2026-09-10: no queda en el repo ni en Downloads
+- [x] ~~Borrar cuentas de prueba `cristobal.pello@gmail.com` y `test.cristobal23@gmail.com`~~ VERIFICADO 2026-09-10: ya no existen en `users`. Ojo al borrar cuentas: tambien hay que borrar de `auth.users`, si no el autoprovision la recrea en el proximo login
 - [ ] Bundle de frontend paso a ~1.17MB (327KB gzip) -- vite avisa por code-splitting, no urgente pero crece con cada feature
 - [ ] No hay browser tool conectado en esta sesion (el usuario declino instalar la extension) -- los cambios de UI se verificaron por build + inspeccion de codigo/logs de Supabase, no visualmente en navegador real
 

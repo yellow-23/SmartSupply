@@ -1,4 +1,4 @@
-﻿q% ============================================================
+% ============================================================
 %  SmartSupply — Informe de Tesis
 %  Estructura basada en Tabarroni_S_Desarrollo_de_Sistema_de_Predicciones_2025.pdf
 %  Facultad de Ingeniería — Ingeniería Civil Informática — UNAB
@@ -46,6 +46,7 @@
 
 % ── Interlineado ─────────────────────────────────────────────
 \onehalfspacing
+\setlength{\emergencystretch}{3em}  % evita desbordes con identificadores largos en \texttt
 
 % ── Colores UNAB ─────────────────────────────────────────────
 \definecolor{unabblue}{RGB}{31,56,100}
@@ -89,7 +90,7 @@
   \vspace*{1cm}
 
   % Logo UNAB: descargar desde repositorio.unab.cl y guardar como figuras/logo_unab.png
-  \includegraphics[width=0.30\textwidth]{figure/logo_unab.png}\\[0.4cm]
+  \includegraphics[width=0.30\textwidth]{figuras/logo_unab.png}\\[0.4cm]
 
   {\Large \textbf{Facultad de Ingeniería}}\\[0.2cm]
   {\large Ingeniería Civil Informática}
@@ -545,7 +546,7 @@ condición frecuente en series de ventas con días sin actividad. La fórmula de
 
 \[
   \text{WAPE} = \frac{\displaystyle\sum_{t=1}^{n} |y_t - \hat{y}_t|}
-                     {\displaystyle\sum_{t=1}^{n} y_t} \times 100\,\%
+                     {\displaystyle\sum_{t=1}^{n} y_t} \times 100\%
 \]
 
 donde $y_t$ es el valor real y $\hat{y}_t$ el valor predicho. Al ponderar el error por
@@ -1161,6 +1162,432 @@ A continuación se describen los principales casos de uso del sistema.
     T-31 & Configurar render.yaml para deploy en Render.com             & Completado & 3 \\
     T-32 & Configurar \_redirects para SPA en Cloudflare Pages          & Completado & 2 \\
     T-33 & Conectar \texttt{has\_clp\_skus} al tipo de dato real        & Completado & 3 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+% ============================================================
+%  CAPÍTULO 5 — DISEÑO Y ARQUITECTURA DE LA SOLUCIÓN
+% ============================================================
+\chapter{Diseño y Arquitectura de la Solución}
+
+Este capítulo describe cómo está construido SmartSupply: los componentes que lo forman,
+dónde se despliega cada uno, el modelo de datos que los sostiene y los flujos principales
+del sistema. La descripción corresponde a la versión en producción al cierre del Sprint 5.
+
+\section{Visión General de la Arquitectura}
+
+SmartSupply sigue una arquitectura cliente-servidor de tres capas, apoyada en servicios
+gestionados en la nube (Figura~\ref{fig:componentes}):
+
+\begin{itemize}
+  \item \textbf{Capa de presentación}: una aplicación web de una sola página (SPA)
+        construida con React, Vite y TypeScript, y una landing informativa. Ambas se
+        publican como archivos estáticos en una red de distribución de contenido (CDN),
+        por lo que no requieren un servidor propio.
+  \item \textbf{Capa de lógica}: una API REST en FastAPI que concentra las reglas de
+        negocio. Se organiza en 13 \textit{routers} y en servicios que encapsulan cada
+        módulo: ingesta asistida por IA, pronóstico (AMS), inventario y órdenes, el
+        asistente Stocky, notificaciones y control de acceso.
+  \item \textbf{Capa de datos}: PostgreSQL gestionado por Supabase, que además provee la
+        autenticación de usuarios.
+\end{itemize}
+
+La API no mantiene sesiones entre peticiones: cada petición incluye el token del usuario y
+se valida de forma independiente. Esto permite reiniciar o reemplazar el servidor sin
+afectar a los usuarios conectados. Lo único que se guarda en memoria es una caché de
+pronósticos, que puede perderse sin consecuencias porque se recalcula a pedido.
+
+Las capacidades de inteligencia artificial no se ejecutan en infraestructura propia, sino
+que se consumen como servicio a través de la API de Claude (Anthropic). Lo mismo ocurre con
+el envío de correos (Resend) y con las tareas programadas (GitHub Actions).
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[angle=90, width=\textwidth, height=0.92\textheight, keepaspectratio]{figuras/componentes_uml.pdf}
+  \caption{Diagrama de componentes de SmartSupply}
+  \label{fig:componentes}
+\end{figure}
+
+La Tabla~\ref{tab:componentes-servidor} resume la responsabilidad de cada componente del
+servidor y los archivos que lo implementan.
+
+\begin{table}[H]
+  \centering
+  \caption{Componentes del servidor}
+  \label{tab:componentes-servidor}
+  \small
+  \begin{tabular}{|p{2.6cm}|p{4.4cm}|p{6.6cm}|}
+    \hline
+    \textbf{Componente} & \textbf{Implementación} & \textbf{Responsabilidad} \\
+    \hline
+    API REST       & \texttt{app/main.py}, \texttt{app/api/}
+                   & Expone los endpoints, valida las entradas con Pydantic y exige
+                     autenticación en todas las rutas salvo las públicas. \\
+    Ingesta IA     & \texttt{ingest\_service.py}, \texttt{ingest\_validator.py}
+                   & Extrae registros de ventas, stock o productos desde imágenes, PDF,
+                     Excel o CSV y revisa su calidad antes de cargarlos. \\
+    Pronóstico     & \texttt{forecast\_service.py}, \texttt{forecasting/src/}
+                   & Construye la serie de cada SKU y ejecuta el AMS para elegir el modelo
+                     con menor error. \\
+    Inventario     & \texttt{inventory\_service.py}, \texttt{inventory/src/}
+                   & Calcula EOQ, la política $(s, S)$ y las alertas de stock, y genera
+                     órdenes de compra. \\
+    Stocky         & \texttt{stocky\_service.py}
+                   & Asistente conversacional que consulta y actualiza productos, stock y
+                     órdenes mediante herramientas. \\
+    Notificaciones & \texttt{notify\_service.py}
+                   & Envía por correo las alertas de stock bajo y el resumen semanal. \\
+    Autenticación  & \texttt{app/api/auth.py}
+                   & Valida el token de Supabase, crea la cuenta local en el primer ingreso
+                     y verifica el acceso a cada negocio. \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{Arquitectura de Despliegue}
+
+El sistema se despliega por completo en plataformas gestionadas, lo que evita administrar
+servidores y mantiene un costo fijo bajo durante el desarrollo
+(Figura~\ref{fig:despliegue} y Tabla~\ref{tab:plataformas}).
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[angle=90, width=\textwidth, height=0.92\textheight, keepaspectratio]{figuras/despliegue_uml.pdf}
+  \caption{Diagrama de despliegue de SmartSupply}
+  \label{fig:despliegue}
+\end{figure}
+
+\begin{table}[H]
+  \centering
+  \caption{Plataformas de despliegue}
+  \label{tab:plataformas}
+  \small
+  \begin{tabular}{|p{3.6cm}|p{4.2cm}|p{5.8cm}|}
+    \hline
+    \textbf{Elemento} & \textbf{Plataforma} & \textbf{Observaciones} \\
+    \hline
+    Aplicación web y landing & Cloudflare Pages
+      & Sitios estáticos servidos desde CDN en \texttt{app.smart-supply.cl} y
+        \texttt{smart-supply.cl}. \\
+    API REST & Render (Web Service, plan Starter)
+      & Python 3.11; el plan pagado evita que el servicio se suspenda por inactividad. \\
+    Base de datos y autenticación & Supabase (región sa-east-1)
+      & PostgreSQL con \textit{connection pooler} en el puerto 6543. El plan gratuito
+        pausa el proyecto tras un periodo sin actividad. \\
+    Modelos de lenguaje & Anthropic (Claude API) & Cobro por uso (tokens procesados). \\
+    Correo electrónico & Resend & Envío desde el dominio \texttt{smart-supply.cl}. \\
+    Código y tareas programadas & GitHub y GitHub Actions
+      & Repositorio del proyecto y ejecución periódica de las notificaciones. \\
+    \hline
+  \end{tabular}
+\end{table}
+
+El despliegue es continuo: cada \textit{push} a la rama \texttt{main} dispara la
+publicación automática del frontend en Cloudflare Pages y del backend en Render. La
+configuración sensible se entrega mediante variables de entorno y nunca se guarda en el
+repositorio: en Render, la cadena de conexión a la base de datos, la URL y la clave pública
+de Supabase, la clave de la API de Anthropic, la clave de Resend y el secreto del cron; en
+Cloudflare Pages, la URL de la API y los datos públicos de Supabase que el frontend
+necesita al compilar.
+
+\section{Modelo de Datos}
+
+La base de datos tiene diez tablas (Figura~\ref{fig:base-datos}). Todas las tablas con
+datos de un cliente incluyen \texttt{business\_id}, que actúa como clave de aislamiento
+entre negocios según el modelo \textit{multi-tenant} descrito en el Marco Teórico. La
+Tabla~\ref{tab:tablas} resume el propósito de cada una.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth, height=0.8\textheight, keepaspectratio]{figuras/base_datos.pdf}
+  \caption{Modelo de datos de SmartSupply (PostgreSQL)}
+  \label{fig:base-datos}
+\end{figure}
+
+\begin{table}[H]
+  \centering
+  \caption{Tablas del modelo de datos}
+  \label{tab:tablas}
+  \small
+  \begin{tabular}{|p{3.9cm}|p{9.7cm}|}
+    \hline
+    \textbf{Tabla} & \textbf{Propósito} \\
+    \hline
+    \texttt{users}                & Cuenta local de cada usuario, enlazada a Supabase Auth mediante
+                                    \texttt{supabase\_uid}. El campo \texttt{role} identifica al
+                                    administrador de la plataforma. \\
+    \texttt{businesses}           & Negocios cliente de la plataforma; unidad de aislamiento de datos. \\
+    \texttt{user\_businesses}     & Relación muchos a muchos entre usuarios y negocios, con rol
+                                    \texttt{owner} o \texttt{member}. \\
+    \texttt{stores}               & Sucursales o ubicaciones de cada negocio. \\
+    \texttt{ingest\_log}          & Una fila por carga de datos: archivo, usuario, rango de fechas,
+                                    familias incluidas y estado (\texttt{active} o \texttt{reverted}). \\
+    \texttt{sales\_history}       & Ventas diarias por tienda y familia. Cada fila indica en
+                                    \texttt{ingest\_id} la carga de la que proviene. \\
+    \texttt{products}             & Parámetros de inventario por SKU: costo unitario, costo de pedido,
+                                    tasa de mantención, \textit{lead time} y lote mínimo. Todos son
+                                    opcionales. \\
+    \texttt{stock\_levels}        & Stock actual por SKU y tienda. \\
+    \texttt{purchase\_orders}     & Órdenes de compra generadas por la política $(s, S)$ y su estado. \\
+    \texttt{forecast\_predictions} & Predicciones emitidas por el AMS, guardadas para compararlas con la
+                                    venta real cuando esta se registre. \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\subsection{Cargas versionadas}
+
+Confirmar una carga no sobrescribe datos anteriores. Cada carga crea una fila en
+\texttt{ingest\_log} e inserta sus propios registros en \texttt{sales\_history} con ese
+\texttt{ingest\_id}; la restricción única \texttt{(business\_id, store\_nbr, date, family,
+ingest\_id)} permite que dos cargas cubran el mismo día sin chocar.
+
+Los solapamientos se resuelven al consultar, no al cargar: al construir una serie se
+consideran solo las cargas con estado \texttt{active} y, si dos de ellas tienen un registro
+para la misma fecha, se conserva el de la carga más reciente (mayor \texttt{ingest\_id}).
+Revertir una carga solo cambia su estado a \texttt{reverted}: sus filas se conservan,
+pero dejan de usarse en los cálculos. Eliminarla, en cambio, borra la carga y sus registros. Este diseño deja un historial
+auditable de todo lo que se ha cargado y permite corregir errores sin perder información.
+
+\section{Autenticación y Control de Acceso}
+
+La identidad de los usuarios la gestiona Supabase Auth, que ofrece registro e ingreso con
+correo y contraseña, ingreso con Google (OAuth 2.0) y recuperación de contraseña. El
+frontend se comunica directamente con Supabase mediante la biblioteca
+\texttt{supabase-js}, por lo que el backend nunca recibe ni almacena contraseñas.
+
+Cada petición a la API incluye el token de sesión en la cabecera
+\texttt{Authorization: Bearer}. La dependencia \texttt{get\_current\_user} lo valida
+consultando \texttt{GET /auth/v1/user} en Supabase, en lugar de verificar la firma del
+token localmente; así el backend no depende del esquema de firma que use el proyecto de
+Supabase. La primera vez que aparece un usuario desconocido, el sistema crea
+automáticamente su negocio, su tienda inicial y su cuenta local. Si ya existía una cuenta
+con el mismo correo creada antes de la migración a Supabase Auth, se enlaza a la nueva
+identidad sin perder sus datos. Como el ingreso con Google no permite pedir el nombre del
+negocio, en ese caso se muestra una pantalla de configuración inicial antes de entrar a la
+aplicación.
+
+La autorización opera en dos niveles:
+
+\begin{itemize}
+  \item \textbf{Rol en la plataforma} (\texttt{users.role}): el rol \texttt{platform\_admin}
+        habilita el panel de administración (\texttt{/admin}), desde donde se gestionan
+        usuarios y negocios.
+  \item \textbf{Rol en cada negocio} (\texttt{user\_businesses.role}): un \texttt{owner}
+        tiene control total; un \texttt{member} puede consultar los datos, pero no revertir
+        ni eliminar cargas.
+\end{itemize}
+
+Todo endpoint que recibe un \texttt{business\_id} verifica, mediante
+\texttt{assert\_business\_access}, que el usuario pertenezca a ese negocio, y responde
+\texttt{403} en caso contrario. Esta verificación impide que un usuario lea o modifique
+datos de otro negocio cambiando un identificador en la petición. Como defensa adicional,
+las políticas de Row Level Security de Supabase impiden leer las tablas con la clave
+pública del proyecto. Los endpoints de notificaciones no los usa ningún usuario: los invoca
+el cron y se protegen con un secreto compartido en la cabecera \texttt{X-Cron-Secret}.
+
+\section{Ingesta de Datos Asistida por IA}
+
+La ingesta es el mecanismo que permite a una distribuidora sin datos estructurados empezar
+a usar el sistema. El usuario sube un archivo en el formato que tenga a mano (una foto de
+un cuaderno, un PDF escaneado o una planilla con columnas propias) y el sistema lo
+convierte en registros normalizados de fecha, familia y venta. El proceso tiene dos etapas,
+vista previa y confirmación (Figura~\ref{fig:secuencia-ingesta}), para que ningún dato
+llegue a la base sin que el usuario lo revise.
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[angle=90, width=\textwidth, height=0.92\textheight, keepaspectratio]{figuras/secuencia_ingesta.pdf}
+  \caption{Diagrama de secuencia de la ingesta asistida por IA}
+  \label{fig:secuencia-ingesta}
+\end{figure}
+
+La estrategia de extracción depende del formato (Tabla~\ref{tab:ingesta-modelos}). En las
+planillas, el modelo no procesa todas las filas: recibe los encabezados y una muestra y
+devuelve qué columna corresponde a cada campo. Luego \texttt{pandas} aplica ese mapeo al
+archivo completo, lo que reduce el costo en tokens y hace que la transformación de las
+filas sea determinista.
+
+\begin{table}[H]
+  \centering
+  \caption{Estrategia de extracción por formato de archivo}
+  \label{tab:ingesta-modelos}
+  \small
+  \begin{tabular}{|p{2.8cm}|p{6.8cm}|p{4.0cm}|}
+    \hline
+    \textbf{Formato} & \textbf{Estrategia} & \textbf{Modelo} \\
+    \hline
+    Imagen (JPG, PNG, WEBP) & El modelo lee la imagen y devuelve los registros en JSON.
+      & \texttt{claude-haiku-4-5} \\
+    PDF & El modelo procesa el documento y devuelve los registros en JSON.
+      & \texttt{claude-haiku-4-5} \\
+    Excel o CSV & El modelo interpreta los encabezados y una muestra y devuelve el mapeo
+      de columnas; \texttt{pandas} lo aplica a todas las filas.
+      & \texttt{claude-sonnet-4-6}; si la API responde 529 (sobrecarga), \texttt{claude-haiku-4-5} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Antes de mostrar la vista previa, el validador de calidad revisa los registros extraídos y
+reporta los problemas de la Tabla~\ref{tab:validador}. Los avisos se muestran con colores
+según su severidad y se entregan también como contexto al asistente Stocky, que en la
+pantalla de ingesta puede explicar al usuario qué significa cada uno y sugerir en qué
+negocio y tienda cargar el archivo.
+
+\begin{table}[H]
+  \centering
+  \caption{Controles del validador de calidad de la ingesta}
+  \label{tab:validador}
+  \small
+  \begin{tabular}{|p{4.0cm}|p{2.2cm}|p{7.4cm}|}
+    \hline
+    \textbf{Código} & \textbf{Severidad} & \textbf{Condición} \\
+    \hline
+    \texttt{FUTURE\_DATES}        & Advertencia & Hay registros con fecha posterior a hoy. \\
+    \texttt{MIXED\_GRANULARITY}   & Advertencia & Los intervalos entre fechas son inconsistentes:
+                                                  el mayor supera 7 días y es más de 10 veces el menor
+                                                  (por ejemplo, datos mensuales y diarios mezclados). \\
+    \texttt{MONTHLY\_GRANULARITY} & Advertencia & El intervalo mediano entre fechas es de 25 días o más. \\
+    \texttt{WEEKLY\_GRANULARITY}  & Información & El intervalo mediano está entre 5 y 25 días. \\
+    \texttt{SCALE\_SHIFT}         & Advertencia & La mediana de ventas cambia más de 5 veces entre la
+                                                  primera y la segunda mitad del periodo. \\
+    \texttt{LIKELY\_CURRENCY}     & Advertencia & Al menos la mitad de las familias tiene una mediana
+                                                  diaria sobre 10.000, lo que indica montos en pesos y no
+                                                  unidades. \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Al confirmar, el usuario elige el negocio y la tienda de destino e indica si las cifras son
+unidades o montos en pesos (CLP). El backend verifica el acceso al negocio, descarta los
+registros con fecha futura o venta cero, crea la carga en \texttt{ingest\_log}, inserta los
+registros e invalida la caché de pronósticos del negocio. Además de ventas, el mismo flujo
+acepta cargas de stock actual y de parámetros de productos.
+
+\section{Pipeline de Pronóstico de Demanda}
+
+El pronóstico de un SKU sigue la secuencia de la Figura~\ref{fig:secuencia-forecast}.
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[angle=90, width=\textwidth, height=0.92\textheight, keepaspectratio]{figuras/secuencia_forecast.pdf}
+  \caption{Diagrama de secuencia del pronóstico de demanda con AMS}
+  \label{fig:secuencia-forecast}
+\end{figure}
+
+\begin{enumerate}
+  \item \textbf{Construcción de la serie.} Se leen las ventas del SKU y la tienda desde las
+        cargas activas, aplicando la regla de la carga más reciente. La serie se lleva a
+        frecuencia diaria (los días sin registro quedan en cero), se excluyen las fechas
+        futuras y se exigen al menos 30 días de historia.
+  \item \textbf{Selección del modelo.} El AMS divide la serie en 70\,\% de entrenamiento,
+        15\,\% de validación y 15\,\% de prueba. Cada modelo candidato se entrena con la
+        primera parte y se mide su WAPE en validación. Se elige el de menor error, se
+        reentrena con la serie completa y se proyecta el horizonte pedido (7, 14 o 30 días).
+        En el modo automático de la API los candidatos son ARIMA, Prophet y XGBoost; LSTM
+        está disponible cuando el usuario fuerza un modelo específico.
+  \item \textbf{Caché.} El resultado se guarda en memoria durante una hora, con una clave
+        que incluye negocio, SKU, tienda, horizonte y modelo. La caché del negocio se
+        invalida cada vez que se carga, revierte, elimina o edita un dato de ventas, para no
+        mostrar pronósticos basados en datos que ya cambiaron.
+  \item \textbf{Registro para validación posterior.} Cada punto pronosticado se guarda en
+        \texttt{forecast\_predictions}. Para cada fecha se conserva la primera predicción
+        emitida, de modo que, cuando llega la venta real, el endpoint
+        \texttt{GET /api/forecast/accuracy} calcula el error real del modelo con datos que
+        no conocía al momento de predecir.
+\end{enumerate}
+
+\section{Inventario y Órdenes de Compra}
+
+Para cada familia con ventas registradas, el servicio de inventario estima la demanda a
+partir del historial y calcula el EOQ y los niveles de la política $(s, S)$ descritos en el
+Marco Teórico. Los parámetros se toman de la tabla \texttt{products}; los que el usuario no
+ha configurado usan valores por defecto: costo de pedido de 5.000, tasa de mantención de
+0,25 y \textit{lead time} de 7 días.
+
+El costo unitario no tiene un valor por defecto razonable: sin él, el EOQ entrega
+cantidades desproporcionadas. Por eso, cuando falta, el SKU se marca como pendiente de
+configuración y el sistema avisa en lugar de sugerir una cantidad. Si un SKU no tiene stock
+registrado, se considera que su stock es cero; así, desde la primera carga todas las
+familias aparecen en alerta hasta que el usuario ingresa su stock real.
+
+Un SKU entra en alerta cuando su stock es menor o igual al punto de reorden $s$. La acción
+\texttt{POST /api/orders/generate} crea una orden de compra por cada SKU en alerta que
+tenga su costo configurado. Cada orden recorre los estados de la
+Tabla~\ref{tab:estados-orden}; al marcarla como recibida, su cantidad se suma al stock de
+la tienda.
+
+\begin{table}[H]
+  \centering
+  \caption{Transiciones de estado de una orden de compra}
+  \label{tab:estados-orden}
+  \small
+  \begin{tabular}{|l|l|}
+    \hline
+    \textbf{Estado actual} & \textbf{Estados siguientes permitidos} \\
+    \hline
+    \texttt{pending}    & \texttt{confirmed}, \texttt{cancelled} \\
+    \texttt{confirmed}  & \texttt{in\_transit}, \texttt{cancelled} \\
+    \texttt{in\_transit} & \texttt{received}, \texttt{cancelled} \\
+    \texttt{received}   & (estado final) \\
+    \texttt{cancelled}  & (estado final) \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{Asistente Stocky}
+
+Stocky es un asistente conversacional disponible como panel flotante en todas las páginas
+de la aplicación. Funciona como un agente con herramientas: el modelo
+(\texttt{claude-sonnet-5}) recibe la pregunta del usuario junto con la definición de cinco
+herramientas sobre la base de datos (\texttt{list\_products}, \texttt{list\_stock\_levels},
+\texttt{list\_orders}, \texttt{update\_product} y \texttt{update\_stock\_level}), decide
+cuáles invocar y el backend las ejecuta dentro del negocio del usuario. El ciclo se repite
+hasta que el modelo tiene una respuesta, con un máximo de seis iteraciones por mensaje.
+Esto permite, por ejemplo, completar los costos de los productos o actualizar el stock
+conversando, sin llenar formularios.
+
+\section{Notificaciones Automáticas}
+
+Un flujo de GitHub Actions invoca dos endpoints del backend a las 13:00 UTC (alrededor de
+las 10:00 en Chile continental): todos los días \texttt{POST /api/notify/low-stock}, que
+avisa al dueño de cada negocio qué productos están bajo su punto de reorden y cuánto pedir,
+y los lunes \texttt{POST /api/notify/weekly-digest}, que resume las ventas de la última
+semana con datos, el error promedio de los pronósticos, las órdenes pendientes y los
+productos en alerta. Los correos se envían mediante la API de Resend. Ambos endpoints
+aceptan un \texttt{business\_id} opcional, que se usa para probar los envíos con un único
+negocio.
+
+\section{API REST}
+
+La API expone 55 endpoints agrupados en 13 \textit{routers} (Tabla~\ref{tab:routers}).
+FastAPI genera a partir del código la documentación interactiva en formato OpenAPI,
+disponible en la ruta \texttt{/docs} del backend.
+
+\begin{table}[H]
+  \centering
+  \caption{Routers de la API REST}
+  \label{tab:routers}
+  \small
+  \begin{tabular}{|l|p{10.4cm}|}
+    \hline
+    \textbf{Prefijo} & \textbf{Responsabilidad} \\
+    \hline
+    \texttt{/api/auth}       & Perfil del usuario autenticado, configuración inicial del negocio y un
+                               ingreso de prueba para usar la documentación \texttt{/docs}. \\
+    \texttt{/api/businesses} & Negocios del usuario y sus tiendas. \\
+    \texttt{/api/ingest}     & Vista previa, confirmación y chat de la ingesta asistida por IA. \\
+    \texttt{/api/ingests}    & Listado, detalle, reversión y eliminación de cargas. \\
+    \texttt{/api/sales}      & Consulta del historial de ventas y edición de registros individuales. \\
+    \texttt{/api/forecast}   & Pronóstico por SKU, precisión real, modelos disponibles y exportación a PDF. \\
+    \texttt{/api/inventory}  & Alertas de stock, estado y métricas por SKU, y exportación a Excel. \\
+    \texttt{/api/products}   & Mantención de los parámetros de inventario por SKU. \\
+    \texttt{/api/orders}     & Órdenes de compra: generación, cambio de estado y exportación a Excel. \\
+    \texttt{/api/dashboard}  & Indicadores y serie de ventas para la página de inicio. \\
+    \texttt{/api/stocky}     & Chat con el asistente Stocky. \\
+    \texttt{/api/admin}      & Gestión de usuarios y negocios (solo \texttt{platform\_admin}). \\
+    \texttt{/api/notify}     & Disparo de las notificaciones por correo (solo el cron). \\
     \hline
   \end{tabular}
 \end{table}

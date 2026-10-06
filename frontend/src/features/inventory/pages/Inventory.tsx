@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Package, AlertCircle, TrendingDown, RefreshCw, Loader2, Download } from 'lucide-react';
 import { toast } from '../../../shared/ui/toastStore';
-import { useAuthStore } from '../../auth/store/authStore';
+import { useActiveBusinessId } from '../../auth/store/authStore';
 import {
   fetchAlerts,
   fetchInventoryStatus,
@@ -31,8 +31,7 @@ const fmtCLP = (n: number) =>
   n.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
 
 export default function Inventory() {
-  const user = useAuthStore((s) => s.user);
-  const businessId = user?.business_id ?? null;
+  const businessId = useActiveBusinessId();
   const queryClient = useQueryClient();
 
   const [storeNbr, setStoreNbr] = useState(1);

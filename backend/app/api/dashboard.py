@@ -1,14 +1,14 @@
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, tuple_
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, resolve_business_id
 from app.database import get_db
 from app.models.orm import IngestLog, PurchaseOrder, SalesHistory, StockLevel, User
-from app.models.schemas import DashboardChartPoint, DashboardKPIs
+from app.models.schemas import DashboardChartData, DashboardChartPoint, DashboardKPIs
 from app.services.forecast_service import get_business_cached_forecasts, get_business_wapes
 
 router = APIRouter()
@@ -17,9 +17,10 @@ router = APIRouter()
 @router.get("/kpis", response_model=DashboardKPIs)
 def get_kpis(
     current_user: Annotated[User, Depends(get_current_user)],
+    business_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    bid = current_user.business_id
+    bid = resolve_business_id(db, current_user, business_id)
 
     # Familias activas del negocio (con al menos un ingest activo)
     families = [
@@ -74,13 +75,14 @@ def get_kpis(
     )
 
 
-@router.get("/chart-data", response_model=list[DashboardChartPoint])
+@router.get("/chart-data", response_model=DashboardChartData)
 def get_chart_data(
     current_user: Annotated[User, Depends(get_current_user)],
+    business_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     """Ventas reales agregadas por día (últimas 4 semanas), scoped al business del usuario."""
-    bid = current_user.business_id
+    bid = resolve_business_id(db, current_user, business_id)
 
     max_date = (
         db.query(func.max(SalesHistory.date))
@@ -88,18 +90,29 @@ def get_chart_data(
         .scalar()
     )
     if not max_date:
-        return []
+        return DashboardChartData(points=[], forecast_skus=[], total_skus=0)
 
     start_date = max_date - timedelta(days=27)
+    total_skus = (
+        db.query(SalesHistory.family, SalesHistory.store_nbr)
+        .filter(SalesHistory.business_id == bid, SalesHistory.date >= start_date)
+        .distinct()
+        .count()
+    )
 
-    rows = (
+    cached_forecasts = get_business_cached_forecasts(bid)
+
+    q = (
         db.query(SalesHistory.date, func.sum(SalesHistory.sales).label("real"))
         .filter(SalesHistory.business_id == bid)
         .filter(SalesHistory.date >= start_date)
-        .group_by(SalesHistory.date)
-        .order_by(SalesHistory.date)
-        .all()
     )
+    if cached_forecasts:
+        # La linea real debe sumar los mismos SKUs que la prediccion, si no no son comparables
+        q = q.filter(tuple_(SalesHistory.family, SalesHistory.store_nbr).in_(
+            [(c.sku_id, c.store_nbr) for c in cached_forecasts]
+        ))
+    rows = q.group_by(SalesHistory.date).order_by(SalesHistory.date).all()
 
     points = [
         DashboardChartPoint(
@@ -113,7 +126,7 @@ def get_chart_data(
     # Suma la prediccion cacheada por dia entre los SKUs para los que el usuario
     # ya corrio un forecast (pagina Forecast). Si no hay ninguno, no se agrega nada.
     forecast_by_date: dict = {}
-    for cached in get_business_cached_forecasts(bid):
+    for cached in cached_forecasts:
         for point in cached.predictions:
             if point.date > max_date:
                 forecast_by_date[point.date] = forecast_by_date.get(point.date, 0.0) + point.predicted_sales
@@ -128,4 +141,8 @@ def get_chart_data(
             forecast=round(forecast_by_date[d], 1),
         ))
 
-    return points
+    return DashboardChartData(
+        points=points,
+        forecast_skus=sorted({c.sku_id for c in cached_forecasts}),
+        total_skus=total_skus,
+    )

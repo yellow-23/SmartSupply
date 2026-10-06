@@ -34,7 +34,11 @@ export interface ForecastResponse {
   sales_unit: "CLP" | "units";
 }
 
+// business_id=1 es el dataset de referencia Favorita (CU-27)
+export const BENCHMARK_BUSINESS_ID = 1;
+
 export interface ForecastRequest {
+  business_id: number | null;
   sku_id: string;
   store_nbr: number;
   horizon_days: number;
@@ -61,12 +65,13 @@ export interface InsufficientDataDetail {
 }
 
 export async function fetchForecast(req: ForecastRequest): Promise<ForecastResponse> {
-  const { data } = await client.post<ForecastResponse>('/forecast/predict', req);
+  const { business_id, ...body } = req;
+  const { data } = await client.post<ForecastResponse>('/forecast/predict', body, { params: { business_id } });
   return data;
 }
 
-export async function fetchForecastOptions(): Promise<ForecastOptions> {
-  const { data } = await client.get<ForecastOptions>('/forecast/options');
+export async function fetchForecastOptions(businessId: number | null): Promise<ForecastOptions> {
+  const { data } = await client.get<ForecastOptions>('/forecast/options', { params: { business_id: businessId } });
   return data;
 }
 
@@ -93,7 +98,7 @@ export async function fetchForecastAccuracy(businessId: number, storeNbr?: numbe
 
 export async function exportForecastPdf(req: ForecastRequest): Promise<Blob> {
   const { data } = await client.get(`/forecast/${encodeURIComponent(req.sku_id)}/export`, {
-    params: { store_nbr: req.store_nbr, horizon_days: req.horizon_days, model: req.model },
+    params: { store_nbr: req.store_nbr, horizon_days: req.horizon_days, model: req.model, business_id: req.business_id },
     responseType: 'blob',
   });
   return data as Blob;

@@ -21,15 +21,19 @@ def _verify_cron_secret(x_cron_secret: Annotated[str | None, Header()] = None) -
 def trigger_low_stock_check(
     _: Annotated[None, Depends(_verify_cron_secret)],
     db: Session = Depends(get_db),
+    business_id: int | None = None,
 ):
-    """Llamado por un cron externo (GitHub Actions) para revisar stock bajo en todos los negocios."""
-    return check_low_stock_and_notify(db)
+    """Llamado por un cron externo (GitHub Actions) para revisar stock bajo en todos los negocios.
+    `business_id` limita el envio a un solo negocio (para pruebas)."""
+    return check_low_stock_and_notify(db, business_id)
 
 
 @router.post("/weekly-digest")
 def trigger_weekly_digest(
     _: Annotated[None, Depends(_verify_cron_secret)],
     db: Session = Depends(get_db),
+    business_id: int | None = None,
 ):
-    """Llamado por un cron externo (GitHub Actions) para mandar el resumen semanal."""
-    return send_weekly_digest(db)
+    """Llamado por un cron externo (GitHub Actions) para mandar el resumen semanal.
+    `business_id` limita el envio a un solo negocio (para pruebas)."""
+    return send_weekly_digest(db, business_id)

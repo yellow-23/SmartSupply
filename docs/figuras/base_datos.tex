@@ -1,117 +1,145 @@
-% Diagrama de Base de Datos — SmartSupply
+% Modelo de datos (PostgreSQL / Supabase) — SmartSupply (estado 2026-09)
 \documentclass[tikz, border=14pt]{standalone}
-\usepackage{tikz}
-\usetikzlibrary{positioning, arrows.meta}
+\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{helvet}
 \renewcommand{\familydefault}{\sfdefault}
+\usetikzlibrary{positioning, arrows.meta, shapes.multipart}
+
+\tikzset{
+  tbl/.style={rectangle split, rectangle split parts=2, rectangle split part fill={black!15, white},
+    draw, line width=0.8pt, text width=5.3cm, font=\footnotesize\sffamily, align=left,
+    inner sep=4pt, anchor=north},
+  fk/.style={line width=0.8pt, -{Latex[length=2.3mm]}},
+}
+\newcommand{\pk}[2]{\underline{PK}\ \textbf{#1} : #2\\}
+\newcommand{\fk}[2]{FK\ #1 : #2\\}
+\newcommand{\cl}[2]{\phantom{FK}\ #1 : #2\\}
+\newcommand{\hd}[1]{\centering\small\textbf{#1}}
 
 \begin{document}
-\begin{tikzpicture}[
-  font=\sffamily,
-  % Estilo encabezado de tabla
-  thead/.style={
-    draw=black, line width=0.8pt,
-    fill=gray!20,
-    minimum width=4.6cm,
-    minimum height=0.65cm,
-    anchor=north west,
-    font=\small\sffamily\bfseries,
-    align=center,
-  },
-  % Estilo cuerpo de tabla
-  tbody/.style={
-    draw=black, line width=0.8pt,
-    fill=white,
-    minimum width=4.6cm,
-    anchor=north west,
-    font=\footnotesize\sffamily,
-    align=left,
-    inner sep=5pt,
-  },
-  % Flechas FK
-  fk/.style={draw=black, line width=0.9pt, -{Latex[length=2.5mm]}},
-]
+\begin{tikzpicture}[font=\sffamily]
 
-% ── FILA SUPERIOR ─────────────────────────────────────────────
+% ── Columna 0 ───────────────────────────────────────────────
+\node[tbl] (users) at (0, 0) {\hd{users}\nodepart{two}
+  \pk{id}{int}
+  \cl{name}{varchar}
+  \cl{email}{varchar}
+  \cl{supabase\_uid}{uuid}
+  \cl{role}{varchar}
+  \cl{business\_id}{int (negocio activo)}
+  \cl{is\_active}{bool}
+  \cl{created\_at}{timestamptz}};
 
-% sales_history  (x=0, y=0)
-\node[thead] (sh_h) at (0, 0)     {sales\_history};
-\node[tbody, below=-\pgflinewidth of sh_h] (sh_b)
-  {\underline{PK \ id} \ : INTEGER\\
-   \phantom{FK} \ date \ : DATE\\
-   FK \ store\_nbr \ : INTEGER\\
-   \phantom{FK} \ family \ : VARCHAR\\
-   \phantom{FK} \ sales \ : FLOAT\\
-   \phantom{FK} \ onpromotion \ : BOOLEAN};
+\node[tbl] (ingest) at (0, -5.6) {\hd{ingest\_log}\nodepart{two}
+  \pk{id}{int}
+  \fk{business\_id}{int}
+  \fk{user\_id}{int}
+  \cl{store\_nbr}{int}
+  \cl{filename, file\_type}{varchar}
+  \cl{records\_loaded}{int}
+  \cl{sales\_unit}{CLP | units}
+  \cl{date\_range\_start/end}{date}
+  \cl{families}{jsonb}
+  \cl{status}{active | reverted}
+  \cl{created\_at}{timestamptz}};
 
-% stores  (x=6.2, y=0)
-\node[thead] (st_h) at (6.2, 0)   {stores};
-\node[tbody, below=-\pgflinewidth of st_h] (st_b)
-  {\underline{PK \ store\_nbr} \ : INTEGER\\
-   \phantom{FK} \ city \ : VARCHAR\\
-   \phantom{FK} \ state \ : VARCHAR\\
-   \phantom{FK} \ type \ : CHAR\\
-   \phantom{FK} \ cluster \ : INTEGER};
+\node[tbl] (sales) at (0, -12.6) {\hd{sales\_history}\nodepart{two}
+  \pk{id}{bigint}
+  \fk{business\_id}{int}
+  \fk{ingest\_id}{int}
+  \cl{store\_nbr}{int}
+  \cl{date}{date}
+  \cl{family}{text}
+  \cl{sales}{numeric}
+  \cl{onpromotion}{int}
+  \cl{sales\_unit}{CLP | units}
+  \cl{revenue}{float}
+  \cl{lag\_7, lag\_14, rolling\_mean\_7}{numeric}
+  \cl{day\_of\_week, month}{int}};
 
-% oil_prices  (x=12.4, y=0)
-\node[thead] (oil_h) at (12.4, 0) {oil\_prices};
-\node[tbody, below=-\pgflinewidth of oil_h] (oil_b)
-  {\underline{PK \ date} \ : DATE\\
-   \phantom{FK} \ dcoilwtico \ : FLOAT};
-% Nota debajo
-\node[font=\footnotesize\sffamily\itshape, anchor=north]
-  at (oil_b.south) [yshift=-4pt] {* feature exógena};
+% ── Columna 1 ───────────────────────────────────────────────
+\node[tbl] (ub) at (6.8, 0) {\hd{user\_businesses}\nodepart{two}
+  \pk{id}{int}
+  \fk{user\_id}{int}
+  \fk{business\_id}{int}
+  \cl{role}{owner | member}
+  \cl{created\_at}{timestamptz}};
 
-% ── FILA INFERIOR ─────────────────────────────────────────────
+\node[tbl] (biz) at (6.8, -5.6) {\hd{businesses}\nodepart{two}
+  \pk{id}{int}
+  \fk{owner\_user\_id}{int}
+  \cl{name}{text}
+  \cl{rut, city, type}{text}
+  \cl{onboarding\_completed}{bool}
+  \cl{created\_at}{timestamptz}};
 
-% products  (x=0, y=-5.8)
-\node[thead] (prod_h) at (0, -5.8)   {products};
-\node[tbody, below=-\pgflinewidth of prod_h] (prod_b)
-  {\underline{PK \ id} \ : INTEGER\\
-   \phantom{FK} \ sku \ : VARCHAR\\
-   \phantom{FK} \ name \ : VARCHAR\\
-   \phantom{FK} \ demand\_avg \ : FLOAT\\
-   \phantom{FK} \ lead\_time \ : INTEGER\\
-   \phantom{FK} \ order\_cost \ : FLOAT\\
-   \phantom{FK} \ holding\_cost \ : FLOAT};
+\node[tbl] (fp) at (6.8, -12.6) {\hd{forecast\_predictions}\nodepart{two}
+  \pk{id}{int}
+  \fk{business\_id}{int}
+  \cl{store\_nbr}{int}
+  \cl{family}{varchar}
+  \cl{target\_date}{date}
+  \cl{predicted\_sales}{float}
+  \cl{model\_used}{varchar}
+  \cl{horizon\_days}{int}
+  \cl{created\_at}{timestamptz}};
 
-% orders  (x=6.2, y=-5.8)
-\node[thead] (ord_h) at (6.2, -5.8)  {orders};
-\node[tbody, below=-\pgflinewidth of ord_h] (ord_b)
-  {\underline{PK \ id} \ : INTEGER\\
-   FK \ sku\_id \ : INTEGER\\
-   \phantom{FK} \ quantity \ : FLOAT\\
-   \phantom{FK} \ status \ : VARCHAR\\
-   \phantom{FK} \ created\_at \ : TIMESTAMP};
+% ── Columna 2 (dependen de businesses) ──────────────────────
+\node[tbl] (stores) at (14.2, 0) {\hd{stores}\nodepart{two}
+  \pk{id}{int}
+  \fk{business\_id}{int}
+  \cl{store\_nbr}{int}
+  \cl{name, city, state, type}{text}
+  \cl{cluster}{int}};
 
-% holidays  (x=12.4, y=-5.8)
-\node[thead] (hol_h) at (12.4, -5.8) {holidays};
-\node[tbody, below=-\pgflinewidth of hol_h] (hol_b)
-  {\underline{PK \ id} \ : INTEGER\\
-   \phantom{FK} \ date \ : DATE\\
-   \phantom{FK} \ type \ : VARCHAR\\
-   \phantom{FK} \ locale \ : VARCHAR\\
-   \phantom{FK} \ locale\_name \ : VARCHAR\\
-   \phantom{FK} \ description \ : VARCHAR\\
-   \phantom{FK} \ transferred \ : BOOLEAN};
-% Nota debajo
-\node[font=\footnotesize\sffamily\itshape, anchor=north]
-  at (hol_b.south) [yshift=-4pt] {* feature exógena};
+\node[tbl, below=0.7cm of stores] (prod) {\hd{products}\nodepart{two}
+  \pk{id}{int}
+  \fk{business\_id}{int}
+  \cl{store\_nbr}{int}
+  \cl{family}{text}
+  \cl{unit\_cost, order\_cost}{numeric}
+  \cl{holding\_rate, moq}{numeric}
+  \cl{lead\_time\_days}{int}
+  \cl{is\_active}{bool}};
 
-% ─────────────────────────────────────────────────────────────
-%  RELACIONES
-% ─────────────────────────────────────────────────────────────
+\node[tbl, below=0.7cm of prod] (stock) {\hd{stock\_levels}\nodepart{two}
+  \pk{id}{int}
+  \fk{business\_id}{int}
+  \cl{store\_nbr}{int}
+  \cl{family}{varchar}
+  \cl{quantity}{numeric}
+  \cl{updated\_at}{timestamptz}};
 
-% sales_history → stores  (FK store_nbr, N:1)
-\draw[fk]
-  (sh_h.east) -- (st_h.west)
-  node[midway, above, font=\footnotesize\sffamily] {N : 1};
+\node[tbl, below=0.7cm of stock] (po) {\hd{purchase\_orders}\nodepart{two}
+  \pk{id}{int}
+  \fk{business\_id}{int}
+  \cl{store\_nbr}{int}
+  \cl{family}{varchar}
+  \cl{quantity, trigger\_stock}{numeric}
+  \cl{reorder\_point\_s, order\_up\_to\_s}{numeric}
+  \cl{policy\_used}{varchar}
+  \cl{status}{pending \dots\ received}
+  \cl{expected\_delivery}{date}
+  \cl{created\_at, received\_at}{timestamptz}};
 
-% orders → products  (FK sku_id, N:1)
-\draw[fk]
-  (ord_h.west) -- (prod_h.east)
-  node[midway, above, font=\footnotesize\sffamily] {N : 1};
+% ── Relaciones (FK -> PK) ───────────────────────────────────
+\draw[fk] (ub.west) -- (users.east |- ub.west);
+\draw[fk] (ub.south) -- (biz.north);
+\draw[fk] (biz.north west) -- (users.south east);
+\draw[fk] (ingest.north) -- (users.south);
+\draw[fk] (ingest.east |- biz.west) -- (biz.west);
+\draw[fk] (sales.north) -- (ingest.south);
+\draw[fk] (sales.east) -- ++(0.6,0) |- ([yshift=-8mm]biz.west);
+\draw[fk] (fp.north) -- (biz.south);
+
+% Bus comun hacia businesses para la columna 2
+\coordinate (bus) at (10.5, 0);
+\foreach \t in {stores, prod, stock, po} {
+  \draw[line width=0.8pt] (\t.west) -- (bus |- \t.west);
+}
+\draw[line width=0.8pt] (bus |- stores.west) -- (bus |- po.west);
+\draw[fk] (bus |- biz.east) -- (biz.east);
 
 \end{tikzpicture}
 \end{document}

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Send, Sparkles, Trash2, X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Blobatar } from "@blobatar/react";
 import "blobatar/motion.css";
 import { happy, wink, thinking, surprised, idle, type Expression } from "blobatar/expression";
-import { useAuthStore } from "../../auth/store/authStore";
+import { useActiveBusinessId } from "../../auth/store/authStore";
 import { chatStocky, StockyMessage } from "../api/stocky";
 import { fetchProducts } from "../../products/api/products";
 
@@ -27,8 +28,7 @@ export default function StockyFloat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [expression, setExpression] = useState<Expression>(idle);
-  const user = useAuthStore(s => s.user);
-  const businessId = user?.business_id ?? 0;
+  const businessId = useActiveBusinessId() ?? 0;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Ciclo autónomo de vida: Stocky parpadea, sonríe y guiña de forma espontánea sin necesitar cursor
@@ -367,12 +367,12 @@ export default function StockyFloat() {
                     />
                   </div>
                 )}
-                <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap leading-relaxed ${
+                <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                   m.role === "user"
-                    ? "bg-gradient-to-r from-[#D91A8D] to-[#EA580C] text-white rounded-br-xs shadow-2xs"
-                    : "bg-gray-100 text-gray-800 rounded-tl-xs border border-gray-100"
+                    ? "bg-gradient-to-r from-[#D91A8D] to-[#EA580C] text-white rounded-br-xs shadow-2xs whitespace-pre-wrap"
+                    : "bg-gray-100 text-gray-800 rounded-tl-xs border border-gray-100 space-y-2 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-4 [&_ol]:pl-4 [&_li]:mt-1 [&_strong]:font-semibold"
                 }`}>
-                  {m.content}
+                  {m.role === "user" ? m.content : <ReactMarkdown>{m.content}</ReactMarkdown>}
                 </div>
               </div>
             ))}

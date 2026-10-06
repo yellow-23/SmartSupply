@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.auth import assert_business_owner, get_current_user
+from app.api.auth import assert_business_access, assert_business_owner, get_current_user
 from app.database import get_db
-from app.models.orm import SalesHistory, Store, User, UserBusiness
+from app.models.orm import IngestLog, SalesHistory, Store, User, UserBusiness
 from app.models.schemas import (
     SalesPoint,
     SalesRecordResponse,
@@ -15,24 +15,56 @@ from app.models.schemas import (
     SalesSummaryItem,
     StoreResponse,
 )
-from app.services.forecast_service import invalidate_business_cache
+import pandas as pd
+
+from app.services.forecast_service import _BENCHMARK_BUSINESS_ID, _CSV_PATH, invalidate_business_cache
 
 router = APIRouter()
 
 
+def _effective_sales(
+    db: Session,
+    business_id: int,
+    family: Optional[str] = None,
+    store_nbr: Optional[int] = None,
+    start: Optional[date] = None,
+    end: Optional[date] = None,
+):
+    """Filas vigentes de sales_history: solo cargas activas y, si dos cargas cubren el mismo
+    (tienda, familia, dia), gana la mas reciente (mayor ingest_id). Misma regla que forecast_service."""
+    q = (
+        db.query(SalesHistory)
+        .join(IngestLog, IngestLog.id == SalesHistory.ingest_id)
+        .filter(SalesHistory.business_id == business_id, IngestLog.status == "active")
+    )
+    if family is not None:
+        q = q.filter(SalesHistory.family == family)
+    if store_nbr is not None:
+        q = q.filter(SalesHistory.store_nbr == store_nbr)
+    if start:
+        q = q.filter(SalesHistory.date >= start)
+    if end:
+        q = q.filter(SalesHistory.date <= end)
+    return (
+        q.distinct(SalesHistory.store_nbr, SalesHistory.family, SalesHistory.date)
+        .order_by(SalesHistory.store_nbr, SalesHistory.family, SalesHistory.date, SalesHistory.ingest_id.desc())
+        .subquery()
+    )
+
+
 @router.get("/date-range")
 def get_date_range(
+    current_user: Annotated[User, Depends(get_current_user)],
     business_id: int = Query(..., description="ID del negocio"),
     db: Session = Depends(get_db),
 ):
     """
-    Retorna el rango de fechas disponible para un negocio.
+    Retorna el rango de fechas disponible para un negocio (solo cargas activas).
     Usar antes de llamar a /history o /summary para saber que fechas tiene el negocio.
     """
-    row = db.query(
-        func.min(SalesHistory.date).label("start"),
-        func.max(SalesHistory.date).label("end"),
-    ).filter(SalesHistory.business_id == business_id).first()
+    assert_business_access(db, current_user, business_id)
+    eff = _effective_sales(db, business_id)
+    row = db.query(func.min(eff.c.date).label("start"), func.max(eff.c.date).label("end")).first()
 
     if not row.start:
         raise HTTPException(status_code=404, detail=f"No hay datos para el negocio {business_id}")
@@ -42,19 +74,23 @@ def get_date_range(
 
 @router.get("/stores", response_model=list[StoreResponse])
 def list_stores(
+    current_user: Annotated[User, Depends(get_current_user)],
     business_id: int = Query(..., description="ID del negocio"),
     db: Session = Depends(get_db),
 ):
     """Lista las tiendas registradas de un negocio."""
+    assert_business_access(db, current_user, business_id)
     return db.query(Store).filter(Store.business_id == business_id).order_by(Store.store_nbr).all()
 
 
 @router.get("/stores/{store_nbr}", response_model=StoreResponse)
 def get_store(
     store_nbr: int,
+    current_user: Annotated[User, Depends(get_current_user)],
     business_id: int = Query(...),
     db: Session = Depends(get_db),
 ):
+    assert_business_access(db, current_user, business_id)
     store = db.query(Store).filter(
         Store.store_nbr == store_nbr,
         Store.business_id == business_id,
@@ -66,22 +102,20 @@ def get_store(
 
 @router.get("/families")
 def list_families(
+    current_user: Annotated[User, Depends(get_current_user)],
     business_id: int = Query(..., description="ID del negocio"),
     db: Session = Depends(get_db),
 ):
-    """Lista las categorias de productos que tiene un negocio en su historial."""
-    rows = (
-        db.query(SalesHistory.family)
-        .filter(SalesHistory.business_id == business_id)
-        .distinct()
-        .order_by(SalesHistory.family)
-        .all()
-    )
+    """Lista las categorias de productos que tiene un negocio en su historial (cargas activas)."""
+    assert_business_access(db, current_user, business_id)
+    eff = _effective_sales(db, business_id)
+    rows = db.query(eff.c.family).distinct().order_by(eff.c.family).all()
     return [r.family for r in rows]
 
 
 @router.get("/history", response_model=list[SalesPoint])
 def get_sales_history(
+    current_user: Annotated[User, Depends(get_current_user)],
     business_id: int = Query(..., description="ID del negocio"),
     family: str = Query(..., description="Categoria de producto"),
     store_nbr: Optional[int] = Query(default=None, description="Numero de tienda (opcional)"),
@@ -92,24 +126,25 @@ def get_sales_history(
     """
     Historial de ventas diarias para una categoria.
     Si no se especifica start/end usa todo el rango disponible del negocio.
+    business_id=1 lee el dataset de referencia Favorita (CU-27).
     """
-    q = db.query(SalesHistory.date, SalesHistory.sales, SalesHistory.onpromotion).filter(
-        SalesHistory.business_id == business_id,
-        SalesHistory.family == family,
-    )
-    if store_nbr is not None:
-        q = q.filter(SalesHistory.store_nbr == store_nbr)
-    if start:
-        q = q.filter(SalesHistory.date >= start)
-    if end:
-        q = q.filter(SalesHistory.date <= end)
-
-    rows = q.order_by(SalesHistory.date).all()
+    if business_id == _BENCHMARK_BUSINESS_ID:
+        df = pd.read_csv(_CSV_PATH, parse_dates=["date"])
+        df = df[(df["family"] == family) & (df["store_nbr"] == (store_nbr or 1))]
+        if start:
+            df = df[df["date"].dt.date >= start]
+        if end:
+            df = df[df["date"].dt.date <= end]
+        return [SalesPoint(date=r.date.date(), sales=r.sales, onpromotion=0) for r in df.itertuples()]
+    assert_business_access(db, current_user, business_id)
+    eff = _effective_sales(db, business_id, family, store_nbr, start, end)
+    rows = db.query(eff.c.date, eff.c.sales, eff.c.onpromotion).order_by(eff.c.date).all()
     return [SalesPoint(date=r.date, sales=r.sales, onpromotion=r.onpromotion) for r in rows]
 
 
 @router.get("/summary", response_model=list[SalesSummaryItem])
 def get_sales_summary(
+    current_user: Annotated[User, Depends(get_current_user)],
     business_id: int = Query(..., description="ID del negocio"),
     store_nbr: Optional[int] = Query(default=None, description="Numero de tienda (opcional)"),
     start: Optional[date] = Query(default=None),
@@ -120,21 +155,20 @@ def get_sales_summary(
     Resumen de ventas agregado por categoria para un negocio.
     Util para el widget de top productos del dashboard.
     """
-    q = db.query(
-        SalesHistory.family,
-        func.sum(SalesHistory.sales).label("total_sales"),
-        func.avg(SalesHistory.sales).label("avg_daily_sales"),
-        func.sum(SalesHistory.onpromotion).label("days_on_promotion"),
-    ).filter(SalesHistory.business_id == business_id)
-
-    if store_nbr is not None:
-        q = q.filter(SalesHistory.store_nbr == store_nbr)
-    if start:
-        q = q.filter(SalesHistory.date >= start)
-    if end:
-        q = q.filter(SalesHistory.date <= end)
-
-    rows = q.group_by(SalesHistory.family).order_by(func.sum(SalesHistory.sales).desc()).all()
+    assert_business_access(db, current_user, business_id)
+    eff = _effective_sales(db, business_id, None, store_nbr, start, end)
+    total = func.sum(eff.c.sales)
+    rows = (
+        db.query(
+            eff.c.family,
+            total.label("total_sales"),
+            func.avg(eff.c.sales).label("avg_daily_sales"),
+            func.sum(eff.c.onpromotion).label("days_on_promotion"),
+        )
+        .group_by(eff.c.family)
+        .order_by(total.desc())
+        .all()
+    )
 
     return [
         SalesSummaryItem(

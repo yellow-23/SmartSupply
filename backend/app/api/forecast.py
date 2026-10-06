@@ -4,16 +4,19 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fpdf import FPDF
+import pandas as pd
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, resolve_business_id
 from app.database import get_db
 from app.models.orm import SalesHistory, Store, User
 from app.models.schemas import ForecastRequest, ForecastResponse
 from app.services.forecast_service import (
     ForecastService,
     InsufficientDataError,
+    _BENCHMARK_BUSINESS_ID,
+    _CSV_PATH,
     _MIN_DAYS,
     _cache,
     _cache_lock,
@@ -22,6 +25,13 @@ from app.services.forecast_service import (
 
 router = APIRouter()
 service = ForecastService()
+
+
+def _resolve(db: Session, user: User, business_id: int | None) -> int:
+    """business_id=1 es el dataset de referencia Favorita (CU-27): de solo lectura, abierto a todo usuario."""
+    if business_id == _BENCHMARK_BUSINESS_ID:
+        return business_id
+    return resolve_business_id(db, user, business_id)
 
 
 def _insufficient_data_response(err: InsufficientDataError) -> HTTPException:
@@ -43,13 +53,15 @@ def _insufficient_data_response(err: InsufficientDataError) -> HTTPException:
 async def predict_demand(
     request: ForecastRequest,
     current_user: Annotated[User, Depends(get_current_user)],
+    business_id: int | None = Query(default=None, description="Negocio activo; 1 = dataset de referencia"),
     db: Session = Depends(get_db),
 ):
-    """Genera una predicción de demanda usando el motor AMS, scoped al business del usuario."""
+    """Genera una predicción de demanda usando el motor AMS, scoped al negocio activo."""
+    bid = _resolve(db, current_user, business_id)
     try:
         return service.predict(
             db=db,
-            business_id=current_user.business_id,
+            business_id=bid,
             sku_id=request.sku_id,
             store_nbr=request.store_nbr,
             horizon_days=request.horizon_days,
@@ -66,17 +78,26 @@ async def predict_demand(
 @router.get("/options")
 def get_forecast_options(
     current_user: Annotated[User, Depends(get_current_user)],
+    business_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     """
-    Familias y tiendas que el usuario actual tiene en sales_history.
+    Familias y tiendas que el negocio tiene en sales_history.
     Sirve para poblar dropdowns sin asumir nombres ni números.
     """
+    bid = _resolve(db, current_user, business_id)
+    if bid == _BENCHMARK_BUSINESS_ID:
+        df = pd.read_csv(_CSV_PATH, usecols=["date", "family"])
+        return {
+            "families": sorted(df["family"].unique().tolist()),
+            "stores": [{"store_nbr": 1, "name": "Favorita - Tienda 1", "days_available": int(df["date"].nunique())}],
+            "days_required": _MIN_DAYS,
+        }
     families = [
         r[0]
         for r in (
             db.query(SalesHistory.family)
-            .filter(SalesHistory.business_id == current_user.business_id)
+            .filter(SalesHistory.business_id == bid)
             .distinct()
             .order_by(SalesHistory.family)
             .all()
@@ -88,7 +109,7 @@ def get_forecast_options(
             SalesHistory.store_nbr,
             func.count(func.distinct(SalesHistory.date)).label("days_available"),
         )
-        .filter(SalesHistory.business_id == current_user.business_id)
+        .filter(SalesHistory.business_id == bid)
         .group_by(SalesHistory.store_nbr)
         .all()
     )
@@ -96,7 +117,7 @@ def get_forecast_options(
     store_names = {
         s.store_nbr: s.name
         for s in db.query(Store)
-        .filter(Store.business_id == current_user.business_id)
+        .filter(Store.business_id == bid)
         .all()
     }
 
@@ -121,6 +142,7 @@ def get_accuracy(
 ):
     """Compara predicciones ya guardadas contra la venta real, por familia.
     Solo incluye fechas donde ya llego el dato real (no proyecciones a futuro)."""
+    resolve_business_id(db, current_user, business_id)
     return get_forecast_accuracy(db, business_id, store_nbr)
 
 
@@ -142,24 +164,17 @@ async def export_forecast_pdf(
     store_nbr: int = Query(default=1, description="Número de tienda"),
     horizon_days: int = Query(default=14, ge=7, le=30, description="Días a predecir"),
     model: str = Query(default="auto", description="Modelo o 'auto' para AMS"),
+    business_id: int | None = Query(default=None, description="Negocio activo; 1 = dataset de referencia"),
     db: Session = Depends(get_db),
 ):
-    """Genera un PDF con el resumen y las predicciones del forecast para el SKU indicado."""
-    try:
-        result = service.predict(
-            db=db,
-            business_id=current_user.business_id,
-            sku_id=sku_id,
-            store_nbr=store_nbr,
-            horizon_days=horizon_days,
-            model=model,
+    """Genera un PDF con la prediccion ya calculada (desde cache, sin re-entrenar)."""
+    bid = _resolve(db, current_user, business_id)
+    result = service.get_cached(bid, sku_id, store_nbr, horizon_days, model)
+    if result is None:
+        raise HTTPException(
+            status_code=409,
+            detail="No hay una predicción vigente para exportar. Genera la predicción primero.",
         )
-    except InsufficientDataError as e:
-        raise _insufficient_data_response(e)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error en predicción: {str(e)}")
 
     unit_label = "CLP" if result.sales_unit == "CLP" else "unidades"
     total = sum(p.predicted_sales for p in result.predictions)
@@ -170,7 +185,7 @@ async def export_forecast_pdf(
     pdf.cell(0, 10, "SmartSupply - Reporte de Prediccion de Demanda", new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 8, f"Negocio: {current_user.business_id}   Tienda: {result.store_nbr}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, f"Negocio: {bid}   Tienda: {result.store_nbr}", new_x="LMARGIN", new_y="NEXT")
     pdf.cell(0, 8, f"Producto (familia): {result.sku_id}", new_x="LMARGIN", new_y="NEXT")
     pdf.cell(0, 8, f"Horizonte: {result.horizon_days} dias   Generado: {result.generated_at.strftime('%Y-%m-%d %H:%M')}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
@@ -229,13 +244,15 @@ async def get_forecast_for_sku(
     store_nbr: int = Query(default=1, description="Número de tienda"),
     horizon_days: int = Query(default=14, ge=7, le=30, description="Días a predecir"),
     model: str = Query(default="auto", description="Modelo o 'auto' para AMS"),
+    business_id: int | None = Query(default=None, description="Negocio activo; 1 = dataset de referencia"),
     db: Session = Depends(get_db),
 ):
-    """Predicción rápida GET para el SKU indicado, scoped al business del usuario."""
+    """Predicción rápida GET para el SKU indicado, scoped al negocio activo."""
+    bid = _resolve(db, current_user, business_id)
     try:
         return service.predict(
             db=db,
-            business_id=current_user.business_id,
+            business_id=bid,
             sku_id=sku_id,
             store_nbr=store_nbr,
             horizon_days=horizon_days,
