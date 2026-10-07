@@ -8,7 +8,7 @@ from sqlalchemy import func, text
 from app.api.auth import require_admin
 from app.database import get_db
 from app.models.orm import (
-    Business, IngestLog, Product, PurchaseOrder, SalesHistory, StockLevel, Store, User, UserBusiness,
+    Business, ForecastPrediction, IngestLog, Product, PurchaseOrder, SalesHistory, StockLevel, Store, User, UserBusiness,
 )
 
 router = APIRouter()
@@ -86,6 +86,9 @@ def delete_user(user_id: int, current_user: Annotated[User, Depends(require_admi
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
     supabase_uid = user.supabase_uid
     db.query(UserBusiness).filter(UserBusiness.user_id == user_id).delete()
+    # Sus negocios quedan sin dueno; sus cargas pasan al admin (ingest_log.user_id es NOT NULL).
+    db.query(Business).filter(Business.owner_user_id == user_id).update({Business.owner_user_id: None})
+    db.query(IngestLog).filter(IngestLog.user_id == user_id).update({IngestLog.user_id: current_user.id})
     db.delete(user)
     # Si no se borra tambien de auth.users, el autoprovision recrea la cuenta en el proximo login.
     if supabase_uid:
@@ -120,8 +123,10 @@ def delete_business(business_id: int, current_user: Annotated[User, Depends(requ
     db.query(PurchaseOrder).filter(PurchaseOrder.business_id == business_id).delete()
     db.query(StockLevel).filter(StockLevel.business_id == business_id).delete()
     db.query(Product).filter(Product.business_id == business_id).delete()
-    db.query(IngestLog).filter(IngestLog.business_id == business_id).delete()
+    db.query(ForecastPrediction).filter(ForecastPrediction.business_id == business_id).delete()
+    # sales_history referencia ingest_log: borrar las ventas primero.
     db.query(SalesHistory).filter(SalesHistory.business_id == business_id).delete()
+    db.query(IngestLog).filter(IngestLog.business_id == business_id).delete()
     db.query(UserBusiness).filter(UserBusiness.business_id == business_id).delete(synchronize_session=False)
     db.query(Store).filter(Store.business_id == business_id).delete()
     # Los usuarios cuyo negocio "hogar" era este quedan sin negocio en vez de ser eliminados.
