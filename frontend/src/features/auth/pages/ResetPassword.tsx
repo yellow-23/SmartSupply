@@ -17,8 +17,22 @@ export default function ResetPassword() {
   const [hasSession, setHasSession] = useState(false);
 
   useEffect(() => {
-    // El link del correo trae el token en el hash de la URL; el SDK de Supabase
-    // lo procesa solo al cargar la pagina y establece una sesion temporal.
+    // Plantilla propia: el correo enlaza a /reset-password?token_hash=...&type=recovery (nuestro dominio,
+    // no supabase.co). El token se canjea recien aqui, asi los escaneres de links del correo no lo gastan.
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get("token_hash");
+    if (tokenHash) {
+      supabase.auth
+        .verifyOtp({ type: "recovery", token_hash: tokenHash })
+        .then(({ data, error }) => {
+          setHasSession(!error && !!data.session);
+          setCheckingLink(false);
+          window.history.replaceState(null, "", "/reset-password");
+        });
+      return;
+    }
+
+    // Plantilla por defecto de Supabase: el token viene en el hash y el SDK lo procesa solo.
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" || session) {
         setHasSession(true);

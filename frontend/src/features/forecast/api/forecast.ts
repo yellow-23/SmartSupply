@@ -53,6 +53,7 @@ export interface ForecastStoreOption {
 
 export interface ForecastOptions {
   families: string[];
+  categories: Record<string, string>;
   stores: ForecastStoreOption[];
   days_required: number;
 }

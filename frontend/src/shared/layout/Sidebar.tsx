@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
+  Building2,
   LayoutDashboard,
   TrendingUp,
   ShoppingBag,
@@ -25,6 +26,7 @@ const navItems = [
   { name: "Inventario",        path: "/inventory",   icon: Package },
   { name: "Ordenes",           path: "/orders",      icon: ClipboardList },
   { name: "Mis productos",     path: "/products",    icon: ShoppingBag },
+  { name: "Mi negocio",        path: "/negocio",     icon: Building2 },
 ];
 
 interface SidebarProps {

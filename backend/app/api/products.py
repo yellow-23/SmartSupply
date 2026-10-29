@@ -25,6 +25,8 @@ def list_products(
     business_id: Optional[int] = None,
     store_nbr: Optional[int] = None,
     family: Optional[str] = None,
+    category: Optional[str] = None,
+    q_text: Optional[str] = Query(None, alias="q"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -35,6 +37,11 @@ def list_products(
         q = q.filter(Product.store_nbr == store_nbr)
     if family:
         q = q.filter(Product.family == family)
+    if category:
+        q = q.filter(Product.category == category)
+    if q_text:
+        like = f"%{q_text}%"
+        q = q.filter(Product.family.ilike(like) | Product.category.ilike(like) | Product.supplier.ilike(like))
 
     total = q.count()
     total_families = (
@@ -44,7 +51,7 @@ def list_products(
         or 0
     )
 
-    items = q.order_by(Product.family).offset((page - 1) * limit).limit(limit).all()
+    items = q.order_by(Product.category, Product.family).offset((page - 1) * limit).limit(limit).all()
     return ProductPage(
         items=items,
         total=total,

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import assert_business_owner, get_current_user
 from app.database import get_db
-from app.models.orm import Business, IngestLog, Product, PurchaseOrder, SalesHistory, StockLevel, User, UserBusiness
+from app.models.orm import Business, IngestLog, Product, PurchaseOrder, PurchaseOrderLine, SalesHistory, StockLevel, User, UserBusiness
 from app.models.schemas import IngestLogResponse, SalesRecordResponse
 from app.services.forecast_service import invalidate_business_cache
 
@@ -44,10 +44,14 @@ def _cleanup_orphaned_families(db: Session, business_id: int, store_nbr: int, fa
         )
         if still_active:
             continue
-        db.query(PurchaseOrder).filter(
+        orders = db.query(PurchaseOrder).filter(
             PurchaseOrder.business_id == business_id, PurchaseOrder.store_nbr == store_nbr,
-            PurchaseOrder.family == family,
-        ).delete()
+            PurchaseOrder.lines.any(PurchaseOrderLine.family == family),
+        ).all()
+        for order in orders:
+            order.lines = [l for l in order.lines if l.family != family]
+            if not order.lines:
+                db.delete(order)
         db.query(StockLevel).filter(
             StockLevel.business_id == business_id, StockLevel.store_nbr == store_nbr,
             StockLevel.family == family,

@@ -3,6 +3,7 @@ import api from "../../../shared/api/axios.instance";
 export interface IngestRecord {
   date: string;
   family: string;
+  category?: string | null;
   sales: number;
   onpromotion: number;
   revenue?: number | null;
@@ -24,6 +25,8 @@ export interface StockRecord {
 
 export interface ProductRecord {
   family: string;
+  category?: string | null;
+  supplier?: string | null;
   unit_cost?: number | null;
   order_cost?: number | null;
   lead_time_days?: number | null;
@@ -40,7 +43,7 @@ export interface IngestPreview {
   warnings: string[];
   quality_issues: QualityIssue[];
   sales_unit_detected: "CLP" | "units" | null;
-  data_type: "sales" | "stock" | "products" | "unknown";
+  data_type: "sales" | "stock" | "products" | "workbook" | "unknown";
   clarification_needed: boolean;
   clarification_message: string | null;
   stock_records: StockRecord[];
@@ -71,7 +74,7 @@ export async function confirmIngest(
   sales_unit: "CLP" | "units" = "units",
   filename: string = "carga sin nombre",
   file_type: "image" | "excel" | "pdf" = "excel",
-  data_type: "sales" | "stock" | "products" = "sales",
+  data_type: "sales" | "stock" | "products" | "workbook" = "sales",
   stock_records: StockRecord[] = [],
   product_records: ProductRecord[] = [],
 ): Promise<IngestResponse> {
@@ -94,11 +97,13 @@ export interface ChatResponse {
 
 export async function chatIngest(
   messages: ChatMessage[],
-  previewSummary: string
+  previewSummary: string,
+  businessId?: number | null,
 ): Promise<ChatResponse> {
   const { data } = await api.post("/ingest/chat", {
     messages,
     preview_summary: previewSummary,
+    business_id: businessId ?? null,
   });
   return data;
 }

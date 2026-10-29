@@ -70,8 +70,10 @@ _TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "family": {"type": "string", "description": "Nombre de la familia (ej: BEBIDAS)"},
+                "family": {"type": "string", "description": "Nombre del producto/SKU (ej: COCA-COLA 1.5L)"},
                 "store_nbr": {"type": "integer", "description": "Número de tienda"},
+                "category": {"type": "string", "description": "Familia o categoria general del producto (ej: BEBIDAS)"},
+                "supplier": {"type": "string", "description": "Proveedor del producto; las OC automaticas se agrupan por proveedor"},
                 "unit_cost": {"type": "number", "description": "Costo unitario en CLP"},
                 "order_cost": {"type": "number", "description": "Costo fijo por pedido en CLP"},
                 "holding_rate": {"type": "number", "description": "Tasa de almacenamiento anual (ej: 0.25 = 25%)"},
@@ -123,6 +125,8 @@ def _list_products(db: Session, business_id: int, inp: dict) -> str:
             continue
         rows.append({
             "family": p.family,
+            "category": p.category,
+            "supplier": p.supplier,
             "store_nbr": p.store_nbr,
             "unit_cost": float(p.unit_cost) if p.unit_cost is not None else None,
             "order_cost": float(p.order_cost) if p.order_cost is not None else None,
@@ -178,10 +182,10 @@ def _list_orders(db: Session, business_id: int, inp: dict) -> str:
     if not orders:
         return "No hay órdenes de compra."
     rows = [{
-        "id": o.id,
-        "family": o.family,
+        "order_number": f"OC-{o.id:06d}",
+        "supplier": o.supplier,
         "store_nbr": o.store_nbr,
-        "quantity": round(float(o.quantity)),
+        "lines": [{"product": l.family, "quantity": round(float(l.quantity))} for l in o.lines],
         "status": o.status,
         "created_at": str(o.created_at.date()) if o.created_at else None,
         "expected_delivery": str(o.expected_delivery) if o.expected_delivery else None,
@@ -206,7 +210,7 @@ def _update_product(db: Session, business_id: int, inp: dict) -> str:
         created = True
 
     updated = []
-    for field in ["unit_cost", "order_cost", "holding_rate", "lead_time_days", "moq"]:
+    for field in ["category", "supplier", "unit_cost", "order_cost", "holding_rate", "lead_time_days", "moq"]:
         if field in inp and inp[field] is not None:
             setattr(product, field, inp[field])
             updated.append(f"{field}={inp[field]}")

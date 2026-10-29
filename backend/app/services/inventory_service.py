@@ -86,6 +86,7 @@ def _get_product_params(db: Session, business_id: int, store_nbr: int, family: s
             "holding_rate": _DEFAULT_HOLDING_RATE,
             "lead_time_days": _DEFAULT_LEAD_TIME,
             "moq": 0.0,
+            "supplier": None,
         }
     return {
         "unit_cost": float(p.unit_cost) if p.unit_cost is not None else _DEFAULT_UNIT_COST,
@@ -93,6 +94,7 @@ def _get_product_params(db: Session, business_id: int, store_nbr: int, family: s
         "holding_rate": float(p.holding_rate) if p.holding_rate is not None else _DEFAULT_HOLDING_RATE,
         "lead_time_days": p.lead_time_days if p.lead_time_days is not None else _DEFAULT_LEAD_TIME,
         "moq": float(p.moq) if p.moq is not None else 0.0,
+        "supplier": p.supplier,
     }
 
 

@@ -4,13 +4,16 @@ from itertools import product
 import numpy as np
 import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+from statsmodels.tsa.stattools import adfuller
 
 
 class ARIMAModel:
     """
     SARIMA con selección automática por AIC.
-    Búsqueda no-estacional: p∈[0,2], d∈[0,1], q∈[0,2].
-    Búsqueda estacional (s=7) cuando hay >=21 días: P∈[0,1], D∈[0,1], Q∈[0,1].
+    Búsqueda no-estacional: p∈[0,2], q∈[0,2]; d por test ADF (no por AIC: el AIC
+    no es comparable entre distintos órdenes de diferenciación).
+    Búsqueda estacional (s=7) cuando hay >=21 días: (P,D,Q) ∈ SEASONAL_CANDIDATES.
+    36 ajustes en vez de los 144 del grid completo (~4x más rápido).
 
     La serie se normaliza por su media antes de ajustar para mejorar la
     convergencia numérica con datos de gran magnitud (p.ej. ventas en CLP).
@@ -19,6 +22,7 @@ class ARIMAModel:
 
     SEASONAL_PERIOD = 7
     SEASONAL_MIN_OBS = 21  # al menos 3 ciclos para fittear componente semanal
+    SEASONAL_CANDIDATES = [(0, 0, 0), (1, 0, 1), (0, 1, 1), (1, 1, 1)]
 
     def __init__(self):
         self.fitted_model = None
@@ -33,12 +37,13 @@ class ARIMAModel:
         best_seasonal = (0, 0, 0, 0)
 
         use_seasonal = len(series) >= self.SEASONAL_MIN_OBS
-        seasonal_grid = (
-            list(product(range(2), range(2), range(2)))
-            if use_seasonal else [(0, 0, 0)]
-        )
+        seasonal_grid = self.SEASONAL_CANDIDATES if use_seasonal else [(0, 0, 0)]
+        try:
+            d = 0 if adfuller(series.values, autolag="AIC")[1] < 0.05 else 1
+        except Exception:
+            d = 1
 
-        for p, d, q in product(range(3), range(2), range(3)):
+        for p, q in product(range(3), range(3)):
             for P, D, Q in seasonal_grid:
                 s_order = (P, D, Q, self.SEASONAL_PERIOD) if (P or D or Q) else (0, 0, 0, 0)
                 try:

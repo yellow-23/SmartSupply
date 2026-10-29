@@ -5,6 +5,8 @@ export interface Product {
   business_id: number;
   store_nbr: number;
   family: string;
+  category: string | null;
+  supplier: string | null;
   unit_cost: number | null;
   order_cost: number;
   holding_rate: number;
@@ -17,6 +19,8 @@ export interface ProductCreate {
   business_id: number;
   store_nbr: number;
   family: string;
+  category?: string | null;
+  supplier?: string | null;
   unit_cost?: number | null;
   order_cost?: number;
   holding_rate?: number;
@@ -25,6 +29,8 @@ export interface ProductCreate {
 }
 
 export interface ProductUpdate {
+  category?: string | null;
+  supplier?: string | null;
   unit_cost?: number | null;
   order_cost?: number;
   holding_rate?: number;
@@ -44,6 +50,8 @@ export async function fetchProducts(params?: {
   business_id?: number;
   store_nbr?: number;
   family?: string;
+  category?: string;
+  q?: string;
   page?: number;
   limit?: number;
 }): Promise<ProductPage> {

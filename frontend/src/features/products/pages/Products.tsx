@@ -2,32 +2,28 @@ import { useState } from "react";
 import { Plus, Package, AlertTriangle, Pencil, Trash2, Loader2, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchProducts, createProduct, updateProduct, deleteProduct, Product, ProductCreate } from "../api/products";
-import { listBusinesses } from "../../../shared/api/data";
+import { useActiveBusinessId, useActiveStoreNbr } from "../../auth/store/authStore";
 import Modal from "../../../shared/ui/Modal";
 import { toast } from "../../../shared/ui/toastStore";
 
 const EMPTY_FORM: Omit<ProductCreate, "business_id"> = {
-  store_nbr: 1, family: "", unit_cost: null,
+  store_nbr: 1, family: "", category: null, supplier: null, unit_cost: null,
   order_cost: null, holding_rate: null, lead_time_days: null, moq: null,
 };
 
 export default function Products() {
   const qc = useQueryClient();
-  const [businessId, setBusinessId] = useState<number | null>(null);
+  const businessId = useActiveBusinessId();
+  const storeNbr = useActiveStoreNbr();
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
-
-  const { data: businesses } = useQuery({
-    queryKey: ["businesses"],
-    queryFn: listBusinesses,
-    staleTime: 60_000,
-  });
+  const [search, setSearch] = useState("");
 
   const { data: page, isLoading } = useQuery({
-    queryKey: ["products", businessId],
-    queryFn: () => fetchProducts({ business_id: businessId!, limit: 100 }),
+    queryKey: ["products", businessId, storeNbr, search],
+    queryFn: () => fetchProducts({ business_id: businessId!, store_nbr: storeNbr, limit: 100, q: search || undefined }),
     enabled: businessId != null,
     staleTime: 60_000,
   });
@@ -35,7 +31,7 @@ export default function Products() {
   const products = page?.items ?? [];
 
   const createMut = useMutation({
-    mutationFn: (f: typeof EMPTY_FORM) => createProduct({ ...f, business_id: businessId! }),
+    mutationFn: (f: typeof EMPTY_FORM) => createProduct({ ...f, store_nbr: storeNbr, business_id: businessId! }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); closeModal(); toast.success("Producto creado"); },
   });
 
@@ -52,7 +48,7 @@ export default function Products() {
   function openCreate() { setForm(EMPTY_FORM); setEditing(null); setModal("create"); }
 
   function openEdit(p: Product) {
-    setForm({ store_nbr: p.store_nbr, family: p.family, unit_cost: p.unit_cost, order_cost: p.order_cost, holding_rate: p.holding_rate, lead_time_days: p.lead_time_days, moq: p.moq });
+    setForm({ store_nbr: p.store_nbr, family: p.family, category: p.category, supplier: p.supplier, unit_cost: p.unit_cost, order_cost: p.order_cost, holding_rate: p.holding_rate, lead_time_days: p.lead_time_days, moq: p.moq });
     setEditing(p);
     setModal("edit");
   }
@@ -68,23 +64,11 @@ export default function Products() {
   const mutError = (createMut.error || updateMut.error) as any;
   const isSaving = createMut.isPending || updateMut.isPending;
   const alertCount = products.filter(p => !p.unit_cost).length;
-  const families = [...new Set(products.map(p => p.family))];
+  const categories = [...new Set(products.map(p => p.category).filter(Boolean))] as string[];
+  const suppliers = [...new Set(products.map(p => p.supplier).filter(Boolean))] as string[];
 
   return (
     <div className="space-y-6">
-      {/* Business selector */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-        <label className="text-xs font-medium text-gray-500 block mb-1">Negocio</label>
-        <select
-          value={businessId ?? ""}
-          onChange={e => setBusinessId(e.target.value ? Number(e.target.value) : null)}
-          className="w-64 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
-        >
-          <option value="">Selecciona un negocio</option>
-          {businesses?.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-      </div>
-
       {businessId == null ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-16 flex flex-col items-center text-gray-400">
           <Package className="w-10 h-10 mb-2 opacity-20" />
@@ -95,7 +79,7 @@ export default function Products() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
         {[
-          { label: "Total familias",    value: String(page?.total_families ?? 0), icon: Package,       bg: "bg-blue-50",    text: "text-blue-900"   },
+          { label: "Total productos",   value: String(page?.total_families ?? 0), icon: Package,       bg: "bg-blue-50",    text: "text-blue-900"   },
           { label: "Configuradas",      value: String(products.length),           icon: Package,       bg: "bg-emerald-50", text: "text-emerald-500" },
           { label: "Sin costo cargado", value: String(alertCount),                icon: AlertTriangle, bg: "bg-red-50",     text: "text-red-500"    },
         ].map(({ label, value, icon: Icon, bg, text }) => (
@@ -114,13 +98,18 @@ export default function Products() {
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
-          <p className="text-sm text-gray-500">{products.length} familia{products.length !== 1 ? "s" : ""} configurada{products.length !== 1 ? "s" : ""}</p>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar producto, familia o proveedor..."
+            className="w-72 max-w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+          />
           <button
             onClick={openCreate}
             className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-600 text-white rounded-lg hover:opacity-90 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Nueva familia
+            Nuevo producto
           </button>
         </div>
 
@@ -140,7 +129,7 @@ export default function Products() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {["Familia", "Tienda", "Costo unit.", "Costo pedido", "Lead time", "MOQ", ""].map(h => (
+                  {["Producto", "Familia", "Proveedor", "Costo unit.", "Costo pedido", "Lead time", "MOQ", ""].map(h => (
                     <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -149,7 +138,8 @@ export default function Products() {
                 {products.map(p => (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-800">{p.family}</td>
-                    <td className="px-6 py-4 text-gray-500">{p.store_nbr}</td>
+                    <td className="px-6 py-4 text-gray-500">{p.category ?? "—"}</td>
+                    <td className="px-6 py-4 text-gray-500">{p.supplier ?? "—"}</td>
                     <td className="px-6 py-4 text-gray-700">
                       {p.unit_cost ? `$${p.unit_cost.toLocaleString("es-CL")}` : <span className="text-red-400 text-xs">Sin costo</span>}
                     </td>
@@ -189,29 +179,41 @@ export default function Products() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-500">Familia</label>
+                  <label className="text-xs font-medium text-gray-500">Producto</label>
                   <input
                     required
                     disabled={modal === "edit"}
                     value={form.family}
                     onChange={e => setForm(f => ({ ...f, family: e.target.value.toUpperCase() }))}
                     className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30 disabled:bg-gray-50 disabled:text-gray-400"
-                    placeholder="BEBIDAS"
-                    list="families-list"
+                    placeholder="COCA-COLA 1.5L"
                   />
-                  <datalist id="families-list">
-                    {families.map(fam => <option key={fam} value={fam} />)}
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500">Familia</label>
+                  <input
+                    value={form.category ?? ""}
+                    onChange={e => setForm(f => ({ ...f, category: e.target.value.toUpperCase() || null }))}
+                    className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                    placeholder="BEBIDAS"
+                    list="categories-list"
+                  />
+                  <datalist id="categories-list">
+                    {categories.map(c => <option key={c} value={c} />)}
                   </datalist>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500">Tienda</label>
+                  <label className="text-xs font-medium text-gray-500">Proveedor</label>
                   <input
-                    required type="number" min={1} max={54}
-                    disabled={modal === "edit"}
-                    value={form.store_nbr}
-                    onChange={e => setForm(f => ({ ...f, store_nbr: Number(e.target.value) }))}
-                    className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30 disabled:bg-gray-50 disabled:text-gray-400"
+                    value={form.supplier ?? ""}
+                    onChange={e => setForm(f => ({ ...f, supplier: e.target.value || null }))}
+                    className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                    placeholder="Embotelladora Andina"
+                    list="suppliers-list"
                   />
+                  <datalist id="suppliers-list">
+                    {suppliers.map(s => <option key={s} value={s} />)}
+                  </datalist>
                 </div>
               </div>
 

@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { ShoppingCart, CheckCircle, Clock, Truck, Plus, Loader2, XCircle, Download } from 'lucide-react';
-import { useActiveBusinessId } from '../../auth/store/authStore';
+import { ShoppingCart, CheckCircle, Clock, Truck, Plus, Loader2, XCircle, Download, Search, Wand2 } from 'lucide-react';
+import { useActiveBusinessId, useActiveStoreNbr } from '../../auth/store/authStore';
 import { fetchOrders, generateOrders, updateOrderStatus, exportOrders, PurchaseOrder } from '../api/orders';
 import { downloadBlob } from '../../../shared/lib/utils';
 import { toast } from '../../../shared/ui/toastStore';
+import OrderDetail from '../components/OrderDetail';
+import OrderForm from '../components/OrderForm';
 
 const rowVariants = {
   hidden: { opacity: 0, y: 6 },
@@ -43,6 +45,8 @@ const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'cancelled', label: 'Canceladas' },
 ];
 
+const fmtCLP = (n: number) => `$${Math.round(n).toLocaleString('es-CL')}`;
+
 const fmtDate = (s: string | null) =>
   s ? new Date(s).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
@@ -50,13 +54,20 @@ export default function Orders() {
   const businessId = useActiveBusinessId();
   const queryClient = useQueryClient();
 
-  const [storeNbr] = useState(1);
+  const storeNbr = useActiveStoreNbr();
   const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [selected, setSelected] = useState<PurchaseOrder | null>(null);
+  const [form, setForm] = useState<{ order: PurchaseOrder | null } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const deferredSearch = useDeferredValue(search);
+  const filters = { store_nbr: String(storeNbr), status: statusFilter, q: deferredSearch.trim(), date_from: dateFrom, date_to: dateTo };
 
   const ordersQuery = useQuery({
-    queryKey: ['orders', businessId, storeNbr, statusFilter],
-    queryFn: () => fetchOrders(businessId!, storeNbr, statusFilter || undefined),
+    queryKey: ['orders', businessId, filters],
+    queryFn: () => fetchOrders(businessId!, filters),
     enabled: businessId != null,
   });
 
@@ -65,6 +76,7 @@ export default function Orders() {
       updateOrderStatus(orderId, businessId!, newStatus),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders', businessId] });
+      queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith('inventory') });
       toast.success('Estado actualizado');
     },
   });
@@ -75,8 +87,8 @@ export default function Orders() {
       queryClient.invalidateQueries({ queryKey: ['orders', businessId] });
       toast.success(
         data.length > 0
-          ? `Se generaron ${data.length} orden${data.length !== 1 ? 'es' : ''}.`
-          : 'No hay SKUs que requieran una orden por ahora.'
+          ? `Se generaron ${data.length} OC: ${data.map((o) => `${o.order_number} (${o.supplier ?? 'sin proveedor'})`).join(', ')}`
+          : 'No hay productos críticos sin orden abierta.'
       );
     },
   });
@@ -85,7 +97,7 @@ export default function Orders() {
     if (!businessId) return;
     setIsExporting(true);
     try {
-      const blob = await exportOrders(businessId, storeNbr, statusFilter || undefined);
+      const blob = await exportOrders(businessId, filters);
       downloadBlob(blob, `ordenes_${businessId}.xlsx`);
     } finally {
       setIsExporting(false);
@@ -138,7 +150,31 @@ export default function Orders() {
             <span className="text-sm font-semibold text-gray-700">Órdenes de compra</span>
             {ordersQuery.isLoading && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="N° OC, producto o proveedor"
+                aria-label="Buscar órdenes"
+                className="border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-sm text-gray-600 w-56"
+              />
+            </div>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              aria-label="Creada desde"
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-600"
+            />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              aria-label="Creada hasta"
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-600"
+            />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -159,14 +195,18 @@ export default function Orders() {
             <button
               onClick={() => generateMutation.mutate()}
               disabled={generateMutation.isPending}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-600 text-white rounded-lg hover:opacity-90 transition-transform active:scale-[0.97] disabled:opacity-60"
+              title="Crea una OC por proveedor con los productos bajo su punto de reorden (s)"
+              className="flex items-center gap-2 px-3 py-2 text-sm border border-orange-200 text-orange-700 bg-orange-50 rounded-lg hover:bg-orange-100 transition-transform active:scale-[0.97] disabled:opacity-60"
             >
-              {generateMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4" />
-              )}
-              Generar órdenes
+              {generateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+              Generar automáticas
+            </button>
+            <button
+              onClick={() => setForm({ order: null })}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-600 text-white rounded-lg hover:opacity-90 transition-transform active:scale-[0.97]"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva orden
             </button>
           </div>
         </div>
@@ -189,8 +229,8 @@ export default function Orders() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Familia', 'Cantidad', 'Stock trigger', 'Punto s', 'Política', 'Estado', 'Creada', 'Entrega esperada', ''].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                  {['N° OC', 'Proveedor', 'Productos', 'Total', 'Estado', 'Creada', 'Entrega esperada', ''].map((h, hi) => (
+                    <th key={hi} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -206,13 +246,15 @@ export default function Orders() {
                       initial="hidden"
                       animate="visible"
                       variants={rowVariants}
-                      className="hover:bg-gray-50 transition-colors"
+                      onClick={() => setSelected(o)}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-4 font-medium text-gray-800 whitespace-nowrap">{o.family}</td>
-                      <td className="px-4 py-4 text-gray-700">{o.quantity}</td>
-                      <td className="px-4 py-4 text-gray-500">{o.trigger_stock ?? '—'}</td>
-                      <td className="px-4 py-4 text-gray-500">{o.reorder_point_s ?? '—'}</td>
-                      <td className="px-4 py-4 text-gray-500">{o.policy_used}</td>
+                      <td className="px-4 py-4 font-mono font-medium text-gray-800 whitespace-nowrap">{o.order_number}</td>
+                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{o.supplier ?? <span className="text-gray-400">Sin proveedor</span>}</td>
+                      <td className="px-4 py-4 text-gray-500 max-w-[260px] truncate" title={o.lines.map((l) => l.family).join(', ')}>
+                        {o.lines.length} · {o.lines.map((l) => l.family).join(', ')}
+                      </td>
+                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{o.total_cost != null ? fmtCLP(o.total_cost) : '—'}</td>
                       <td className="px-4 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[o.status]}`}>
                           {STATUS_LABELS[o.status]}
@@ -223,7 +265,7 @@ export default function Orders() {
                       <td className="px-4 py-4">
                         {next && (
                           <button
-                            onClick={() => statusMutation.mutate({ orderId: o.id, newStatus: next.status })}
+                            onClick={(e) => { e.stopPropagation(); statusMutation.mutate({ orderId: o.id, newStatus: next.status }); }}
                             disabled={statusMutation.isPending}
                             className="px-3 py-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors active:scale-[0.95] disabled:opacity-50 whitespace-nowrap"
                           >
@@ -239,6 +281,31 @@ export default function Orders() {
           </div>
         )}
       </div>
+
+      <OrderDetail
+        order={selected}
+        businessId={businessId}
+        onClose={() => setSelected(null)}
+        onEdit={(o) => setForm({ order: o })}
+        onChanged={(o) => {
+          setSelected(o);
+          queryClient.invalidateQueries({ queryKey: ['orders', businessId] });
+          queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith('inventory') });
+        }}
+      />
+      <OrderForm
+        open={!!form}
+        businessId={businessId}
+        storeNbr={storeNbr}
+        order={form?.order}
+        onClose={() => setForm(null)}
+        onSaved={(o) => {
+          toast.success(form?.order ? `${o.order_number} actualizada` : `${o.order_number} creada`);
+          setForm(null);
+          setSelected(o);
+          queryClient.invalidateQueries({ queryKey: ['orders', businessId] });
+        }}
+      />
     </div>
   );
 }

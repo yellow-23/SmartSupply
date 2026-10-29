@@ -3,7 +3,7 @@ import { Upload, FileText, ImageIcon, CheckCircle, AlertTriangle, Loader2, Send,
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { useAuthStore } from "../../auth/store/authStore";
+import { useAuthStore, useActiveBusinessId, useActiveStoreNbr } from "../../auth/store/authStore";
 import { useIngestStore } from "../store/ingestStore";
 import { previewIngest, confirmIngest, chatIngest, IngestPreview, ChatMessage, ChatResponse } from "../api/ingest";
 import {
@@ -43,8 +43,13 @@ export default function Ingest() {
     reset,
   } = useIngestStore();
 
-  // Negocio destino efectivo: el elegido o, por defecto, el del usuario
-  const destBusinessId = businessId ?? user?.business_id ?? null;
+  // Destino efectivo: el elegido aqui o, por defecto, el negocio/ubicacion activos de la app
+  const activeBusinessId = useActiveBusinessId();
+  const activeStoreNbr = useActiveStoreNbr();
+  const setActiveBusiness = useAuthStore(s => s.setActiveBusiness);
+  const setActiveStore = useAuthStore(s => s.setActiveStore);
+  const destBusinessId = businessId ?? activeBusinessId;
+  const destStoreNbr = businessId == null ? activeStoreNbr : storeNbr;
 
   const businessesQuery = useQuery({ queryKey: ["businesses"], queryFn: listBusinesses });
   const destStoresQuery = useQuery({
@@ -66,6 +71,7 @@ export default function Ingest() {
     mutationFn: (values: Record<string, string>) => createBusinessStore(destBusinessId!, values as { name: string }),
     onSuccess: (store) => {
       queryClient.invalidateQueries({ queryKey: ["stores", destBusinessId] });
+      setBusinessId(destBusinessId);
       setStoreNbr(store.store_nbr);
     },
   });
@@ -84,7 +90,7 @@ export default function Ingest() {
 
   const chatMut = useMutation({
     mutationFn: ({ messages, summary }: { messages: ChatMessage[]; summary: string }) =>
-      chatIngest(messages, summary),
+      chatIngest(messages, summary, destBusinessId),
     onSuccess: (res: ChatResponse, { messages }) => {
       setChatMessages([...messages, { role: "assistant", content: res.reply }]);
       if (res.trigger_confirm && preview) {
@@ -141,16 +147,19 @@ export default function Ingest() {
   const confirmMut = useMutation({
     mutationFn: () => confirmIngest(
       preview!.records,
-      storeNbr,
+      destStoreNbr,
       destBusinessId ?? 1,
       salesUnit ?? "units",
       fileName,
       inferFileType(fileName),
-      (preview!.data_type ?? "sales") as "sales" | "stock" | "products",
+      (preview!.data_type ?? "sales") as "sales" | "stock" | "products" | "workbook",
       preview!.stock_records ?? [],
       preview!.product_records ?? [],
     ),
     onSuccess: (data) => {
+      // La app pasa a trabajar en el negocio/ubicacion donde quedaron los datos
+      setActiveBusiness(destBusinessId!);
+      setActiveStore(destStoreNbr);
       setSuccessData({ loaded: data.records_loaded, families: data.families, start: data.date_range_start, end: data.date_range_end });
       setStep("success");
     },
@@ -178,6 +187,67 @@ export default function Ingest() {
   const confirmError = confirmMut.error as any;
   const hasBothCols = preview?.records.some(r => r.revenue != null) ?? false;
 
+  const destBusinessName = businessesQuery.data?.find(b => b.id === destBusinessId)?.name ?? "tu negocio";
+  const destStore = destStoresQuery.data?.find(s => s.store_nbr === destStoreNbr);
+  const destStoreLabel = destStore ? storeLabel(destStore) : `Ubicación ${destStoreNbr}`;
+
+  const destinationCard = (
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">¿Para qué negocio son estos datos?</p>
+          <p className="text-xs text-gray-400">Parte con el negocio en que estás trabajando. Si la carga es de otro, cámbialo o crea uno nuevo.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={destBusinessId ?? ""}
+            onChange={e => { setBusinessId(Number(e.target.value)); setStoreNbr(1); }}
+            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+          >
+            {businessesQuery.data?.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={() => setCreating("business")}
+            className="flex items-center gap-1 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Nuevo negocio
+          </button>
+
+          {destBusinessId != null && (
+            <select
+              value={destStoreNbr}
+              onChange={e => { setBusinessId(destBusinessId); setStoreNbr(Number(e.target.value)); }}
+              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+            >
+              {destStoresQuery.data && destStoresQuery.data.length > 0 ? (
+                destStoresQuery.data.map(s => (
+                  <option key={s.store_nbr} value={s.store_nbr}>{storeLabel(s)}</option>
+                ))
+              ) : (
+                <option value={destStoreNbr}>Ubicación {destStoreNbr}</option>
+              )}
+            </select>
+          )}
+
+          {destBusinessId != null && (
+            <button
+              type="button"
+              onClick={() => setCreating("store")}
+              className="flex items-center gap-1 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Nueva ubicación
+            </button>
+          )}
+        </div>
+        {destBusinessId == null && (
+          <p className="text-xs text-amber-700 font-medium">Elige un negocio destino antes de confirmar la carga.</p>
+        )}
+      </div>
+  );
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
@@ -188,6 +258,8 @@ export default function Ingest() {
       {/* Step 1: Upload */}
       {step === "upload" && (
         <div className="space-y-4">
+          {destinationCard}
+
           <div
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
@@ -236,78 +308,7 @@ export default function Ingest() {
       {/* Step 2: Preview */}
       {step === "preview" && preview && (
         <div className="space-y-6">
-          {/* Selector de destino: negocio + ubicacion */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-3">
-            <p className="text-sm font-semibold text-gray-800">¿Dónde quieres guardar estos datos?</p>
-            <div className="flex flex-wrap items-center gap-3">
-              <select
-                value={destBusinessId ?? ""}
-                onChange={e => setBusinessId(e.target.value === "" ? null : Number(e.target.value))}
-                className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
-              >
-                <option value="">Selecciona un negocio</option>
-                {businessesQuery.data?.map(b => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() => setCreating("business")}
-                className="flex items-center gap-1 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Nuevo negocio
-              </button>
-
-              {destBusinessId != null && (
-                <select
-                  value={storeNbr}
-                  onChange={e => setStoreNbr(Number(e.target.value))}
-                  className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
-                >
-                  {destStoresQuery.data && destStoresQuery.data.length > 0 ? (
-                    destStoresQuery.data.map(s => (
-                      <option key={s.store_nbr} value={s.store_nbr}>{storeLabel(s)}</option>
-                    ))
-                  ) : (
-                    <option value={storeNbr}>Ubicación {storeNbr}</option>
-                  )}
-                </select>
-              )}
-
-              {destBusinessId != null && (
-                <button
-                  type="button"
-                  onClick={() => setCreating("store")}
-                  className="flex items-center gap-1 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                >
-                  <Plus className="w-4 h-4" /> Nueva ubicación
-                </button>
-              )}
-            </div>
-            {destBusinessId == null && (
-              <p className="text-xs text-amber-700 font-medium">Elige un negocio destino antes de confirmar la carga.</p>
-            )}
-          </div>
-
-          <FormModal
-            open={creating === "business"}
-            title="Nuevo negocio"
-            description="Quedarás como dueño. Se crea con una ubicación inicial (Tienda Principal)."
-            fields={BUSINESS_FORM_FIELDS}
-            submitLabel="Crear negocio"
-            onSubmit={newBusinessMut.mutateAsync}
-            onClose={() => setCreating(null)}
-          />
-          <FormModal
-            open={creating === "store"}
-            title="Nueva ubicación"
-            description={`Se agrega a ${businessesQuery.data?.find(b => b.id === destBusinessId)?.name ?? "este negocio"} y queda seleccionada como destino de la carga.`}
-            fields={STORE_FORM_FIELDS}
-            submitLabel="Crear ubicación"
-            onSubmit={newStoreMut.mutateAsync}
-            onClose={() => setCreating(null)}
-          />
+          {destinationCard}
 
           {/* Summary bar */}
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -334,13 +335,13 @@ export default function Ingest() {
                   confirmMut.isPending ||
                   preview.records_found === 0 ||
                   preview.quality_issues.some(q => q.severity === "error") ||
-                  (preview.data_type === "sales" && salesUnit === null) ||
+                  (preview.records.length > 0 && salesUnit === null) ||
                   destBusinessId == null
                 }
                 title={
                   destBusinessId == null
                     ? "Elige un negocio destino antes de confirmar la carga."
-                    : preview.data_type === "sales" && salesUnit === null
+                    : preview.records.length > 0 && salesUnit === null
                     ? "Debes indicar si los valores son pesos CLP o unidades antes de confirmar."
                     : preview.quality_issues.some(q => q.severity === "error")
                     ? "Hay errores de calidad bloqueantes. Resuélvelos antes de cargar."
@@ -398,7 +399,16 @@ export default function Ingest() {
             </div>
           )}
 
-          {(!preview.data_type || preview.data_type === "sales") && (
+          {preview.data_type === "workbook" && (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4">
+              <p className="text-sm font-semibold text-blue-800">Libro con varias hojas detectado</p>
+              <p className="text-xs text-blue-600 mt-1">
+                Se cargará todo junto, en este orden: catálogo ({preview.product_records.length} productos),
+                ventas ({preview.records.length.toLocaleString("es-CL")} filas) y stock ({preview.stock_records.length} productos).
+              </p>
+            </div>
+          )}
+          {preview.records.length > 0 && (
             hasBothCols ? (
               <div className="rounded-2xl border border-green-200 bg-green-50 px-5 py-4 flex items-center gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
@@ -508,13 +518,69 @@ export default function Ingest() {
             </div>
           </div>
 
+          {preview.product_records.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <p className="px-6 pt-4 text-sm font-semibold text-gray-700">Catálogo ({preview.product_records.length})</p>
+              <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      {["Producto", "Familia", "Proveedor", "Costo unit.", "Costo pedido", "Lead time", "MOQ"].map(h => (
+                        <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {preview.product_records.map((p, i) => (
+                      <tr key={i}>
+                        <td className="px-6 py-2.5 font-medium text-gray-700">{p.family}</td>
+                        <td className="px-6 py-2.5 text-gray-500">{p.category ?? "—"}</td>
+                        <td className="px-6 py-2.5 text-gray-500">{p.supplier ?? "—"}</td>
+                        <td className="px-6 py-2.5 text-gray-600">{p.unit_cost != null ? `$${p.unit_cost.toLocaleString("es-CL")}` : "—"}</td>
+                        <td className="px-6 py-2.5 text-gray-600">{p.order_cost != null ? `$${p.order_cost.toLocaleString("es-CL")}` : "—"}</td>
+                        <td className="px-6 py-2.5 text-gray-600">{p.lead_time_days != null ? `${p.lead_time_days}d` : "—"}</td>
+                        <td className="px-6 py-2.5 text-gray-600">{p.moq ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {preview.stock_records.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <p className="px-6 pt-4 text-sm font-semibold text-gray-700">Stock ({preview.stock_records.length})</p>
+              <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      {["Producto", "Stock disponible"].map(h => (
+                        <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {preview.stock_records.map((r, i) => (
+                      <tr key={i}>
+                        <td className="px-6 py-2.5 font-medium text-gray-700">{r.family}</td>
+                        <td className="px-6 py-2.5 text-gray-600">{r.quantity.toLocaleString("es-CL")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Records table */}
+          {preview.records.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto max-h-96 overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    {["Fecha", "Familia", "Unidades", hasBothCols ? "Monto (CLP)" : "Promo"].map(h => (
+                    {["Fecha", "Producto", "Familia", "Unidades", hasBothCols ? "Monto (CLP)" : "Promo"].map(h => (
                       <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
@@ -524,6 +590,7 @@ export default function Ingest() {
                     <tr key={i} className="hover:bg-gray-50">
                       <td className="px-6 py-3 font-medium text-gray-700">{r.date}</td>
                       <td className="px-6 py-3 text-gray-600">{r.family}</td>
+                      <td className="px-6 py-3 text-gray-400">{r.category ?? "—"}</td>
                       <td className="px-6 py-3 font-semibold text-gray-800">{r.sales.toLocaleString("es-CL")}</td>
                       <td className="px-6 py-3">
                         {hasBothCols ? (
@@ -543,10 +610,11 @@ export default function Ingest() {
             </div>
             {preview.records.length > 10 && (
               <p className="text-xs text-gray-400 mt-2 text-center">
-                Mostrando 10 de {preview.records_found.toLocaleString("es-CL")} registros
+                Mostrando 10 de {preview.records.length.toLocaleString("es-CL")} registros de ventas
               </p>
             )}
           </div>
+          )}
         </div>
       )}
 
@@ -559,16 +627,37 @@ export default function Ingest() {
           <div className="space-y-2">
             <h3 className="text-2xl font-bold text-gray-800">¡Datos cargados!</h3>
             <p className="text-gray-500">
-              <span className="font-semibold text-gray-700">{successData.loaded} registros</span> cargados en tienda {storeNbr} · {successData.start} → {successData.end}
+              <span className="font-semibold text-gray-700">{successData.loaded} registros</span> cargados en{" "}
+              <span className="font-semibold text-gray-700">{destBusinessName}</span>
+              {" · "}{destStoreLabel} · {successData.start} → {successData.end}
             </p>
             <p className="text-sm text-gray-400">{successData.families.join(", ")}</p>
           </div>
           <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Te llevamos a tu Inicio...</span>
+            <span>Te llevamos al Inicio de {destBusinessName}...</span>
           </div>
         </div>
       )}
+
+          <FormModal
+            open={creating === "business"}
+            title="Nuevo negocio"
+            description="Quedarás como dueño. Se crea con una ubicación inicial (Tienda Principal)."
+            fields={BUSINESS_FORM_FIELDS}
+            submitLabel="Crear negocio"
+            onSubmit={newBusinessMut.mutateAsync}
+            onClose={() => setCreating(null)}
+          />
+          <FormModal
+            open={creating === "store"}
+            title="Nueva ubicación"
+            description={`Se agrega a ${businessesQuery.data?.find(b => b.id === destBusinessId)?.name ?? "este negocio"} y queda seleccionada como destino de la carga.`}
+            fields={STORE_FORM_FIELDS}
+            submitLabel="Crear ubicación"
+            onSubmit={newStoreMut.mutateAsync}
+            onClose={() => setCreating(null)}
+          />
     </div>
   );
 }

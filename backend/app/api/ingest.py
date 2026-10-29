@@ -71,10 +71,154 @@ def confirm_ingest(
         db.add(Store(business_id=body.business_id, store_nbr=body.store_nbr, name=f"Tienda {body.store_nbr}"))
         db.flush()
 
+    # Un libro Excel con varias hojas ("workbook") trae catalogo, ventas y stock juntos.
+    # Orden: catalogo primero (categoria/proveedor), luego ventas, luego stock.
+    want = lambda t: data_type in (t, "workbook")
+    if not any([
+        want("products") and body.product_records,
+        want("sales") and body.records,
+        want("stock") and body.stock_records,
+    ]):
+        raise HTTPException(status_code=400, detail="No hay registros para cargar.")
+
+    from datetime import date as date_type
+    today = date_type.today()
+    loaded = 0
+    families: set[str] = set()
+    dates: list = []
+
+    # ── Products catalog ────────────────────────────────────────────────────────
+    if want("products") and body.product_records:
+        for rec in body.product_records:
+            existing = db.query(Product).filter(
+                Product.business_id == body.business_id,
+                Product.store_nbr == body.store_nbr,
+                Product.family == rec.family,
+            ).first()
+            if existing:
+                if rec.category:
+                    existing.category = rec.category
+                if rec.supplier:
+                    existing.supplier = rec.supplier
+                if rec.unit_cost is not None:
+                    existing.unit_cost = rec.unit_cost
+                if rec.order_cost is not None:
+                    existing.order_cost = rec.order_cost
+                if rec.lead_time_days is not None:
+                    existing.lead_time_days = rec.lead_time_days
+                if rec.moq is not None:
+                    existing.moq = rec.moq
+            else:
+                kwargs: dict = {
+                    "business_id": body.business_id,
+                    "store_nbr": body.store_nbr,
+                    "family": rec.family,
+                    "category": rec.category,
+                    "supplier": rec.supplier,
+                }
+                if rec.unit_cost is not None:
+                    kwargs["unit_cost"] = rec.unit_cost
+                if rec.order_cost is not None:
+                    kwargs["order_cost"] = rec.order_cost
+                if rec.lead_time_days is not None:
+                    kwargs["lead_time_days"] = rec.lead_time_days
+                if rec.moq is not None:
+                    kwargs["moq"] = rec.moq
+                db.add(Product(**kwargs))
+        db.flush()  # las ventas de abajo deben ver los productos recien creados
+        loaded += len(body.product_records)
+        families.update(r.family for r in body.product_records)
+        dates.append(today)
+
+    # ── Sales ───────────────────────────────────────────────────────────────────
+    if want("sales") and body.records:
+        # Re-valida en el backend: el boton del frontend ya bloquea ante issues
+        # "error", pero esto evita que alguien confirme igual llamando al endpoint
+        # directo (ej. desde /docs) con datos que el validador marco como bloqueantes.
+        blocking = [i for i in validate_ingest_records(body.records) if i.severity == "error"]
+        if blocking:
+            detail = "; ".join(f"[{i.code}] {i.message}" for i in blocking)
+            raise HTTPException(
+                status_code=422,
+                detail=f"La carga tiene incidencias bloqueantes de calidad: {detail}",
+            )
+
+        loadable = filter_loadable_records(body.records)
+        if not loadable:
+            raise HTTPException(
+                status_code=400,
+                detail="Ningun registro es cargable (fechas futuras o ventas en cero).",
+            )
+
+        # Aggregate by (date, family) to avoid unique constraint violations when
+        # the source file has one row per product transaction within the same family.
+        agg: dict[tuple, dict] = {}
+        for r in loadable:
+            key = (r.date, r.family)
+            if key not in agg:
+                agg[key] = {"sales": 0.0, "revenue": None, "onpromotion": r.onpromotion}
+            agg[key]["sales"] += r.sales
+            if r.revenue is not None:
+                agg[key]["revenue"] = (agg[key]["revenue"] or 0.0) + r.revenue
+            if r.onpromotion:
+                agg[key]["onpromotion"] = 1
+
+        aggregated = list(agg.items())
+        sales_dates = [k[0] for k in agg]
+        sales_families = sorted(set(k[1] for k in agg))
+
+        log = IngestLog(
+            business_id=body.business_id,
+            store_nbr=body.store_nbr,
+            user_id=current_user.id,
+            filename=body.filename,
+            file_type=body.file_type,
+            records_loaded=len(aggregated),
+            sales_unit=body.sales_unit,
+            date_range_start=min(sales_dates),
+            date_range_end=max(sales_dates),
+            families=sales_families,
+            status="active",
+        )
+        db.add(log)
+        db.flush()  # asigna log.id sin cerrar la transaccion
+
+        for (date_val, family_val), vals in aggregated:
+            db.add(SalesHistory(
+                business_id=body.business_id,
+                store_nbr=body.store_nbr,
+                date=date_val,
+                family=family_val,
+                sales=vals["sales"],
+                revenue=vals["revenue"],
+                onpromotion=vals["onpromotion"],
+                sales_unit=body.sales_unit,
+                ingest_id=log.id,
+            ))
+
+        categories = {r.family: r.category for r in loadable if r.category}
+        for family in sales_families:
+            exists = db.query(Product).filter(
+                Product.business_id == body.business_id,
+                Product.family == family,
+                Product.store_nbr == body.store_nbr,
+            ).first()
+            if not exists:
+                db.add(Product(
+                    business_id=body.business_id,
+                    family=family,
+                    store_nbr=body.store_nbr,
+                    category=categories.get(family),
+                ))
+            elif categories.get(family) and not exists.category:
+                exists.category = categories[family]
+
+        loaded += len(aggregated)
+        families.update(sales_families)
+        dates += sales_dates
+
     # ── Stock snapshot ──────────────────────────────────────────────────────────
-    if data_type == "stock":
-        if not body.stock_records:
-            raise HTTPException(status_code=400, detail="No hay registros de stock para cargar.")
+    if want("stock") and body.stock_records:
         for rec in body.stock_records:
             existing = db.query(StockLevel).filter(
                 StockLevel.business_id == body.business_id,
@@ -90,152 +234,19 @@ def confirm_ingest(
                     family=rec.family,
                     quantity=rec.quantity,
                 ))
-        db.commit()
-        families = sorted(set(r.family for r in body.stock_records))
-        from datetime import date as date_type
-        today = date_type.today()
-        return IngestResponse(
-            store_nbr=body.store_nbr,
-            records_loaded=len(body.stock_records),
-            families=families,
-            date_range_start=today,
-            date_range_end=today,
-        )
-
-    # ── Products catalog ────────────────────────────────────────────────────────
-    if data_type == "products":
-        if not body.product_records:
-            raise HTTPException(status_code=400, detail="No hay registros de productos para cargar.")
-        for rec in body.product_records:
-            existing = db.query(Product).filter(
-                Product.business_id == body.business_id,
-                Product.store_nbr == body.store_nbr,
-                Product.family == rec.family,
-            ).first()
-            if existing:
-                if rec.unit_cost is not None:
-                    existing.unit_cost = rec.unit_cost
-                if rec.order_cost is not None:
-                    existing.order_cost = rec.order_cost
-                if rec.lead_time_days is not None:
-                    existing.lead_time_days = rec.lead_time_days
-                if rec.moq is not None:
-                    existing.moq = rec.moq
-            else:
-                kwargs: dict = {
-                    "business_id": body.business_id,
-                    "store_nbr": body.store_nbr,
-                    "family": rec.family,
-                }
-                if rec.unit_cost is not None:
-                    kwargs["unit_cost"] = rec.unit_cost
-                if rec.order_cost is not None:
-                    kwargs["order_cost"] = rec.order_cost
-                if rec.lead_time_days is not None:
-                    kwargs["lead_time_days"] = rec.lead_time_days
-                if rec.moq is not None:
-                    kwargs["moq"] = rec.moq
-                db.add(Product(**kwargs))
-        db.commit()
-        families = sorted(set(r.family for r in body.product_records))
-        from datetime import date as date_type
-        today = date_type.today()
-        return IngestResponse(
-            store_nbr=body.store_nbr,
-            records_loaded=len(body.product_records),
-            families=families,
-            date_range_start=today,
-            date_range_end=today,
-        )
-
-    # ── Sales (default) ─────────────────────────────────────────────────────────
-    if not body.records:
-        raise HTTPException(status_code=400, detail="No hay registros para cargar.")
-
-    # Re-valida en el backend: el boton del frontend ya bloquea ante issues
-    # "error", pero esto evita que alguien confirme igual llamando al endpoint
-    # directo (ej. desde /docs) con datos que el validador marco como bloqueantes.
-    blocking = [i for i in validate_ingest_records(body.records) if i.severity == "error"]
-    if blocking:
-        detail = "; ".join(f"[{i.code}] {i.message}" for i in blocking)
-        raise HTTPException(
-            status_code=422,
-            detail=f"La carga tiene incidencias bloqueantes de calidad: {detail}",
-        )
-
-    loadable = filter_loadable_records(body.records)
-    if not loadable:
-        raise HTTPException(
-            status_code=400,
-            detail="Ningun registro es cargable (fechas futuras o ventas en cero).",
-        )
-
-    # Aggregate by (date, family) to avoid unique constraint violations when
-    # the source file has one row per product transaction within the same family.
-    agg: dict[tuple, dict] = {}
-    for r in loadable:
-        key = (r.date, r.family)
-        if key not in agg:
-            agg[key] = {"sales": 0.0, "revenue": None, "onpromotion": r.onpromotion}
-        agg[key]["sales"] += r.sales
-        if r.revenue is not None:
-            agg[key]["revenue"] = (agg[key]["revenue"] or 0.0) + r.revenue
-        if r.onpromotion:
-            agg[key]["onpromotion"] = 1
-
-    aggregated = list(agg.items())
-    dates = [k[0] for k in agg]
-    families = sorted(set(k[1] for k in agg))
-
-    log = IngestLog(
-        business_id=body.business_id,
-        store_nbr=body.store_nbr,
-        user_id=current_user.id,
-        filename=body.filename,
-        file_type=body.file_type,
-        records_loaded=len(aggregated),
-        sales_unit=body.sales_unit,
-        date_range_start=min(dates),
-        date_range_end=max(dates),
-        families=families,
-        status="active",
-    )
-    db.add(log)
-    db.flush()  # asigna log.id sin cerrar la transaccion
-
-    for (date_val, family_val), vals in aggregated:
-        db.add(SalesHistory(
-            business_id=body.business_id,
-            store_nbr=body.store_nbr,
-            date=date_val,
-            family=family_val,
-            sales=vals["sales"],
-            revenue=vals["revenue"],
-            onpromotion=vals["onpromotion"],
-            sales_unit=body.sales_unit,
-            ingest_id=log.id,
-        ))
-
-    for family in families:
-        exists = db.query(Product).filter(
-            Product.business_id == body.business_id,
-            Product.family == family,
-            Product.store_nbr == body.store_nbr,
-        ).first()
-        if not exists:
-            db.add(Product(
-                business_id=body.business_id,
-                family=family,
-                store_nbr=body.store_nbr,
-            ))
+        loaded += len(body.stock_records)
+        families.update(r.family for r in body.stock_records)
+        dates.append(today)
 
     db.commit()
-    invalidate_business_cache(body.business_id)
+    if want("sales") and body.records:
+        invalidate_business_cache(body.business_id)
+        dates = sales_dates  # el rango que se informa es el de las ventas, no la fecha de carga del catalogo/stock
 
     return IngestResponse(
         store_nbr=body.store_nbr,
-        records_loaded=len(aggregated),
-        families=families,
+        records_loaded=loaded,
+        families=sorted(families),
         date_range_start=min(dates),
         date_range_end=max(dates),
     )
@@ -248,12 +259,14 @@ def ingest_chat(
     db: Session = Depends(get_db),
 ):
     """Stocky — asistente de ingesta. Aclara dudas sobre los datos extraídos."""
-    biz = db.query(Business).filter(Business.id == current_user.business_id).first()
+    business_id = body.business_id or current_user.business_id
+    assert_business_access(db, current_user, business_id)
+    biz = db.query(Business).filter(Business.id == business_id).first()
     business_name = biz.name if biz else ""
 
     existing = (
         db.query(IngestLog)
-        .filter(IngestLog.business_id == current_user.business_id, IngestLog.status == "active")
+        .filter(IngestLog.business_id == business_id, IngestLog.status == "active")
         .order_by(IngestLog.created_at.desc())
         .limit(10)
         .all()

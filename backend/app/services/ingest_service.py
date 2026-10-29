@@ -34,10 +34,11 @@ EXTRACTION_PROMPT = """Eres un asistente de datos para una plataforma de inventa
 Se te entrega un documento (imagen de cuaderno, Excel exportado o PDF) con registros de ventas de una tienda.
 
 Tu tarea:
-1. Identificar las columnas que corresponden a: fecha, producto/categoria, cantidad vendida, y si hubo promocion.
+1. Identificar las columnas que corresponden a: fecha, producto, categoria, cantidad vendida, y si hubo promocion.
 2. Extraer TODOS los registros de ventas que puedas encontrar.
 3. Normalizar las fechas al formato YYYY-MM-DD.
-4. Normalizar los nombres de producto/categoria a texto limpio en mayusculas (ej: "LACTEOS", "BEBIDAS", "ABARROTES").
+4. "family" es el producto MAS ESPECIFICO que aparezca, en mayusculas (ej: "COCA-COLA 1.5L", "PEPSI 500ML"). Si solo hay categoria general, usa la categoria.
+   "category" es la categoria general del producto en mayusculas (ej: "BEBIDAS", "LACTEOS", "ABARROTES"). Si el documento no la trae, infierela del nombre del producto; si no se puede, null.
 5. Si la cantidad es en pesos, unidades u otro, intentar interpretarla como numero decimal de ventas.
 
 Responde UNICAMENTE con un JSON valido con esta estructura exacta:
@@ -46,7 +47,8 @@ Responde UNICAMENTE con un JSON valido con esta estructura exacta:
   "records": [
     {
       "date": "YYYY-MM-DD",
-      "family": "NOMBRE_CATEGORIA",
+      "family": "NOMBRE_PRODUCTO",
+      "category": "NOMBRE_CATEGORIA",
       "sales": 123.45,
       "onpromotion": 0
     }
@@ -65,7 +67,8 @@ Tu tarea es detectar la estructura y devolver ÚNICAMENTE un JSON válido con es
 {
   "header_row": 2,
   "date_col": "Fecha",
-  "family_col": "Familia",
+  "family_col": "Producto",
+  "category_col": "Familia",
   "sales_col": "Unidades Vendidas",
   "revenue_col": "Total Venta",
   "promo_col": "Con Oferta",
@@ -77,7 +80,8 @@ Tu tarea es detectar la estructura y devolver ÚNICAMENTE un JSON válido con es
 Definiciones de cada campo:
 - header_row: índice 0-based de la fila que contiene los NOMBRES de las columnas (no datos). Si los datos empiezan en la fila 0 sin encabezado, devuelve -1.
 - date_col: nombre EXACTO (mismo case y caracteres) de la columna de fecha.
-- family_col: nombre EXACTO de la columna de producto, familia, categoría, SKU, ítem o descripción.
+- family_col: nombre EXACTO de la columna del producto MAS ESPECIFICO (SKU, ítem, descripción, producto). Si solo hay una columna de familia/categoría, usar esa.
+- category_col: nombre EXACTO de la columna de categoría general (familia, rubro, categoría) cuando existe ADEMAS de la de producto. Si no existe, null.
 - sales_col: nombre EXACTO de la columna de cantidad/unidades vendidas. Si no hay columna de unidades y solo hay monto, usar esa columna aquí y dejar revenue_col en null.
 - revenue_col: nombre EXACTO de la columna de monto total en pesos (CLP), ingreso o valor total. Si no existe columna de monto, devolver null.
 - promo_col: nombre EXACTO de la columna de promoción/oferta, o null si no existe.
@@ -125,6 +129,43 @@ class IngestService:
         return self._parse_claude_response(message.content[0].text)
 
     def preview_from_excel(self, file_bytes: bytes, filename: str) -> IngestPreview:
+        if not filename.lower().endswith(".csv"):
+            try:
+                xl = pd.ExcelFile(pd.io.common.BytesIO(file_bytes))
+                sheets = {n: xl.parse(n, header=None) for n in xl.sheet_names}
+                sheets = {n: df for n, df in sheets.items() if df.notna().any().any()}
+            except Exception:
+                sheets = {}
+            if len(sheets) > 1:
+                return self._preview_workbook(sheets)
+        return self._preview_sheet(file_bytes, filename)
+
+    def _preview_workbook(self, sheets: dict[str, pd.DataFrame]) -> IngestPreview:
+        """Libro con varias hojas: cada hoja se procesa por separado (ventas, stock o catalogo)
+        y se juntan en un solo preview. Las hojas que no son ninguno de los tres se ignoran."""
+        records, stock, products, warnings, kinds = [], [], [], [], set()
+        store_name = "Tienda sin nombre"
+        for name, df in sheets.items():
+            buf = pd.io.common.BytesIO()
+            df.to_excel(buf, header=False, index=False)
+            sub = self._preview_sheet(buf.getvalue(), f"{name}.xlsx")
+            if sub.data_type == "unknown" or sub.records_found == 0:
+                warnings.append(f"Hoja '{name}' ignorada: no parece ventas, stock ni catalogo de productos.")
+                continue
+            kinds.add(sub.data_type)
+            records += sub.records
+            stock += sub.stock_records
+            products += sub.product_records
+            warnings += [f"[{name}] {w}" for w in sub.warnings]
+            if sub.store_name not in ("Tienda sin nombre", "Desconocido"):
+                store_name = sub.store_name
+        data_type = kinds.pop() if len(kinds) == 1 else ("workbook" if kinds else "unknown")
+        return self._build_preview(
+            store_name, records, warnings, data_type=data_type,
+            stock_records=stock, product_records=products,
+        )
+
+    def _preview_sheet(self, file_bytes: bytes, filename: str) -> IngestPreview:
         is_csv = filename.lower().endswith(".csv")
 
         # Step 1: pick best sheet and read raw (no header assumption)
@@ -196,6 +237,7 @@ class IngestService:
 
         date_col = mapping.get("date_col")
         family_col = mapping.get("family_col")
+        category_col = mapping.get("category_col")
         sales_col = mapping.get("sales_col")
         revenue_col = mapping.get("revenue_col")
         promo_col = mapping.get("promo_col")
@@ -254,6 +296,7 @@ class IngestService:
                 records.append(IngestRecord(
                     date=date_val,
                     family=family_val,
+                    category=self._clean_category(row.get(category_col) if category_col else None),
                     sales=sales_val,
                     onpromotion=promo_val,
                     revenue=revenue_val,
@@ -414,20 +457,21 @@ class IngestService:
 
     def _extract_stock_with_claude(self, df: pd.DataFrame) -> list[StockRecord]:
         """Asks Claude Haiku to identify family/SKU and quantity columns."""
-        sample = df.head(20).to_string()
+        # shortcut: todo el archivo va en el prompt; sobre ~500 filas habria que mapear columnas y leer local
+        sample = df.head(500).to_string()
         prompt = (
             "Eres un asistente de datos. Se te entrega una muestra de archivo tabular.\n"
-            "Identifica las columnas de familia/SKU y stock/cantidad disponible.\n"
-            "Devuelve UNICAMENTE un JSON array con esta estructura exacta:\n"
-            '[{"family": "NOMBRE_FAMILIA", "quantity": 123.45}]\n'
-            "Normaliza los nombres de familia a mayusculas. Si no encuentras datos validos, devuelve [].\n"
+            "Identifica la columna del producto mas especifico (SKU/producto, no la familia) y la de stock/cantidad disponible.\n"
+            "Devuelve UNICAMENTE un JSON array con UNA entrada por CADA fila de datos:\n"
+            '[{"family": "NOMBRE_PRODUCTO", "quantity": 123.45}]\n'
+            "Normaliza los nombres a mayusculas. Si no encuentras datos validos, devuelve [].\n"
             "No incluyas texto fuera del JSON.\n\n"
             f"Muestra:\n{sample}"
         )
         try:
             msg = self.client.messages.create(
                 model="claude-haiku-4-5-20251001",
-                max_tokens=1000,
+                max_tokens=8000,
                 messages=[{"role": "user", "content": prompt}],
             )
             text = msg.content[0].text.strip()
@@ -450,21 +494,24 @@ class IngestService:
 
     def _extract_products_with_claude(self, df: pd.DataFrame) -> list[ProductRecord]:
         """Asks Claude Haiku to identify family, costs, lead_time, and MOQ columns."""
-        sample = df.head(20).to_string()
+        sample = df.head(500).to_string()
         prompt = (
             "Eres un asistente de datos. Se te entrega una muestra de un catalogo de productos.\n"
-            "Identifica las columnas de: familia/SKU, costo unitario, costo de pedido, "
+            "Identifica las columnas de: producto/SKU, categoria, proveedor, costo unitario, costo de pedido, "
             "lead_time en dias, MOQ (cantidad minima de orden).\n"
             "Devuelve UNICAMENTE un JSON array con esta estructura exacta:\n"
-            '[{"family": "NOMBRE", "unit_cost": 1500.0, "order_cost": 5000.0, "lead_time_days": 3, "moq": 10.0}]\n'
-            "Usa null para campos que no encuentres. Normaliza familia a mayusculas.\n"
+            '[{"family": "COCA-COLA 1.5L", "category": "BEBIDAS", "supplier": "Embotelladora Andina", '
+            '"unit_cost": 1500.0, "order_cost": 5000.0, "lead_time_days": 3, "moq": 10.0}]\n'
+            "family es el producto mas especifico. Usa null para campos que no encuentres. "
+            "Incluye UNA entrada por CADA fila de datos. "
+            "Normaliza family y category a mayusculas.\n"
             "No incluyas texto fuera del JSON.\n\n"
             f"Muestra:\n{sample}"
         )
         try:
             msg = self.client.messages.create(
                 model="claude-haiku-4-5-20251001",
-                max_tokens=1500,
+                max_tokens=8000,
                 messages=[{"role": "user", "content": prompt}],
             )
             text = msg.content[0].text.strip()
@@ -476,6 +523,8 @@ class IngestService:
             return [
                 ProductRecord(
                     family=str(r["family"]).upper().strip(),
+                    category=self._clean_category(r.get("category")),
+                    supplier=(str(r["supplier"]).strip() or None) if r.get("supplier") else None,
                     unit_cost=r.get("unit_cost"),
                     order_cost=r.get("order_cost"),
                     lead_time_days=r.get("lead_time_days"),
@@ -487,6 +536,11 @@ class IngestService:
         except Exception as e:
             print(f"[ingest_service] _extract_products_with_claude failed: {e}")
             return []
+
+    @staticmethod
+    def _clean_category(val) -> str | None:
+        s = str(val).upper().strip() if val is not None else ""
+        return None if s in ("", "NAN", "NONE", "NULL") else s
 
     def _parse_promo(self, val) -> int:
         """Returns 1 if the value indicates a promotion, 0 otherwise."""
@@ -526,7 +580,10 @@ class IngestService:
         col_lower = {c.lower().strip(): c for c in df.columns}
 
         date_col = next((col_lower[k] for k in col_lower if k in ("date", "fecha", "dia", "day")), None)
-        family_col = next((col_lower[k] for k in col_lower if k in ("family", "familia", "producto", "product", "categoria", "category", "item")), None)
+        product_col = next((col_lower[k] for k in col_lower if k in ("producto", "product", "item", "sku", "descripcion")), None)
+        group_col = next((col_lower[k] for k in col_lower if k in ("family", "familia", "categoria", "category", "subfamilia")), None)
+        family_col = product_col or group_col
+        category_col = group_col if product_col else None
         sales_col = next((col_lower[k] for k in col_lower if k in ("sales", "ventas", "cantidad", "quantity", "monto", "amount", "total")), None)
         promo_col = next((col_lower[k] for k in col_lower if k in ("onpromotion", "promocion", "promo", "oferta")), None)
 
@@ -548,6 +605,7 @@ class IngestService:
                 records.append(IngestRecord(
                     date=date_val,
                     family=family_val,
+                    category=self._clean_category(row.get(category_col) if category_col else None),
                     sales=sales_val,
                     onpromotion=self._parse_promo(row.get(promo_col) if promo_col else None),
                 ))
@@ -572,6 +630,7 @@ class IngestService:
                 IngestRecord(
                     date=r["date"],
                     family=str(r["family"]).upper().strip(),
+                    category=self._clean_category(r.get("category")),
                     sales=float(r["sales"]),
                     onpromotion=int(r.get("onpromotion", 0)),
                 )
@@ -647,19 +706,11 @@ AUTO-CONFIRMAR: Cuando el usuario indique que quiere proceder (ejemplos: "carga 
         sales_unit_detected = (
             "CLP" if any(i.code == "LIKELY_CURRENCY" for i in quality_issues) else "units"
         )
-        # For non-sales types, use families from the specialized record lists
-        if data_type == "stock" and stock_records:
-            families = sorted(set(r.family for r in stock_records))
-        elif data_type == "products" and product_records:
-            families = sorted(set(r.family for r in product_records))
-        else:
-            families = sorted(set(r.family for r in records))
+        families = sorted({r.family for r in [*records, *(stock_records or []), *(product_records or [])]})
 
         return IngestPreview(
             store_name=store_name,
-            records_found=len(records) if data_type == "sales" else (
-                len(stock_records) if stock_records else len(product_records or [])
-            ),
+            records_found=len(records) + len(stock_records or []) + len(product_records or []),
             date_range_start=min(dates) if dates else None,
             date_range_end=max(dates) if dates else None,
             families_detected=families,

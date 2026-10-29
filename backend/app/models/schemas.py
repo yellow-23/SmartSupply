@@ -5,7 +5,7 @@ Define los modelos de request/response para todos los endpoints
 
 from datetime import date, datetime
 from typing import Literal, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 # ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -35,6 +35,8 @@ class ProductCreate(BaseModel):
     business_id: int
     store_nbr: int
     family: str
+    category: Optional[str] = None
+    supplier: Optional[str] = None
     unit_cost: Optional[float] = None
     order_cost: float = 5000.0
     holding_rate: float = 0.25
@@ -47,6 +49,8 @@ class ProductResponse(BaseModel):
     business_id: int
     store_nbr: int
     family: str
+    category: Optional[str] = None
+    supplier: Optional[str] = None
     unit_cost: Optional[float]
     order_cost: float
     holding_rate: float
@@ -57,6 +61,8 @@ class ProductResponse(BaseModel):
 
 
 class ProductUpdate(BaseModel):
+    category: Optional[str] = None
+    supplier: Optional[str] = None
     unit_cost: Optional[float] = None
     order_cost: Optional[float] = None
     holding_rate: Optional[float] = None
@@ -89,22 +95,64 @@ class StockLevelResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PurchaseOrderLineResponse(BaseModel):
+    id: int
+    family: str
+    quantity: float
+    unit_cost: Optional[float]
+    trigger_stock: Optional[float]
+    reorder_point_s: Optional[float]
+    order_up_to_S: Optional[float]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PurchaseOrderLineIn(BaseModel):
+    family: str
+    quantity: float = Field(..., gt=0)
+    unit_cost: Optional[float] = Field(None, ge=0)
+
+
+class PurchaseOrderCreate(BaseModel):
+    business_id: int
+    store_nbr: int = 1
+    supplier: Optional[str] = None
+    expected_delivery: Optional[date] = None
+    lines: list[PurchaseOrderLineIn] = Field(..., min_length=1)
+
+
+class PurchaseOrderUpdate(BaseModel):
+    supplier: Optional[str] = None
+    expected_delivery: Optional[date] = None
+    lines: Optional[list[PurchaseOrderLineIn]] = Field(None, min_length=1)
+
+
 class PurchaseOrderResponse(BaseModel):
     id: int
     business_id: int
     store_nbr: int
-    family: str
-    quantity: float
-    trigger_stock: Optional[float]
-    reorder_point_s: Optional[float]
-    order_up_to_S: Optional[float]
+    supplier: Optional[str]
     policy_used: str
     status: str
     created_at: datetime
     expected_delivery: Optional[date]
     received_at: Optional[datetime]
+    lines: list[PurchaseOrderLineResponse]
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def order_number(self) -> str:
+        return f"OC-{self.id:06d}"
+
+    @computed_field
+    @property
+    def total_cost(self) -> Optional[float]:
+        """Solo si todas las lineas tienen costo; un total parcial confundiria."""
+        if not self.lines or any(l.unit_cost is None for l in self.lines):
+            return None
+        return round(sum(l.quantity * l.unit_cost for l in self.lines), 2)
 
 
 # ─── Forecasting ───────────────────────────────────────────────────────────────
@@ -191,7 +239,20 @@ class BusinessCreate(BaseModel):
     name: str = Field(..., example="Distribuidora Santa Elena")
     rut: Optional[str] = Field(None, example="76.123.456-7")
     city: Optional[str] = Field(None, example="Santiago")
+    address: Optional[str] = Field(None, example="Av. Grecia 1234, Ñuñoa")
+    phone: Optional[str] = Field(None, example="+56 9 1234 5678")
+    email: Optional[str] = Field(None, example="compras@santaelena.cl")
     type: Optional[Literal["retail", "distributor", "wholesale", "demo"]] = "distributor"
+
+
+class BusinessUpdate(BaseModel):
+    name: Optional[str] = None
+    rut: Optional[str] = None
+    city: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    type: Optional[Literal["retail", "distributor", "wholesale", "demo"]] = None
 
 
 class StoreCreate(BaseModel):
@@ -199,11 +260,19 @@ class StoreCreate(BaseModel):
     city: Optional[str] = Field(None, example="Santiago")
 
 
+class StoreUpdate(BaseModel):
+    name: Optional[str] = None
+    city: Optional[str] = None
+
+
 class BusinessResponse(BaseModel):
     id: int
     name: str
     rut: Optional[str] = None
     city: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
     type: Optional[str] = None
     owner_user_id: Optional[int] = None
     created_at: datetime
@@ -248,6 +317,7 @@ class SalesSummaryItem(BaseModel):
 class IngestRecord(BaseModel):
     date: date
     family: str
+    category: Optional[str] = None
     sales: float
     onpromotion: int = 0
     revenue: Optional[float] = None
@@ -268,6 +338,8 @@ class StockRecord(BaseModel):
 
 class ProductRecord(BaseModel):
     family: str
+    category: Optional[str] = None
+    supplier: Optional[str] = None
     unit_cost: Optional[float] = None
     order_cost: Optional[float] = None
     lead_time_days: Optional[int] = None
@@ -321,6 +393,7 @@ class IngestChatRequest(BaseModel):
     messages: list[ChatMessage]
     preview_summary: str
     business_name: str = ""
+    business_id: Optional[int] = None  # negocio destino de la carga; por defecto el principal del usuario
 
 
 class IngestChatResponse(BaseModel):

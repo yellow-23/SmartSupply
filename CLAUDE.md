@@ -208,7 +208,20 @@ ln -sf python3.11 venv/bin/python3
 ```
 Verificar: `python --version` debe decir `Python 3.11.x`
 
-## Estado actual (2026-09-23)
+## Estado actual (2026-10-29)
+
+### Completado - Productos por familia, OC completas, todo por negocio (2026-10-29)
+
+- [x] `family` ahora guarda el PRODUCTO/SKU (ej. COCA-COLA 1.5L); la familia (BEBIDAS) va en `products.category`, el proveedor en `products.supplier`. Forecast/inventario/stock/ordenes no cambiaron de clave
+- [x] OC = cabecera `purchase_orders` (numero `OC-{id:06d}`, `supplier`) + `purchase_order_lines`. Generar automaticas arma una OC por proveedor. Crear manual (`POST /orders`), editar si pendiente (`PATCH /orders/{id}`), PDF (`GET /orders/{id}/pdf`), busqueda `q` por numero/producto/proveedor + fechas. Columnas viejas `purchase_orders.family/quantity/...` quedan nullable sin uso (borrar en limpieza futura)
+- [x] Ingesta: libro Excel con varias hojas (catalogo + ventas + stock) se procesa hoja por hoja y se confirma junto (`data_type="workbook"`). Destino (negocio/ubicacion) se elige antes de subir y parte del activo
+- [x] Negocio/ubicacion activos globales (`useActiveBusinessId`, `useActiveStoreNbr` en `authStore`, selectores en `TopBar`). Productos, Datos, Inventario, Ordenes, Forecast y Stocky de ingesta los usan
+- [x] Pagina `/negocio`: datos de la empresa (RUT validado modulo 11 en `services/rut.py`, ciudad, direccion, telefono, correo), ubicaciones, otros negocios. `PATCH /businesses/{id}` y `/businesses/{id}/stores/{nbr}` (solo owner)
+- [x] Forecast ~2.7x mas rapido: ARIMA d por ADF + 4 candidatos estacionales (36 ajustes vs 144), XGBoost 200 arboles lr 0.1
+- Migraciones aplicadas en Supabase: `migrate_s7_oc_lines_category.sql`, `migrate_s8_business_contact.sql`
+- Libro de prueba: `datasets/prueba_s7/SmartSupply_libro_prueba.xlsx` (regenerar con `generar_libro.py`)
+
+## Estado anterior (2026-09-23)
 
 ### Completado - Cierre de brechas vs casos de uso de la tesis (2026-09-23)
 

@@ -1,4 +1,5 @@
 from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, JSON, Numeric, String, Text
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -24,6 +25,9 @@ class Business(Base):
     name = Column(String, nullable=False)
     rut = Column(String, unique=True, nullable=True)
     city = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    phone = Column(String(30), nullable=True)
+    email = Column(String, nullable=True)
     type = Column(String, nullable=True)
     owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     onboarding_completed = Column(Boolean, nullable=False, default=True)
@@ -70,7 +74,9 @@ class Product(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, index=True)
     store_nbr = Column(Integer, nullable=False, index=True)
-    family = Column(String(50), nullable=False, index=True)
+    family = Column(String(50), nullable=False, index=True)  # el producto/SKU (ej. COCA-COLA 1.5L)
+    category = Column(String(50), nullable=True)  # agrupador (ej. BEBIDAS)
+    supplier = Column(String(100), nullable=True)
     unit_cost = Column(Numeric(12, 2), nullable=True)
     order_cost = Column(Numeric(12, 2), default=5000)
     holding_rate = Column(Numeric(5, 4), default=0.25)
@@ -92,21 +98,32 @@ class StockLevel(Base):
 
 
 class PurchaseOrder(Base):
+    """Cabecera de la OC (numero = OC-{id:06d}). Los productos van en PurchaseOrderLine."""
     __tablename__ = "purchase_orders"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False, index=True)
     store_nbr = Column(Integer, nullable=False, index=True)
-    family = Column(String(50), nullable=False, index=True)
-    quantity = Column(Numeric(12, 2), nullable=False)
-    trigger_stock = Column(Numeric(12, 2), nullable=True)
-    reorder_point_s = Column(Numeric(12, 2), nullable=True)
-    order_up_to_S = Column("order_up_to_s", Numeric(12, 2), nullable=True)
+    supplier = Column(String(100), nullable=True)
     policy_used = Column(String(10), default="s_s")
     status = Column(String(20), default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expected_delivery = Column(Date, nullable=True)
     received_at = Column(DateTime(timezone=True), nullable=True)
+    lines = relationship("PurchaseOrderLine", cascade="all, delete-orphan", lazy="selectin", order_by="PurchaseOrderLine.id")
+
+
+class PurchaseOrderLine(Base):
+    __tablename__ = "purchase_order_lines"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey("purchase_orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    family = Column(String(50), nullable=False, index=True)
+    quantity = Column(Numeric(12, 2), nullable=False)
+    unit_cost = Column(Numeric(12, 2), nullable=True)
+    trigger_stock = Column(Numeric(12, 2), nullable=True)
+    reorder_point_s = Column(Numeric(12, 2), nullable=True)
+    order_up_to_S = Column("order_up_to_s", Numeric(12, 2), nullable=True)
 
 
 class IngestLog(Base):

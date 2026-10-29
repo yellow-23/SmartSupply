@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Database, ChevronDown, ChevronRight, RotateCcw, Trash2, Loader2, Sparkles,
@@ -15,7 +15,7 @@ import { chatIngest } from "../../ingest/api/ingest";
 import { StatusBadge } from "../components/StatusBadge";
 import ConfirmModal from "../components/ConfirmModal";
 import FormModal from "../../../shared/ui/FormModal";
-import { useAuthStore } from "../../auth/store/authStore";
+import { useAuthStore, useActiveBusinessId } from "../../auth/store/authStore";
 
 type Confirm =
   | { type: "revert"; log: IngestLogItem }
@@ -24,9 +24,11 @@ type Confirm =
 
 export default function Datos() {
   const qc = useQueryClient();
-  const [businessId, setBusinessId] = useState<number | null>(null);
+  const businessId = useActiveBusinessId();
   const [storeNbr, setStoreNbr] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
+  // Al cambiar el negocio activo, el filtro de ubicacion y la carga abierta ya no aplican
+  useEffect(() => { setStoreNbr(null); setExpanded(null); }, [businessId]);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [creatingStore, setCreatingStore] = useState(false);
 
@@ -107,17 +109,8 @@ export default function Datos() {
       {/* Selectores de contexto */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-end gap-4">
         <div>
-          <label className="text-xs font-medium text-gray-500">Negocio</label>
-          <select
-            className="mt-1 block w-56 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
-            value={businessId ?? ""}
-            onChange={(e) => { setBusinessId(Number(e.target.value) || null); setStoreNbr(null); setExpanded(null); }}
-          >
-            <option value="">Selecciona un negocio</option>
-            {businesses.data?.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
+          <span className="text-xs font-medium text-gray-500">Negocio</span>
+          <p className="mt-1 px-3 py-2 text-sm font-medium text-gray-800">{selectedBusiness?.name ?? "—"}</p>
         </div>
 
         {businessId != null && (
@@ -324,6 +317,7 @@ function RowGroup({ log, open, canManage, onToggle, onRevert, onDelete }: {
     mutationFn: () => chatIngest(
       [{ role: "user", content: "Resume esta carga y dime si tiene huecos o ventas raras." }],
       `Carga ${log.filename}: familias ${(log.families || []).join(", ")}, rango ${log.date_range_start} a ${log.date_range_end}, ${log.records_loaded} filas, unidad ${log.sales_unit}, estado ${log.status}.`,
+      log.business_id,
     ),
     onSuccess: (res) => setStockyReply(res.reply),
   });

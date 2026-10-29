@@ -30,6 +30,8 @@ class UserOut(BaseModel):
 
 class OnboardingRequest(BaseModel):
     business_name: str
+    rut: str | None = None
+    city: str | None = None
 
 
 class DevLoginRequest(BaseModel):
@@ -209,6 +211,9 @@ def complete_onboarding(
     if not biz:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Negocio no encontrado")
 
+    from app.api.businesses import _checked_rut  # import local: businesses importa este modulo
+    biz.rut = _checked_rut(db, body.rut, exclude_id=biz.id) or biz.rut
+    biz.city = (body.city or "").strip() or biz.city
     biz.name = name
     biz.onboarding_completed = True
     db.commit()

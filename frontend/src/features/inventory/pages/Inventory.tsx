@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Package, AlertCircle, TrendingDown, RefreshCw, Loader2, Download } from 'lucide-react';
 import { toast } from '../../../shared/ui/toastStore';
-import { useActiveBusinessId } from '../../auth/store/authStore';
+import { useActiveBusinessId, useActiveStoreNbr } from '../../auth/store/authStore';
 import {
   fetchAlerts,
   fetchInventoryStatus,
@@ -34,7 +34,7 @@ export default function Inventory() {
   const businessId = useActiveBusinessId();
   const queryClient = useQueryClient();
 
-  const [storeNbr, setStoreNbr] = useState(1);
+  const storeNbr = useActiveStoreNbr();
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 

@@ -1,7 +1,8 @@
 import { Target, AlertTriangle, ClipboardList, Activity, RefreshCw, Upload, FileDown, Zap, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { listBusinesses } from "../../../shared/api/data";
 import { KpiCard } from "../components/KpiCard";
 import AlertsSummaryPanel from "../components/AlertsSummaryPanel";
 import Skeleton from "../../../shared/ui/Skeleton";
@@ -60,6 +61,9 @@ export default function Dashboard() {
   const user = useAuthStore(s => s.user);
   const businessId = useActiveBusinessId();
   const [family, setFamily] = useState("");
+  const { data: businesses = [] } = useQuery({ queryKey: ["businesses", user?.id], queryFn: listBusinesses, enabled: !!user });
+  const business = businesses.find(b => b.id === businessId);
+  const businessIncomplete = business?.my_role === "owner" && (!business.rut || !business.city || !business.address);
 
   const {
     data: kpis,
@@ -136,6 +140,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {businessIncomplete && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 flex flex-wrap items-center justify-between gap-2">
+          <span>A {business!.name} le faltan datos (RUT, ciudad o dirección) que van en tus órdenes de compra.</span>
+          <Link to="/negocio" className="font-semibold underline">Completar ahora</Link>
+        </div>
+      )}
       {kpisError && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
           No se pudo cargar los KPIs. Verifica que el backend esté activo.

@@ -32,7 +32,7 @@ class XGBoostModel:
       Tgt date: tgt_dow, tgt_month, tgt_year, tgt_is_holiday
 
     Hiperparámetros tuneados para series diarias de retail CLP:
-      n_estimators=500, lr=0.04, max_depth=5, min_child_weight=3,
+      n_estimators=200, lr=0.1, max_depth=5, min_child_weight=3,
       subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.5
     """
 
@@ -63,8 +63,9 @@ class XGBoostModel:
     @staticmethod
     def _make_xgb() -> xgb.XGBRegressor:
         return xgb.XGBRegressor(
-            n_estimators=500,
-            learning_rate=0.04,
+            # 200 arboles con lr mas alto ~ mismo ajuste que 500 x 0.04 en 2.5x menos tiempo
+            n_estimators=200,
+            learning_rate=0.1,
             max_depth=5,
             min_child_weight=3,
             subsample=0.8,

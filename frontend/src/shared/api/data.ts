@@ -6,6 +6,9 @@ export interface Business {
   name: string;
   rut: string | null;
   city: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
   type: string | null;
   owner_user_id: number | null;
   created_at: string;
@@ -53,10 +56,20 @@ export async function listBusinesses(): Promise<Business[]> {
   return data;
 }
 
-export async function createBusiness(payload: {
-  name: string; rut?: string; city?: string; type?: string;
-}): Promise<Business> {
+export type BusinessInput = Partial<Pick<Business, "name" | "rut" | "city" | "address" | "phone" | "email">>;
+
+export async function createBusiness(payload: BusinessInput & { name: string }): Promise<Business> {
   const { data } = await api.post("/businesses", payload);
+  return data;
+}
+
+export async function updateBusiness(id: number, payload: BusinessInput): Promise<Business> {
+  const { data } = await api.patch(`/businesses/${id}`, payload);
+  return data;
+}
+
+export async function updateBusinessStore(businessId: number, storeNbr: number, payload: { name?: string; city?: string | null }): Promise<StoreItem> {
+  const { data } = await api.patch(`/businesses/${businessId}/stores/${storeNbr}`, payload);
   return data;
 }
 
@@ -77,8 +90,9 @@ export const STORE_FORM_FIELDS = [
 
 export const BUSINESS_FORM_FIELDS = [
   { name: "name", label: "Nombre del negocio", placeholder: "Distribuidora Santa Elena", required: true },
-  { name: "rut", label: "RUT", placeholder: "76.123.456-7", hint: "Si lo ingresas, se verifica que no esté registrado por otro negocio." },
-  { name: "city", label: "Ciudad", placeholder: "Santiago" },
+  { name: "rut", label: "RUT", placeholder: "76.123.456-7", hint: "Se valida el dígito verificador. Aparece en tus órdenes de compra." },
+  { name: "city", label: "Ciudad / comuna", placeholder: "Ñuñoa" },
+  { name: "address", label: "Dirección", placeholder: "Av. Grecia 1234" },
 ];
 
 export function storeLabel(s: StoreItem): string {

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user, resolve_business_id
 from app.database import get_db
-from app.models.orm import SalesHistory, Store, User
+from app.models.orm import Product, SalesHistory, Store, User
 from app.models.schemas import ForecastRequest, ForecastResponse
 from app.services.forecast_service import (
     ForecastService,
@@ -90,6 +90,7 @@ def get_forecast_options(
         df = pd.read_csv(_CSV_PATH, usecols=["date", "family"])
         return {
             "families": sorted(df["family"].unique().tolist()),
+            "categories": {},
             "stores": [{"store_nbr": 1, "name": "Favorita - Tienda 1", "days_available": int(df["date"].nunique())}],
             "days_required": _MIN_DAYS,
         }
@@ -130,7 +131,11 @@ def get_forecast_options(
         for row in store_rows
     ]
 
-    return {"families": families, "stores": stores, "days_required": _MIN_DAYS}
+    categories = {
+        f: c for f, c in db.query(Product.family, Product.category)
+        .filter(Product.business_id == bid, Product.category.isnot(None))
+    }
+    return {"families": families, "categories": categories, "stores": stores, "days_required": _MIN_DAYS}
 
 
 @router.get("/accuracy")

@@ -20,13 +20,15 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   activeBusinessId: number | null;
+  activeStoreNbr: number | null;
   setActiveBusiness: (id: number) => void;
+  setActiveStore: (storeNbr: number) => void;
   login: (email: string, password: string, remember?: boolean) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   register: (name: string, email: string, password: string, businessName: string) => Promise<{ needsEmailConfirmation: boolean }>;
   logout: () => Promise<void>;
   syncProfile: () => Promise<void>;
-  completeOnboarding: (businessName: string) => Promise<void>;
+  completeOnboarding: (businessName: string, rut?: string, city?: string) => Promise<void>;
 }
 
 async function fetchProfile(): Promise<User> {
@@ -43,8 +45,11 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       activeBusinessId: null,
+      activeStoreNbr: null,
 
-      setActiveBusiness: (id) => set({ activeBusinessId: id }),
+      // Cambiar de negocio vuelve a su primera ubicacion: el store_nbr de otro negocio no aplica
+      setActiveBusiness: (id) => set({ activeBusinessId: id, activeStoreNbr: null }),
+      setActiveStore: (storeNbr) => set({ activeStoreNbr: storeNbr }),
 
       login: async (email, password, remember = true) => {
         set({ isLoading: true, error: null });
@@ -98,11 +103,11 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         await supabase.auth.signOut();
-        set({ user: null, isAuthenticated: false, error: null, activeBusinessId: null });
+        set({ user: null, isAuthenticated: false, error: null, activeBusinessId: null, activeStoreNbr: null });
       },
 
-      completeOnboarding: async (businessName) => {
-        const { data } = await api.post('/auth/onboarding', { business_name: businessName });
+      completeOnboarding: async (businessName, rut, city) => {
+        const { data } = await api.post('/auth/onboarding', { business_name: businessName, rut: rut || null, city: city || null });
         set({ user: data });
       },
 
@@ -122,7 +127,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated, activeBusinessId: state.activeBusinessId }),
+      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated, activeBusinessId: state.activeBusinessId, activeStoreNbr: state.activeStoreNbr }),
     }
   )
 );
@@ -131,6 +136,11 @@ export const useAuthStore = create<AuthState>()(
 // Si el usuario nunca eligio otro, es su negocio principal.
 export function useActiveBusinessId(): number | null {
   return useAuthStore((s) => s.activeBusinessId ?? s.user?.business_id ?? null);
+}
+
+// Ubicacion activa dentro del negocio (Inventario y Ordenes trabajan por ubicacion). Todo negocio nace con la 1.
+export function useActiveStoreNbr(): number {
+  return useAuthStore((s) => s.activeStoreNbr ?? 1);
 }
 
 // Mantiene el store sincronizado con la sesion real de Supabase (login, logout, refresh de token,

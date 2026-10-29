@@ -6,6 +6,8 @@ import { useAuthStore } from "../store/authStore";
 export default function OnboardingGate() {
   const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
   const [businessName, setBusinessName] = useState("");
+  const [rut, setRut] = useState("");
+  const [city, setCity] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,7 +17,7 @@ export default function OnboardingGate() {
     setError(null);
     setIsLoading(true);
     try {
-      await completeOnboarding(businessName.trim());
+      await completeOnboarding(businessName.trim(), rut.trim(), city.trim());
     } catch (err: any) {
       setError(err.response?.data?.detail ?? "Error al guardar el negocio");
     } finally {
@@ -43,6 +45,26 @@ export default function OnboardingGate() {
             required
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#1E3A8A] focus:border-transparent outline-none transition-all bg-white text-sm"
           />
+
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="text"
+              value={rut}
+              onChange={(e) => setRut(e.target.value)}
+              placeholder="RUT (opcional)"
+              aria-label="RUT del negocio"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#1E3A8A] focus:border-transparent outline-none transition-all bg-white text-sm"
+            />
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="Ciudad (opcional)"
+              aria-label="Ciudad del negocio"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#1E3A8A] focus:border-transparent outline-none transition-all bg-white text-sm"
+            />
+          </div>
+          <p className="text-xs text-gray-400">El RUT y la ciudad aparecen en tus órdenes de compra. Puedes completarlos después en Mi negocio.</p>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

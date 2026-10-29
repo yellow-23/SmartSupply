@@ -13,7 +13,7 @@ import {
   isInsufficientDataError,
   SalesPoint,
 } from '../api/forecast';
-import { useActiveBusinessId } from '../../auth/store/authStore';
+import { useActiveBusinessId, useActiveStoreNbr } from '../../auth/store/authStore';
 import { useForecastStore } from '../store/forecastStore';
 import { downloadBlob } from '../../../shared/lib/utils';
 
@@ -27,6 +27,7 @@ const MODEL_LABELS: Record<string, string> = {
 const Forecast = () => {
   const navigate = useNavigate();
   const activeBusinessId = useActiveBusinessId();
+  const activeStoreNbr = useActiveStoreNbr();
   const [useBenchmark, setUseBenchmark] = useState(false);
   const businessId = useBenchmark ? BENCHMARK_BUSINESS_ID : activeBusinessId;
   const [loading, setLoading] = useState(false);
@@ -81,7 +82,10 @@ const Forecast = () => {
   useEffect(() => {
     if (!options) return;
     if (!options.families.includes(skuId)) setSkuId(options.families[0] ?? '');
-    if (!options.stores.some(s => s.store_nbr === storeNbr)) setStoreNbr(options.stores[0]?.store_nbr ?? null);
+    if (!options.stores.some(s => s.store_nbr === storeNbr)) {
+      const active = options.stores.find(s => s.store_nbr === activeStoreNbr);
+      setStoreNbr((active ?? options.stores[0])?.store_nbr ?? null);
+    }
   }, [options]);
 
   useEffect(() => {
@@ -246,8 +250,15 @@ const Forecast = () => {
             value={skuId}
             onChange={e => setSkuId(e.target.value)}
           >
-            {options!.families.map(f => (
-              <option key={f} value={f}>{f}</option>
+            {Object.entries(
+              options!.families.reduce<Record<string, string[]>>((acc, f) => {
+                (acc[options!.categories?.[f] ?? 'Sin categoría'] ??= []).push(f);
+                return acc;
+              }, {}),
+            ).sort(([a], [b]) => a.localeCompare(b)).map(([cat, fams]) => (
+              <optgroup key={cat} label={cat}>
+                {fams.map(f => <option key={f} value={f}>{f}</option>)}
+              </optgroup>
             ))}
           </select>
         </div>
