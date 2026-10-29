@@ -394,6 +394,7 @@ class IngestChatRequest(BaseModel):
     preview_summary: str
     business_name: str = ""
     business_id: Optional[int] = None  # negocio destino de la carga; por defecto el principal del usuario
+    store_nbr: Optional[int] = None
 
 
 class IngestChatResponse(BaseModel):

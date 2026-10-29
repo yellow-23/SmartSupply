@@ -99,11 +99,13 @@ export async function chatIngest(
   messages: ChatMessage[],
   previewSummary: string,
   businessId?: number | null,
+  storeNbr?: number | null,
 ): Promise<ChatResponse> {
   const { data } = await api.post("/ingest/chat", {
     messages,
     preview_summary: previewSummary,
     business_id: businessId ?? null,
+    store_nbr: storeNbr ?? null,
   });
   return data;
 }

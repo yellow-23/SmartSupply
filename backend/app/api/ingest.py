@@ -276,5 +276,9 @@ def ingest_chat(
         for l in existing
     ) or "ninguna carga previa"
 
-    reply, trigger_confirm = service.chat(body.messages, body.preview_summary, business_name, loads_summary)
+    destination = ""
+    if biz and body.store_nbr is not None:
+        store = db.query(Store).filter(Store.business_id == business_id, Store.store_nbr == body.store_nbr).first()
+        destination = f"negocio {biz.name}, ubicación {store.name if store and store.name else body.store_nbr}"
+    reply, trigger_confirm = service.chat(body.messages, body.preview_summary, business_name, loads_summary, destination)
     return IngestChatResponse(reply=reply, trigger_confirm=trigger_confirm)

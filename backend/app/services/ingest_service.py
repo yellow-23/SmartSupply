@@ -85,9 +85,9 @@ Definiciones de cada campo:
 - sales_col: nombre EXACTO de la columna de cantidad/unidades vendidas. Si no hay columna de unidades y solo hay monto, usar esa columna aquí y dejar revenue_col en null.
 - revenue_col: nombre EXACTO de la columna de monto total en pesos (CLP), ingreso o valor total. Si no existe columna de monto, devolver null.
 - promo_col: nombre EXACTO de la columna de promoción/oferta, o null si no existe.
-- store_name: nombre de tienda o distribuidora si aparece en los metadatos. Si no, "Tienda sin nombre".
+- store_name: nombre de tienda o distribuidora si aparece en los metadatos. Si no, "Tienda sin nombre". (El destino de la carga lo elige el usuario en la app; este dato es solo referencial.)
 - number_format: "european" si usa punto como separador de miles y coma como decimal (ej: 1.234,56), "american" si es al revés (ej: 1,234.56), "plain" si no hay separadores de miles.
-- warnings: lista de advertencias sobre datos ambiguos, columnas con doble significado, etc.
+- warnings: SOLO problemas de los datos que el usuario deberia revisar (ej: filas de totales mezcladas con ventas, una columna con dos significados posibles, fechas ambiguas). Escritas en español simple de negocio, para un dueño de distribuidora, sin terminos tecnicos (nada de DataFrame, indices, header_row, mapeo, roles). NO avises de: nombre de tienda ausente, formato numerico, columnas extra que no se usan, valores Si/No en promocion, ni de como detectaste el encabezado. Si no hay problemas reales, devuelve [].
 
 Reglas importantes:
 - Los nombres de columna deben ser EXACTAMENTE como aparecen en la fila header_row, sin modificar.
@@ -150,7 +150,7 @@ class IngestService:
             df.to_excel(buf, header=False, index=False)
             sub = self._preview_sheet(buf.getvalue(), f"{name}.xlsx")
             if sub.data_type == "unknown" or sub.records_found == 0:
-                warnings.append(f"Hoja '{name}' ignorada: no parece ventas, stock ni catalogo de productos.")
+                warnings.append(f"La hoja '{name}' no tiene ventas, stock ni catálogo; se omitió.")
                 continue
             kinds.add(sub.data_type)
             records += sub.records
@@ -652,16 +652,21 @@ class IngestService:
                 warnings=[f"Error al interpretar respuesta de Claude: {str(e)}", text[:500]],
             )
 
-    def chat(self, messages: list, preview_summary: str, business_name: str = "", existing_loads: str = "") -> str:
+    def chat(self, messages: list, preview_summary: str, business_name: str = "", existing_loads: str = "", destination: str = "") -> str:
         """Stocky responde preguntas sobre los datos extraídos en el preview."""
-        negocio = f"Estás asistiendo a **{business_name}**." if business_name else ""
+        negocio = f"Estás asistiendo a {business_name}." if business_name else ""
+        destino = (
+            f"\nDESTINO DE LA CARGA (ya elegido por el usuario en la pantalla, no lo preguntes): {destination}.\n"
+            "Si el usuario quiere cargar en otro negocio o ubicación, dile que lo cambie en el selector de arriba."
+            if destination else ""
+        )
         cargas = f"""
 
-CARGAS PREVIAS DEL USUARIO:
+CARGAS PREVIAS DE ESTE NEGOCIO:
 {existing_loads}
-Si la carga actual se parece a una de estas (por familias o rango de fechas), sugiere el negocio/ubicación destino correspondiente. Si las fechas solapan con una carga existente, avisa que la carga más reciente prevalecerá sobre los días en común.""" if existing_loads else ""
+Si las fechas solapan con una carga existente en la misma ubicación, avisa que la carga más reciente prevalecerá sobre los días en común.""" if existing_loads else ""
         system = f"""Eres Stocky, asistente de ingesta de SmartSupply — plataforma de forecasting e inventario para distribuidoras chilenas.
-{negocio}
+{negocio}{destino}
 
 DATOS EXTRAÍDOS DEL ARCHIVO (ya los tienes, no los pidas):
 {preview_summary}{cargas}
@@ -669,13 +674,14 @@ DATOS EXTRAÍDOS DEL ARCHIVO (ya los tienes, no los pidas):
 PERSONALIDAD:
 - Presentas los datos directamente, sin pedir que el usuario te explique qué subió.
 - Eres breve y concreto. Máximo 3 oraciones por respuesta, salvo que el usuario pida más detalle.
-- Hablas en español natural, sin frases de relleno ni saludos.
+- Hablas en español de Chile y tuteas ("¿quieres?", "puedes"); nunca uses voseo ("querés", "podés"). Sin frases de relleno ni saludos.
 - Cuando hay advertencias, las explicas en términos simples de negocio.
 - Haces UNA sola pregunta a la vez si necesitas aclarar algo.
 - No usas listas con guiones ni asteriscos para negritas. Escribes en prosa simple.
-- Si todo parece correcto, lo dices claramente y preguntas si el usuario quiere agregar contexto adicional (nombre de tienda, período, notas) antes de confirmar la carga.
+- No preguntes por nombre de tienda, negocio, ubicación ni notas: el destino ya está elegido y no hay donde guardar notas.
+- Menciona solo problemas que cambien el resultado (fechas raras, cifras sospechosas, solapes). Ignora detalles de formato.
 
-PRIMERA RESPUESTA: resume en 1-2 frases lo que encontraste y pregunta si quieren agregar contexto o confirmar directo.
+PRIMERA RESPUESTA: en 1-2 frases di qué se va a cargar y dónde (el destino), menciona un problema solo si es real, y pregunta si confirmas la carga.
 
 AUTO-CONFIRMAR: Cuando el usuario indique que quiere proceder (ejemplos: "carga nomas", "confirma", "dale", "listo", "sí carga", "cárgalo", "no hay más", "todo bien"), termina tu respuesta con la etiqueta exacta [CONFIRMAR] en una línea separada al final. No la uses si el usuario solo está respondiendo preguntas o dando contexto."""
 

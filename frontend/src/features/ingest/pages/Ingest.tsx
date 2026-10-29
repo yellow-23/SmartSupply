@@ -95,7 +95,7 @@ export default function Ingest() {
 
   const chatMut = useMutation({
     mutationFn: ({ messages, summary }: { messages: ChatMessage[]; summary: string }) =>
-      chatIngest(messages, summary, destBusinessId),
+      chatIngest(messages, summary, destBusinessId, destStoreNbr),
     onSuccess: (res: ChatResponse, { messages }) => {
       setChatMessages([...messages, { role: "assistant", content: res.reply }]);
       if (res.trigger_confirm && preview) {
@@ -108,7 +108,7 @@ export default function Ingest() {
     const issuesText = p.quality_issues.length > 0
       ? p.quality_issues.map((i: { severity: string; message: string }) => `[${i.severity}] ${i.message}`).join(" | ")
       : "ninguno";
-    return `Archivo procesado: ${p.store_name}. ${p.records_found} registros extraídos. Rango: ${p.date_range_start} a ${p.date_range_end}. Familias detectadas: ${p.families_detected.join(", ")}. Advertencias: ${p.warnings.length > 0 ? p.warnings.join(" | ") : "ninguna"}. Problemas de calidad detectados: ${issuesText}.`;
+    return `Archivo procesado. ${p.records_found} registros extraídos (tipo: ${p.data_type}; ventas: ${p.records.length}, catálogo: ${p.product_records.length}, stock: ${p.stock_records.length}). Rango: ${p.date_range_start} a ${p.date_range_end}. Productos: ${p.families_detected.join(", ")}. Advertencias: ${p.warnings.length > 0 ? p.warnings.join(" | ") : "ninguna"}. Problemas de calidad detectados: ${issuesText}.`;
   }
 
   useEffect(() => {
@@ -119,7 +119,7 @@ export default function Ingest() {
         : "";
       const firstMsg: ChatMessage = {
         role: "user",
-        content: `Extracción completada. ${preview.records_found} registros, familias: ${preview.families_detected.join(", ")}, rango ${preview.date_range_start} a ${preview.date_range_end}.${preview.warnings.length > 0 ? ` Advertencias: ${preview.warnings.join(" | ")}` : " Sin advertencias."}${issuesPart} Preséntame el resumen y dime si debo hacer algo antes de confirmar.`,
+        content: `Extracción completada. ${preview.records_found} registros, productos: ${preview.families_detected.join(", ")}, rango ${preview.date_range_start} a ${preview.date_range_end}.${preview.warnings.length > 0 ? ` Advertencias: ${preview.warnings.join(" | ")}` : " Sin advertencias."}${issuesPart} Preséntame el resumen y dime si debo hacer algo antes de confirmar.`,
       };
       const msgs = [firstMsg];
       setChatMessages(msgs);
@@ -325,10 +325,10 @@ export default function Ingest() {
               </div>
               <div>
                 <p className="font-bold text-gray-800">
-                  {preview.records_found} registros extraídos · {preview.store_name}
+                  {preview.records_found.toLocaleString("es-CL")} registros para {destBusinessName}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {preview.date_range_start} → {preview.date_range_end} · {preview.families_detected.length} familias · Tienda {storeNbr}
+                  {destStoreLabel} · {preview.date_range_start ?? "sin fechas"} → {preview.date_range_end ?? ""} · {preview.families_detected.length} productos
                 </p>
               </div>
             </div>
