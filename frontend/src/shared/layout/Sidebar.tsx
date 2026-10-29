@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Building2,
@@ -14,7 +14,8 @@ import {
   X,
   Shield,
 } from "lucide-react";
-import { useAuthStore } from "../../features/auth/store/authStore";
+import { useAuthStore, useActiveBusinessId } from "../../features/auth/store/authStore";
+import { listBusinesses } from "../api/data";
 import { cn } from "../lib/utils";
 import logoSymbol from "../../assets/svg/smartsupply-symbol.svg";
 
@@ -37,6 +38,9 @@ interface SidebarProps {
 export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore((s) => ({ user: s.user, logout: s.logout }));
+  const activeBusinessId = useActiveBusinessId();
+  const { data: businesses = [] } = useQuery({ queryKey: ["businesses", user?.id], queryFn: listBusinesses, enabled: !!user });
+  const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
   const queryClient = useQueryClient();
 
   return (
@@ -116,11 +120,11 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
 
         <div className="p-3 space-y-1">
           <div className="rounded-xl px-4 py-3 mb-2 border border-white/10 bg-white/5">
-            <p className="text-xs text-orange-400 font-semibold truncate mb-0.5">{user?.business_name ?? ""}</p>
+            <p className="text-xs text-orange-400 font-semibold truncate mb-0.5">{activeBusiness?.name ?? user?.business_name ?? ""}</p>
             <p className="text-sm font-semibold text-white truncate">{user?.name ?? "Usuario"}</p>
-            <p className="text-xs text-white/40 mt-0.5 capitalize">
-            {user?.role === "platform_admin" ? "Admin plataforma" : user?.role === "business_admin" ? "Administrador" : "Analista"}
-          </p>
+            <p className="text-xs text-white/40 mt-0.5">
+              {user?.role === "platform_admin" ? "Admin plataforma" : activeBusiness?.my_role === "owner" ? "Dueño" : "Miembro"}
+            </p>
           </div>
           <button
             onClick={() => { queryClient.clear(); logout(); navigate("/login"); }}

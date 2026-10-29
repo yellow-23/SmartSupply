@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Upload, FileText, ImageIcon, CheckCircle, AlertTriangle, Loader2, Send, X, Bot, AlertCircle, Info, Plus } from "lucide-react";
+import { Upload, FileText, ImageIcon, CheckCircle, AlertTriangle, Loader2, Send, X, AlertCircle, Info, Plus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
+import { Blobatar } from "@blobatar/react";
+import "blobatar/motion.css";
 import { useAuthStore, useActiveBusinessId, useActiveStoreNbr } from "../../auth/store/authStore";
 import { useIngestStore } from "../store/ingestStore";
 import { previewIngest, confirmIngest, chatIngest, IngestPreview, ChatMessage, ChatResponse } from "../api/ingest";
@@ -18,6 +20,9 @@ function inferFileType(name: string): "image" | "excel" | "pdf" {
   if (/\.(jpe?g|png|webp)$/.test(n)) return "image";
   return "excel";
 }
+
+// Misma mascota que Stocky flotante: blanca sobre el naranjo de la marca
+const STOCKY_PALETTE = { head: "#FFFFFF", eye: "#0F172A" };
 
 const ACCEPTED = ".jpg,.jpeg,.png,.webp,.pdf,.xlsx,.xls,.csv";
 
@@ -123,7 +128,9 @@ export default function Ingest() {
   }, [step, preview]);
 
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // scrollIntoView movia toda la pagina (y el input) en cada mensaje; solo se desplaza el chat
+    const box = chatBottomRef.current?.parentElement;
+    if (box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
   }, [chatMessages]);
 
   // Tras cargar datos, refrescar dashboard/forecast y mandar al usuario a su Inicio
@@ -460,8 +467,8 @@ export default function Ingest() {
           {/* Stocky chat */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-50">
-              <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center shrink-0">
-                <Bot className="w-4 h-4 text-white" />
+              <div className="w-7 h-7 rounded-full bg-orange-600 flex items-center justify-center shrink-0">
+                <Blobatar name="stocky" size={20} animate="always" palette={STOCKY_PALETTE} />
               </div>
               <span className="text-sm font-semibold text-gray-800">Stocky</span>
               <span className="text-xs text-gray-400">· asistente de ingesta</span>
@@ -477,8 +484,8 @@ export default function Ingest() {
               {chatMessages.map((m, i) => (
                 m.role === "assistant" ? (
                   <div key={i} className="flex items-start gap-2.5">
-                    <div className="w-6 h-6 rounded-md bg-orange-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <Bot className="w-3.5 h-3.5 text-white" />
+                    <div className="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Blobatar name="stocky" size={16} animate={false} palette={STOCKY_PALETTE} />
                     </div>
                     <div className="bg-gray-50 rounded-xl rounded-tl-none px-4 py-2.5 text-sm text-gray-700 max-w-xl leading-relaxed [&_strong]:font-semibold [&_strong]:text-gray-900 [&_ul]:mt-1 [&_ul]:space-y-0.5 [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-1 last:[&_p]:mb-0">
                       <ReactMarkdown>{m.content}</ReactMarkdown>
