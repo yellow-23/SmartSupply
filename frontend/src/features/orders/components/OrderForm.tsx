@@ -16,6 +16,7 @@ interface Props {
   businessId: number;
   storeNbr: number;
   order?: PurchaseOrder | null; // si viene, es edicion
+  draft?: { supplier: string | null; lines: { family: string; quantity: number; unit_cost: number | null }[] }; // OC nueva precompletada
   onClose: () => void;
   onSaved: (order: PurchaseOrder) => void;
 }
@@ -24,25 +25,26 @@ const EMPTY_LINE: Line = { family: '', quantity: '', unit_cost: '' };
 const fmtCLP = (n: number) => `$${Math.round(n).toLocaleString('es-CL')}`;
 const input = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30';
 
-export default function OrderForm({ open, businessId, storeNbr, order, onClose, onSaved }: Props) {
+export default function OrderForm({ open, businessId, storeNbr, order, draft, onClose, onSaved }: Props) {
   return (
     <Modal open={open} onClose={onClose} className="max-w-3xl">
       {/* Se monta de nuevo en cada apertura para partir con el estado de la orden actual */}
       {open && (
-        <FormBody businessId={businessId} storeNbr={order?.store_nbr ?? storeNbr} order={order} onClose={onClose} onSaved={onSaved} />
+        <FormBody businessId={businessId} storeNbr={order?.store_nbr ?? storeNbr} order={order} draft={draft} onClose={onClose} onSaved={onSaved} />
       )}
     </Modal>
   );
 }
 
-function FormBody({ businessId, storeNbr, order, onClose, onSaved }: Omit<Props, 'open'>) {
-  const [supplier, setSupplier] = useState(order?.supplier ?? '');
+function FormBody({ businessId, storeNbr, order, draft, onClose, onSaved }: Omit<Props, 'open'>) {
+  const [supplier, setSupplier] = useState(order?.supplier ?? draft?.supplier ?? '');
   const [delivery, setDelivery] = useState(order?.expected_delivery ?? '');
-  const [lines, setLines] = useState<Line[]>(
-    order
-      ? order.lines.map((l) => ({ family: l.family, quantity: String(l.quantity), unit_cost: l.unit_cost != null ? String(l.unit_cost) : '' }))
-      : [{ ...EMPTY_LINE }],
-  );
+  const [lines, setLines] = useState<Line[]>(() => {
+    const source = order?.lines ?? draft?.lines;
+    return source
+      ? source.map((l) => ({ family: l.family, quantity: String(l.quantity), unit_cost: l.unit_cost != null ? String(l.unit_cost) : '' }))
+      : [{ ...EMPTY_LINE }];
+  });
 
   const { data: page } = useQuery({
     queryKey: ['products', businessId, 'order-form'],

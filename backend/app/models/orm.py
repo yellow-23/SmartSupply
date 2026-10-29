@@ -160,6 +160,21 @@ class ForecastPrediction(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class StoreForecastCache(Base):
+    """Proyeccion de la venta total de una ubicacion (Dashboard). Vale mientras sea del dia y la
+    huella de las ventas (fingerprint) no cambie; sobrevive reinicios del backend."""
+    __tablename__ = "store_forecasts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    business_id = Column(Integer, ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False, index=True)
+    store_nbr = Column(Integer, nullable=False)
+    horizon_days = Column(Integer, nullable=False)
+    fingerprint = Column(String, nullable=False)
+    computed_on = Column(Date, nullable=False)
+    payload = Column(JSON, nullable=False)  # ForecastResponse serializado
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class UserBusiness(Base):
     __tablename__ = "user_businesses"
 

@@ -1,7 +1,7 @@
 import { Target, AlertTriangle, ClipboardList, Activity, RefreshCw, Upload, FileDown, Zap, Sparkles } from "lucide-react";
 import BrandLoader from "../../../shared/ui/BrandLoader";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { listBusinesses } from "../../../shared/api/data";
 import { KpiCard } from "../components/KpiCard";
@@ -129,7 +129,9 @@ export default function Dashboard() {
     queryKey: ["dashboard", "store-forecast", businessId, storeNbr, horizon],
     queryFn: () => fetchStoreForecast(businessId, storeNbr, horizon),
     enabled: !!user && chartLoaded && !isEmptyState,
-    staleTime: 600_000,
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000, // al volver al Dashboard se muestra al tiro, sin cargador
+    placeholderData: keepPreviousData, // al pasar de 14 a 30 dias se ve la anterior mientras calcula
     retry: false,
   });
   const sf = storeForecast.data;
@@ -231,6 +233,9 @@ export default function Dashboard() {
                 {sf
                   ? `Últimas 4 semanas y proyección a ${sf.horizon_days} días · ${MODEL_NAMES[sf.model_used] ?? sf.model_used}${sf.wape != null ? ` · ${sf.wape.toFixed(1)}% de error` : ""}`
                   : "Todos los productos de la ubicación activa"}
+                {storeForecast.isPlaceholderData && (
+                  <span className="ml-1 text-orange-600">· calculando {horizon} días...</span>
+                )}
               </p>
             </div>
             <div className="flex items-center gap-3">

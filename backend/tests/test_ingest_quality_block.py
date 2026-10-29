@@ -39,7 +39,7 @@ def test_confirm_rejects_mixed_granularity():
     body = IngestConfirm(records=records, business_id=1, store_nbr=1, sales_unit="units")
 
     with pytest.raises(HTTPException) as exc:
-        confirm_ingest(body, MagicMock(id=1), db)
+        confirm_ingest(body, MagicMock(), MagicMock(id=1), db)
 
     assert exc.value.status_code == 422
     assert "MIXED_GRANULARITY" in exc.value.detail
@@ -59,7 +59,7 @@ def test_confirm_allows_clean_daily_data():
         records=records, business_id=1, store_nbr=1, sales_unit="units", filename="test.xlsx"
     )
 
-    result = confirm_ingest(body, MagicMock(id=1), db)
+    result = confirm_ingest(body, MagicMock(), MagicMock(id=1), db)
 
     assert result.records_loaded == 10
     db.add.assert_called()
@@ -78,7 +78,7 @@ def test_confirm_allows_warning_only_issues():
         records=records, business_id=1, store_nbr=1, sales_unit="units", filename="test.xlsx"
     )
 
-    result = confirm_ingest(body, MagicMock(id=1), db)
+    result = confirm_ingest(body, MagicMock(), MagicMock(id=1), db)
 
     assert result.records_loaded == 4
     db.commit.assert_called()

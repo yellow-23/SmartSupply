@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from 'react';
+import { useDeferredValue, useEffect, useState } from 'react';
 import BrandLoader from "../../../shared/ui/BrandLoader";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -107,6 +107,16 @@ export default function Orders() {
   };
 
   const orders = ordersQuery.data ?? [];
+
+  // ?oc=ID (desde Inventario) abre el detalle de esa orden una vez cargada la lista
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get('oc'));
+    const found = id ? orders.find((o) => o.id === id) : undefined;
+    if (found) {
+      setSelected(found);
+      window.history.replaceState(null, '', '/orders');
+    }
+  }, [ordersQuery.data]);
 
   const countByStatus = (s: PurchaseOrder['status']) => orders.filter((o) => o.status === s).length;
 

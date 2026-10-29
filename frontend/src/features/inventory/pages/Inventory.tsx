@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import BrandLoader from "../../../shared/ui/BrandLoader";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Package, AlertCircle, TrendingDown, RefreshCw, Loader2, Download } from 'lucide-react';
+import { Package, AlertCircle, TrendingDown, RefreshCw, Loader2, Download, ShoppingCart } from 'lucide-react';
 import { toast } from '../../../shared/ui/toastStore';
 import { useActiveBusinessId, useActiveStoreNbr } from '../../auth/store/authStore';
 import {
@@ -12,7 +12,9 @@ import {
   exportAlerts,
   InventoryAlert,
 } from '../api/inventory';
-import { generateOrders } from '../../orders/api/orders';
+import { fetchOrders, generateOrders } from '../../orders/api/orders';
+import OrderForm from '../../orders/components/OrderForm';
+import { useNavigate } from 'react-router-dom';
 import { fetchProducts } from '../../products/api/products';
 import { downloadBlob } from '../../../shared/lib/utils';
 
@@ -39,6 +41,17 @@ export default function Inventory() {
   // ?producto=X (desde el panel de alertas del Dashboard) abre ese producto directo
   const [selectedFamily, setSelectedFamily] = useState<string | null>(() => new URLSearchParams(window.location.search).get('producto'));
   const [isExporting, setIsExporting] = useState(false);
+  const [orderFormOpen, setOrderFormOpen] = useState(false);
+  const navigate = useNavigate();
+
+  // OC abierta (no recibida ni cancelada) que ya incluye el producto seleccionado: evita pedirlo dos veces
+  const openOrderQuery = useQuery({
+    queryKey: ['orders', businessId, 'open-for', storeNbr, selectedFamily],
+    queryFn: () => fetchOrders(businessId!, { store_nbr: String(storeNbr), q: selectedFamily! }),
+    enabled: businessId != null && !!selectedFamily,
+    select: (orders) => orders.find((o) =>
+      ['pending', 'confirmed', 'in_transit'].includes(o.status) && o.lines.some((l) => l.family === selectedFamily)),
+  });
 
   const alertsQuery = useQuery({
     queryKey: ['inventory-alerts', businessId, storeNbr],
@@ -92,6 +105,11 @@ export default function Inventory() {
   const allFamilies = Array.from(
     new Set([...(familiesQuery.data?.items.map((p) => p.family) ?? []), ...alerts.map((a) => a.family)])
   ).sort();
+
+  const selectedProduct = familiesQuery.data?.items.find((p) => p.family === selectedFamily);
+  const suggestedQty = statusQuery.data
+    ? Math.max(Math.ceil(statusQuery.data.order_up_to_S - statusQuery.data.current_stock), Number(selectedProduct?.moq ?? 0), 1)
+    : 1;
 
   if (!businessId) {
     return (
@@ -251,7 +269,7 @@ export default function Inventory() {
                       { label: 'EOQ calculado', value: statusQuery.data.eoq },
                     ].map(({ label, value, highlight }) => (
                       <div key={label} className={`rounded-xl p-4 ${highlight ? 'bg-red-50' : 'bg-gray-50'}`}>
-                        <p className={`text-xl font-bold ${highlight ? 'text-red-600' : 'text-gray-800'}`}>{value}</p>
+                        <p className={`text-xl font-bold ${highlight ? 'text-red-600' : 'text-gray-800'}`}>{Math.round(value).toLocaleString('es-CL')}</p>
                         <p className="text-xs text-gray-500 mt-1">{label}</p>
                       </div>
                     ))}
@@ -275,6 +293,33 @@ export default function Inventory() {
                       </span>
                     )}
                   </div>
+                  <div className="mt-5 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                    {openOrderQuery.data ? (
+                      <p className="text-sm text-gray-600">
+                        Ya hay una orden abierta con este producto:{' '}
+                        <button
+                          onClick={() => navigate(`/orders?oc=${openOrderQuery.data!.id}`)}
+                          className="font-semibold text-orange-600 hover:underline"
+                        >
+                          {openOrderQuery.data.order_number}
+                        </button>
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Cantidad sugerida: <span className="font-semibold text-gray-800">{suggestedQty.toLocaleString('es-CL')} uds</span>
+                        <span className="text-gray-400"> (hasta el nivel máximo S{selectedProduct?.moq ? `, mínimo ${selectedProduct.moq}` : ''})</span>
+                      </p>
+                    )}
+                    {!openOrderQuery.data && (
+                      <button
+                        onClick={() => setOrderFormOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:opacity-90"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Crear orden de compra
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -292,13 +337,13 @@ export default function Inventory() {
                     </div>
                     <div className="rounded-xl p-4 bg-gray-50">
                       <p className="text-lg font-bold text-gray-800">
-                        {(metricsQuery.data.stockout_rate * 100).toFixed(1)}%
+                        {metricsQuery.data.stockout_rate.toFixed(1)}%
                       </p>
                       <p className="text-xs text-gray-500 mt-1">Tasa de quiebre</p>
                     </div>
                     <div className="rounded-xl p-4 bg-gray-50">
                       <p className="text-lg font-bold text-gray-800">
-                        {(metricsQuery.data.service_level * 100).toFixed(1)}%
+                        {metricsQuery.data.service_level.toFixed(1)}%
                       </p>
                       <p className="text-xs text-gray-500 mt-1">Nivel de servicio</p>
                     </div>
@@ -364,6 +409,24 @@ export default function Inventory() {
           )}
         </div>
       </div>
+      {businessId != null && selectedFamily && (
+        <OrderForm
+          open={orderFormOpen}
+          businessId={businessId}
+          storeNbr={storeNbr}
+          draft={{
+            supplier: selectedProduct?.supplier ?? null,
+            lines: [{ family: selectedFamily, quantity: suggestedQty, unit_cost: selectedProduct?.unit_cost ?? null }],
+          }}
+          onClose={() => setOrderFormOpen(false)}
+          onSaved={(o) => {
+            setOrderFormOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['orders', businessId] });
+            toast.success(`${o.order_number} creada`);
+            navigate(`/orders?oc=${o.id}`);
+          }}
+        />
+      )}
     </div>
   );
 }

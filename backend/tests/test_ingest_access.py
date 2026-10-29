@@ -16,6 +16,6 @@ def test_confirm_rejects_business_without_membership():
         business_id=999, store_nbr=1, sales_unit="units",
     )
     with pytest.raises(HTTPException) as exc:
-        confirm_ingest(body, MagicMock(id=1), db)
+        confirm_ingest(body, MagicMock(), MagicMock(id=1), db)
     assert exc.value.status_code == 403
     db.add.assert_not_called()

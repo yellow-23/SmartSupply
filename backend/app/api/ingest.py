@@ -7,11 +7,11 @@ los registros de ventas, los normaliza y los carga a sales_history.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.api.auth import assert_business_access, get_current_user
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.models.orm import Business, Product, SalesHistory, StockLevel, Store, User, IngestLog
 from app.models.schemas import IngestConfirm, IngestPreview, IngestResponse, IngestChatRequest, IngestChatResponse
 from app.services.ingest_service import (
@@ -20,7 +20,7 @@ from app.services.ingest_service import (
     IngestService,
 )
 from app.services.ingest_validator import filter_loadable_records, validate_ingest_records
-from app.services.forecast_service import invalidate_business_cache
+from app.services.forecast_service import ForecastService, invalidate_business_cache
 
 router = APIRouter()
 service = IngestService()
@@ -53,9 +53,21 @@ def preview_ingest(file: UploadFile = File(...)):
         )
 
 
+def _precompute_store_forecast(business_id: int, store_nbr: int) -> None:
+    """Deja lista la proyeccion del Dashboard mientras el usuario navega (sesion propia: la del request ya cerro)."""
+    db = SessionLocal()
+    try:
+        ForecastService().predict_store_total(db, business_id, store_nbr, 14)
+    except Exception as e:  # no hay a quien reportarle: el Dashboard la recalcula si falta
+        print(f"[ingest] precalculo de proyeccion fallo ({business_id}/{store_nbr}): {e}")
+    finally:
+        db.close()
+
+
 @router.post("/confirm", response_model=IngestResponse)
 def confirm_ingest(
     body: IngestConfirm,
+    background: BackgroundTasks,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ):
@@ -241,6 +253,7 @@ def confirm_ingest(
     db.commit()
     if want("sales") and body.records:
         invalidate_business_cache(body.business_id)
+        background.add_task(_precompute_store_forecast, body.business_id, body.store_nbr)
         dates = sales_dates  # el rango que se informa es el de las ventas, no la fecha de carga del catalogo/stock
 
     return IngestResponse(

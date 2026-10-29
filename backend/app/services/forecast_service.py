@@ -18,11 +18,12 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from datetime import date as date_type
 
-from app.models.orm import ForecastPrediction, IngestLog, SalesHistory
+from app.models.orm import ForecastPrediction, IngestLog, SalesHistory, StoreForecastCache
 from app.models.schemas import ForecastResponse, ForecastPoint
 
 # Agregar el root del repo al path para importar el módulo forecasting/
@@ -257,6 +258,20 @@ def load_store_total_series(db: Session, business_id: int, store_nbr: int) -> tu
     return daily.asfreq("D", fill_value=0.0).clip(lower=0), unit
 
 
+def store_sales_fingerprint(db: Session, business_id: int, store_nbr: int) -> str:
+    """Huella de las ventas activas de la ubicacion: cambia con cualquier carga, reversion, borrado o edicion."""
+    row = (
+        db.query(
+            func.count(SalesHistory.id), func.sum(SalesHistory.sales),
+            func.sum(func.coalesce(SalesHistory.revenue, 0)), func.max(SalesHistory.ingest_id),
+        )
+        .join(IngestLog, IngestLog.id == SalesHistory.ingest_id)
+        .filter(SalesHistory.business_id == business_id, SalesHistory.store_nbr == store_nbr, IngestLog.status == "active")
+        .one()
+    )
+    return "|".join(str(round(float(v), 2)) if v is not None else "0" for v in row)
+
+
 class ForecastService:
     """
     Servicio de predicción de demanda.
@@ -298,7 +313,8 @@ class ForecastService:
                 _release_memory()
 
     def predict_store_total(self, db: Session, business_id: int, store_nbr: int, horizon_days: int) -> ForecastResponse:
-        """AMS sobre la venta total de la ubicacion (proyeccion del Dashboard). Mismo cache y lock que por producto."""
+        """AMS sobre la venta total de la ubicacion (proyeccion del Dashboard).
+        Orden: cache en memoria -> tabla store_forecasts (si es de hoy y las ventas no cambiaron) -> entrenar y guardar."""
         cached = self.get_cached(business_id, STORE_TOTAL_SKU, store_nbr, horizon_days)
         if cached is not None:
             return cached
@@ -306,12 +322,36 @@ class ForecastService:
             cached = self.get_cached(business_id, STORE_TOTAL_SKU, store_nbr, horizon_days)
             if cached is not None:
                 return cached
+            persist = business_id != _BENCHMARK_BUSINESS_ID  # el benchmark sale del CSV, no tiene fila en businesses
+            fingerprint = store_sales_fingerprint(db, business_id, store_nbr) if persist else ""
+            row = None
+            if persist:
+                row = db.query(StoreForecastCache).filter(
+                    StoreForecastCache.business_id == business_id,
+                    StoreForecastCache.store_nbr == store_nbr,
+                    StoreForecastCache.horizon_days == horizon_days,
+                ).first()
+                if row and row.fingerprint == fingerprint and row.computed_on == date_type.today():
+                    result = ForecastResponse.model_validate(row.payload)
+                    with _cache_lock:
+                        _cache[_cache_key(business_id, STORE_TOTAL_SKU, store_nbr, horizon_days, "auto")] = (result, time.monotonic())
+                    return result
+
             series, unit = load_store_total_series(db, business_id, store_nbr)
             try:
-                return self._train(db, business_id, STORE_TOTAL_SKU, store_nbr, horizon_days, "auto",
-                                   series=series, sales_unit=unit)
+                result = self._train(db, business_id, STORE_TOTAL_SKU, store_nbr, horizon_days, "auto",
+                                     series=series, sales_unit=unit)
             finally:
                 _release_memory()
+            if persist:
+                if row is None:
+                    row = StoreForecastCache(business_id=business_id, store_nbr=store_nbr, horizon_days=horizon_days)
+                    db.add(row)
+                row.fingerprint = fingerprint
+                row.computed_on = date_type.today()
+                row.payload = result.model_dump(mode="json")
+                db.commit()
+            return result
 
     def _train(
         self,
