@@ -20,6 +20,7 @@ import api from "../../../shared/api/axios.instance";
 import { useAuthStore, useActiveBusinessId, useActiveStoreNbr } from "../../auth/store/authStore";
 import { exportAlerts } from "../../inventory/api/inventory";
 import { downloadBlob } from "../../../shared/lib/utils";
+import { exportStoreForecast, exportFileName, ExportFormat } from "../../forecast/api/forecast";
 
 interface DashboardKPIs {
   mape_global: number | null;
@@ -34,8 +35,8 @@ interface ChartPoint {
   forecast: number | null;
 }
 
-async function fetchKPIs(businessId: number | null): Promise<DashboardKPIs> {
-  const { data } = await api.get("/dashboard/kpis", { params: { business_id: businessId } });
+async function fetchKPIs(businessId: number | null, storeNbr: number): Promise<DashboardKPIs> {
+  const { data } = await api.get("/dashboard/kpis", { params: { business_id: businessId, store_nbr: storeNbr } });
   return data;
 }
 
@@ -85,6 +86,15 @@ export default function Dashboard() {
   const businessId = useActiveBusinessId();
   const storeNbr = useActiveStoreNbr();
   const [horizon, setHorizon] = useState<14 | 30>(14);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const downloadStoreForecast = async (format: ExportFormat) => {
+    setExporting(format);
+    try {
+      downloadBlob(await exportStoreForecast(businessId, storeNbr, horizon, format), exportFileName("venta_total_tienda", format));
+    } finally {
+      setExporting(null);
+    }
+  };
   const { data: businesses = [] } = useQuery({ queryKey: ["businesses", user?.id], queryFn: listBusinesses, enabled: !!user });
   const business = businesses.find(b => b.id === businessId);
   const businessIncomplete = business?.my_role === "owner" && (!business.rut || !business.city || !business.address);
@@ -94,8 +104,8 @@ export default function Dashboard() {
     isLoading: kpisLoading,
     isError: kpisError,
   } = useQuery<DashboardKPIs>({
-    queryKey: ["dashboard", "kpis", user?.id, businessId],
-    queryFn: () => fetchKPIs(businessId),
+    queryKey: ["dashboard", "kpis", user?.id, businessId, storeNbr],
+    queryFn: () => fetchKPIs(businessId, storeNbr),
     staleTime: 300_000,
     refetchInterval: 300_000,
     enabled: !!user,
@@ -234,6 +244,22 @@ export default function Dashboard() {
                   Proyectado
                 </span>
               </div>
+              {sf && (
+                <div className="flex items-center gap-1">
+                  {(["xlsx", "pdf"] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => downloadStoreForecast(f)}
+                      disabled={exporting !== null}
+                      title={`Descargar la proyección en ${f === "pdf" ? "PDF" : "Excel"}`}
+                      className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      <FileDown className="w-3.5 h-3.5" />
+                      {exporting === f ? "..." : f === "pdf" ? "PDF" : "Excel"}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs" role="group" aria-label="Días a proyectar">
                 {([14, 30] as const).map(h => (
                   <button

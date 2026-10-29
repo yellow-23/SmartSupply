@@ -8,7 +8,9 @@ import {
   fetchForecast,
   fetchForecastOptions,
   fetchForecastAccuracy,
-  exportForecastPdf,
+  exportForecast,
+  exportFileName,
+  ExportFormat,
   fetchSalesHistory,
   BENCHMARK_BUSINESS_ID,
   isInsufficientDataError,
@@ -32,7 +34,7 @@ const Forecast = () => {
   const [useBenchmark, setUseBenchmark] = useState(false);
   const businessId = useBenchmark ? BENCHMARK_BUSINESS_ID : activeBusinessId;
   const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -104,19 +106,17 @@ const Forecast = () => {
   const hasEnoughData = daysAvailable >= daysRequired;
   const hasAnyData = !!options && options.families.length > 0 && options.stores.length > 0;
 
-  const handleExport = async () => {
+  const handleExport = async (format: ExportFormat) => {
     if (!result) return;
-    setExporting(true);
+    setExporting(format);
     try {
       // Exporta la prediccion en pantalla, no la seleccion actual (que puede haber cambiado sin regenerar)
-      const blob = await exportForecastPdf({ business_id: businessId, sku_id: result.sku_id, store_nbr: result.store_nbr, horizon_days: result.horizon_days, model: 'auto' });
-      downloadBlob(blob, `forecast_${result.sku_id}_${result.store_nbr}.pdf`);
-    } catch (e: any) {
-      setError(e?.response?.status === 409
-        ? 'La predicción expiró (se guarda 1 hora). Vuelve a generarla para exportarla.'
-        : 'No se pudo exportar el PDF');
+      const blob = await exportForecast(result, businessId, format);
+      downloadBlob(blob, exportFileName(result.sku_id, format));
+    } catch {
+      setError(`No se pudo descargar el ${format === 'pdf' ? 'PDF' : 'Excel'}. Intenta de nuevo.`);
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -219,14 +219,19 @@ const Forecast = () => {
           </p>
         </div>
         {result && (
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-60"
-          >
-            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            <span className="text-sm font-medium">Exportar PDF</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {(['xlsx', 'pdf'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => handleExport(f)}
+                disabled={exporting !== null}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-60"
+              >
+                {exporting === f ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                <span className="text-sm font-medium">{f === 'pdf' ? 'Descargar PDF' : 'Descargar Excel'}</span>
+              </button>
+            ))}
+          </div>
         )}
       </div>
 

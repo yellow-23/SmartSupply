@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, tuple_
@@ -7,63 +7,55 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user, resolve_business_id
 from app.database import get_db
-from app.models.orm import IngestLog, PurchaseOrder, SalesHistory, StockLevel, User
+from app.models.orm import IngestLog, PurchaseOrder, SalesHistory, User
 from app.models.schemas import DashboardChartData, DashboardChartPoint, DashboardKPIs, StoreForecast
+from app.api.forecast import export_names
+from app.services.forecast_export import forecast_file
+from app.services.inventory_service import InventoryService
 from app.services.forecast_service import (
     ForecastService, InsufficientDataError, get_business_cached_forecasts, get_business_wapes, load_store_total_series,
 )
 
 router = APIRouter()
+_inventory = InventoryService()
 
 
 @router.get("/kpis", response_model=DashboardKPIs)
 def get_kpis(
     current_user: Annotated[User, Depends(get_current_user)],
     business_id: int | None = Query(default=None),
+    store_nbr: int = Query(default=1),
     db: Session = Depends(get_db),
 ):
     bid = resolve_business_id(db, current_user, business_id)
 
-    # Familias activas del negocio (con al menos un ingest activo)
-    families = [
-        row[0]
-        for row in db.query(SalesHistory.family)
+    # Productos con ventas activas en la ubicacion
+    total_products = (
+        db.query(func.count(func.distinct(SalesHistory.family)))
         .join(IngestLog, IngestLog.id == SalesHistory.ingest_id)
-        .filter(
-            SalesHistory.business_id == bid,
-            IngestLog.status == "active",
-        )
-        .distinct()
-        .all()
-    ]
-    total_families = len(families)
-
-    # SKUs cuyo stock_level es 0 o no existe (necesitan reabastecimiento)
-    stock_map = {
-        sl.family: float(sl.quantity or 0)
-        for sl in db.query(StockLevel).filter(StockLevel.business_id == bid).all()
-    }
-    skus_en_alerta = sum(
-        1 for f in families if stock_map.get(f, 0.0) == 0.0
+        .filter(SalesHistory.business_id == bid, SalesHistory.store_nbr == store_nbr, IngestLog.status == "active")
+        .scalar()
+        or 0
     )
 
-    # Órdenes pendientes
+    # Misma definicion que Inventario y las OC automaticas: stock <= punto de reorden (s)
+    skus_en_alerta = len(_inventory.get_critical_skus(db=db, business_id=bid, store_nbr=store_nbr))
+
     ordenes_pendientes = (
         db.query(func.count(PurchaseOrder.id))
         .filter(
             PurchaseOrder.business_id == bid,
+            PurchaseOrder.store_nbr == store_nbr,
             PurchaseOrder.status == "pending",
         )
         .scalar()
         or 0
     )
 
-    # Nivel de servicio: % de familias con stock > 0
-    if total_families > 0:
-        familias_con_stock = sum(1 for f in families if stock_map.get(f, 0.0) > 0.0)
-        nivel_servicio = round(familias_con_stock / total_families * 100, 1)
-    else:
-        nivel_servicio = None
+    # Nivel de servicio: % de productos sobre su punto de reorden (sin riesgo de quiebre)
+    nivel_servicio = (
+        round((total_products - skus_en_alerta) / total_products * 100, 1) if total_products else None
+    )
 
     # MAPE global: promedio de WAPEs calculados durante forecasts del usuario
     wapes = get_business_wapes(bid)
@@ -181,3 +173,21 @@ def get_store_forecast(
         store_nbr=store_nbr, unit=result.sales_unit, model_used=result.model_used, wape=result.mape_validation,
         horizon_days=horizon_days, generated_at=result.generated_at, points=points,
     )
+
+
+@router.get("/store-forecast/export")
+def export_store_forecast(
+    current_user: Annotated[User, Depends(get_current_user)],
+    business_id: int | None = Query(default=None),
+    store_nbr: int = Query(default=1),
+    horizon_days: int = Query(default=14, ge=7, le=30),
+    format: Literal["pdf", "xlsx"] = Query(default="xlsx"),
+    db: Session = Depends(get_db),
+):
+    """Descarga la proyeccion de la venta total de la ubicacion (del cache; si expiro, se recalcula)."""
+    bid = resolve_business_id(db, current_user, business_id)
+    try:
+        result = ForecastService().predict_store_total(db, bid, store_nbr, horizon_days)
+    except InsufficientDataError as e:
+        raise HTTPException(status_code=422, detail=f"Se necesitan al menos {e.days_required} días de ventas para proyectar la tienda.")
+    return forecast_file(result, "Venta total de la tienda", *export_names(db, bid, store_nbr), format)

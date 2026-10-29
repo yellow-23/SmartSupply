@@ -187,3 +187,24 @@ def test_update_business_rejects_bad_rut(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         businesses.update_business(9, BusinessUpdate(rut="76.086.428-4"), MagicMock(id=1), MagicMock())
     assert exc.value.status_code == 422
+
+
+@pytest.mark.parametrize("fmt,magic", [("pdf", b"%PDF"), ("xlsx", b"PK")])
+def test_forecast_file_pdf_and_excel(fmt, magic):
+    import asyncio
+    from datetime import date, datetime, timedelta
+    from app.models.schemas import ForecastPoint, ForecastResponse
+    from app.services.forecast_export import forecast_file
+    start = date(2026, 11, 1)
+    result = ForecastResponse(
+        sku_id="ÑANDÚ 1L", store_nbr=1, model_used="prophet", mape_validation=7.57, horizon_days=3,
+        predictions=[ForecastPoint(date=start + timedelta(days=i), predicted_sales=1000.5 * (i + 1)) for i in range(3)],
+        generated_at=datetime(2026, 10, 29, 12, 0), sales_unit="CLP",
+    )
+    resp = forecast_file(result, result.sku_id, "Negocio test", "Tienda Principal - Ñuñoa", fmt)
+
+    async def read():
+        return b"".join([chunk async for chunk in resp.body_iterator])
+    body = asyncio.run(read())
+    assert body.startswith(magic)
+    assert resp.headers["content-disposition"].endswith(f"_20261101.{fmt}")

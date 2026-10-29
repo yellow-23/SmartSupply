@@ -1,17 +1,15 @@
-from io import BytesIO
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
-from fpdf import FPDF
 import pandas as pd
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user, resolve_business_id
 from app.database import get_db
-from app.models.orm import Product, SalesHistory, Store, User
+from app.models.orm import Business, Product, SalesHistory, Store, User
 from app.models.schemas import ForecastRequest, ForecastResponse
+from app.services.forecast_export import forecast_file
 from app.services.forecast_service import (
     ForecastService,
     InsufficientDataError,
@@ -25,6 +23,16 @@ from app.services.forecast_service import (
 
 router = APIRouter()
 service = ForecastService()
+
+
+def export_names(db: Session, business_id: int, store_nbr: int) -> tuple[str, str]:
+    """(nombre del negocio, nombre de la ubicacion) para el encabezado de los archivos exportados."""
+    if business_id == _BENCHMARK_BUSINESS_ID:
+        return "Dataset de referencia (Favorita)", f"Tienda {store_nbr}"
+    biz = db.query(Business).filter(Business.id == business_id).first()
+    store = db.query(Store).filter(Store.business_id == business_id, Store.store_nbr == store_nbr).first()
+    label = (store.name if store and store.name else f"Ubicación {store_nbr}") + (f" - {store.city}" if store and store.city else "")
+    return (biz.name if biz else str(business_id)), label
 
 
 def _resolve(db: Session, user: User, business_id: int | None) -> int:
@@ -181,50 +189,22 @@ def export_forecast_pdf(
             detail="No hay una predicción vigente para exportar. Genera la predicción primero.",
         )
 
-    unit_label = "CLP" if result.sales_unit == "CLP" else "unidades"
-    total = sum(p.predicted_sales for p in result.predictions)
+    return forecast_file(result, sku_id, *export_names(db, bid, result.store_nbr), "pdf")
 
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "SmartSupply - Reporte de Prediccion de Demanda", new_x="LMARGIN", new_y="NEXT")
 
-    pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 8, f"Negocio: {bid}   Tienda: {result.store_nbr}", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 8, f"Producto (familia): {result.sku_id}", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 8, f"Horizonte: {result.horizon_days} dias   Generado: {result.generated_at.strftime('%Y-%m-%d %H:%M')}", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(4)
-
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, f"Modelo ganador: {result.model_used.upper()}", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 11)
-    if result.mape_validation is not None:
-        pdf.cell(0, 8, f"WAPE en validacion: {result.mape_validation:.2f}%", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 8, f"Total estimado del periodo: {total:,.1f} {unit_label}", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 8, f"Promedio diario: {total / max(len(result.predictions), 1):,.1f} {unit_label}", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(6)
-
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Prediccion por dia", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 10)
-    with pdf.table(col_widths=(40, 40, 40, 40), text_align="CENTER") as table:
-        header = table.row()
-        for col in ("Fecha", f"Prediccion ({unit_label})", "Minimo", "Maximo"):
-            header.cell(col)
-        for point in result.predictions:
-            row = table.row()
-            row.cell(point.date.strftime("%Y-%m-%d"))
-            row.cell(f"{point.predicted_sales:,.1f}")
-            row.cell(f"{point.lower_bound:,.1f}" if point.lower_bound is not None else "-")
-            row.cell(f"{point.upper_bound:,.1f}" if point.upper_bound is not None else "-")
-
-    buf = BytesIO(bytes(pdf.output()))
-    buf.seek(0)
-    return StreamingResponse(
-        buf,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=forecast_{sku_id}_{result.store_nbr}.pdf"},
-    )
+@router.post("/export")
+def export_forecast(
+    body: ForecastResponse,
+    current_user: Annotated[User, Depends(get_current_user)],
+    format: Literal["pdf", "xlsx"] = Query(default="pdf"),
+    business_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """Descarga la prediccion que el usuario esta viendo (la manda el navegador), sin depender del cache de 1 hora."""
+    bid = _resolve(db, current_user, business_id)
+    if not body.predictions:
+        raise HTTPException(status_code=422, detail="La predicción no tiene días para exportar.")
+    return forecast_file(body, body.sku_id, *export_names(db, bid, body.store_nbr), format)
 
 
 @router.get("/models")

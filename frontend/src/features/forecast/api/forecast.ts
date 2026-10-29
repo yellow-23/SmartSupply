@@ -97,10 +97,24 @@ export async function fetchForecastAccuracy(businessId: number, storeNbr?: numbe
   return data;
 }
 
-export async function exportForecastPdf(req: ForecastRequest): Promise<Blob> {
-  const { data } = await client.get(`/forecast/${encodeURIComponent(req.sku_id)}/export`, {
-    params: { store_nbr: req.store_nbr, horizon_days: req.horizon_days, model: req.model, business_id: req.business_id },
+export type ExportFormat = 'pdf' | 'xlsx';
+
+// Manda la prediccion que se esta viendo: el backend arma el archivo sin depender de su cache
+export async function exportForecast(result: ForecastResponse, businessId: number | null, format: ExportFormat): Promise<Blob> {
+  const { data } = await client.post('/forecast/export', result, {
+    params: { format, business_id: businessId },
     responseType: 'blob',
   });
   return data as Blob;
 }
+
+export async function exportStoreForecast(businessId: number | null, storeNbr: number, horizon: number, format: ExportFormat): Promise<Blob> {
+  const { data } = await client.get('/dashboard/store-forecast/export', {
+    params: { business_id: businessId, store_nbr: storeNbr, horizon_days: horizon, format },
+    responseType: 'blob',
+  });
+  return data as Blob;
+}
+
+export const exportFileName = (subject: string, format: ExportFormat) =>
+  `prediccion_${subject.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}_${new Date().toISOString().slice(0, 10)}.${format}`;

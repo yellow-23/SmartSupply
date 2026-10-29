@@ -36,7 +36,8 @@ export default function Inventory() {
   const queryClient = useQueryClient();
 
   const storeNbr = useActiveStoreNbr();
-  const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
+  // ?producto=X (desde el panel de alertas del Dashboard) abre ese producto directo
+  const [selectedFamily, setSelectedFamily] = useState<string | null>(() => new URLSearchParams(window.location.search).get('producto'));
   const [isExporting, setIsExporting] = useState(false);
 
   const alertsQuery = useQuery({
