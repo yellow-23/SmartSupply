@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import BrandLoader from "../../../shared/ui/BrandLoader";
 import { Play, Download, TrendingUp, Calendar, AlertCircle, Loader2, Upload } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -172,9 +173,8 @@ const Forecast = () => {
   // ─── Estado: cargando opciones ────────────────────────────────────────────
   if (optionsLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-2xl border border-gray-100">
-        <Loader2 className="w-10 h-10 animate-spin mb-3 text-orange-500" />
-        <p className="text-sm">Cargando tus datos...</p>
+      <div className="bg-white rounded-2xl border border-gray-100">
+        <BrandLoader label="Cargando tus productos..." />
       </div>
     );
   }
@@ -345,9 +345,8 @@ const Forecast = () => {
 
       {/* Loading */}
       {loading && (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-2xl border border-gray-100">
-          <Loader2 className="w-10 h-10 animate-spin mb-3 text-orange-500" />
-          <p className="text-sm font-medium text-gray-600">{stage}</p>
+        <div className="flex flex-col items-center justify-center pb-16 text-gray-400 bg-white rounded-2xl border border-gray-100">
+          <BrandLoader label={stage} className="pt-16 pb-0" />
           <div className="w-64 h-1.5 bg-gray-100 rounded-full mt-3 overflow-hidden">
             <div
               className="h-full bg-orange-500 transition-all duration-1000"

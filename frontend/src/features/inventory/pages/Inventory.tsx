@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import BrandLoader from "../../../shared/ui/BrandLoader";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Package, AlertCircle, TrendingDown, RefreshCw, Loader2, Download } from 'lucide-react';
@@ -96,6 +97,16 @@ export default function Inventory() {
       <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
         Selecciona un negocio para ver el inventario.
       </div>
+    );
+  }
+
+  if (alertsQuery.isLoading) {
+    return (
+      <BrandLoader
+        label="Calculando tu inventario..."
+        hint="Revisamos la demanda de cada producto para saber cuándo y cuánto pedir."
+        className="min-h-[60vh]"
+      />
     );
   }
 

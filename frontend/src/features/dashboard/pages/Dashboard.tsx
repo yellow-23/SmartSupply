@@ -1,11 +1,11 @@
 import { Target, AlertTriangle, ClipboardList, Activity, RefreshCw, Upload, FileDown, Zap, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import BrandLoader from "../../../shared/ui/BrandLoader";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { listBusinesses } from "../../../shared/api/data";
 import { KpiCard } from "../components/KpiCard";
 import AlertsSummaryPanel from "../components/AlertsSummaryPanel";
-import Skeleton from "../../../shared/ui/Skeleton";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -17,7 +17,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import api from "../../../shared/api/axios.instance";
-import { useAuthStore, useActiveBusinessId } from "../../auth/store/authStore";
+import { useAuthStore, useActiveBusinessId, useActiveStoreNbr } from "../../auth/store/authStore";
 import { exportAlerts } from "../../inventory/api/inventory";
 import { downloadBlob } from "../../../shared/lib/utils";
 
@@ -45,10 +45,33 @@ interface ChartData {
   total_skus: number;
 }
 
-async function fetchChartData(businessId: number | null, family: string): Promise<ChartData> {
-  const { data } = await api.get("/dashboard/chart-data", { params: { business_id: businessId, family: family || undefined } });
+async function fetchChartData(businessId: number | null): Promise<ChartData> {
+  const { data } = await api.get("/dashboard/chart-data", { params: { business_id: businessId } });
   return data;
 }
+
+interface StoreForecast {
+  store_nbr: number;
+  unit: "CLP" | "units";
+  model_used: string;
+  wape: number | null;
+  horizon_days: number;
+  points: ChartPoint[];
+}
+
+async function fetchStoreForecast(businessId: number | null, storeNbr: number, horizon: number): Promise<StoreForecast> {
+  const { data } = await api.get("/dashboard/store-forecast", {
+    params: { business_id: businessId, store_nbr: storeNbr, horizon_days: horizon },
+  });
+  return data;
+}
+
+const MODEL_NAMES: Record<string, string> = { arima: "ARIMA", prophet: "Prophet", xgboost: "XGBoost", lstm: "LSTM" };
+const fmtCompactCLP = (v: number) =>
+  v >= 1_000_000 ? `$${(v / 1_000_000).toLocaleString("es-CL", { maximumFractionDigits: 1 })}M`
+  : v >= 1_000 ? `$${Math.round(v / 1_000).toLocaleString("es-CL")}k` : `$${Math.round(v)}`;
+const fmtShortDate = (d: string) =>
+  new Date(`${d}T12:00:00`).toLocaleDateString("es-CL", { day: "numeric", month: "short" });
 
 const quickActions = [
   { label: "Predecir demanda", icon: RefreshCw, href: "/forecasting" },
@@ -60,7 +83,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
   const businessId = useActiveBusinessId();
-  const [family, setFamily] = useState("");
+  const storeNbr = useActiveStoreNbr();
+  const [horizon, setHorizon] = useState<14 | 30>(14);
   const { data: businesses = [] } = useQuery({ queryKey: ["businesses", user?.id], queryFn: listBusinesses, enabled: !!user });
   const business = businesses.find(b => b.id === businessId);
   const businessIncomplete = business?.my_role === "owner" && (!business.rut || !business.city || !business.address);
@@ -77,35 +101,39 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
+  // Solo para saber si el negocio ya tiene ventas (onboarding vs tablero)
   const {
     data: chart,
     isLoading: chartLoading,
     isSuccess: chartLoaded,
   } = useQuery<ChartData>({
-    queryKey: ["dashboard", "chart-data", user?.id, businessId, family],
-    queryFn: () => fetchChartData(businessId, family),
+    queryKey: ["dashboard", "chart-data", user?.id, businessId],
+    queryFn: () => fetchChartData(businessId),
     staleTime: 300_000,
-    refetchInterval: 300_000,
     enabled: !!user,
   });
+  const isEmptyState = chartLoaded && (chart?.points.length ?? 0) === 0;
 
-  const chartData = chart?.points ?? [];
-  const forecastSkus = chart?.forecast_skus ?? [];
-  // Si el forecast de la familia elegida expiro del cache, volver a "todos"
-  useEffect(() => {
-    if (family && chartLoaded && !forecastSkus.includes(family)) setFamily("");
-  }, [family, chartLoaded, forecastSkus]);
-  const chartScope = forecastSkus.length === 0
-    ? "Total del negocio · sin predicción"
-    : family
-      ? family
-      : forecastSkus.length <= 2
-      ? forecastSkus.join(", ")
-      : `${forecastSkus.length} de ${chart?.total_skus} productos`;
-  const isEmptyState = chartLoaded && chartData.length === 0;
+  // Proyeccion de la venta total de la ubicacion activa (AMS sobre la suma de todos los productos)
+  const storeForecast = useQuery<StoreForecast>({
+    queryKey: ["dashboard", "store-forecast", businessId, storeNbr, horizon],
+    queryFn: () => fetchStoreForecast(businessId, storeNbr, horizon),
+    enabled: !!user && chartLoaded && !isEmptyState,
+    staleTime: 600_000,
+    retry: false,
+  });
+  const sf = storeForecast.data;
+  const isCLP = sf?.unit === "CLP";
+  const fmtValue = (v: number) => (isCLP ? fmtCompactCLP(v) : Math.round(v).toLocaleString("es-CL"));
+  const forecastError = (storeForecast.error as any)?.response?.data?.detail;
 
   const fmt = (v: number | null | undefined, suffix = "") =>
     v == null ? "—" : `${v.toLocaleString("es-CL")}${suffix}`;
+
+  // Hasta saber si el negocio tiene ventas no se muestra ni el tablero ni el onboarding
+  if (chartLoading) {
+    return <BrandLoader label="Cargando tu negocio..." className="min-h-[60vh]" />;
+  }
 
   // ─── Onboarding: usuario sin ventas cargadas ──────────────────────────────
   if (isEmptyState) {
@@ -184,50 +212,56 @@ export default function Dashboard() {
       {/* Chart + Panel lateral */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
-              <span className="text-sm font-semibold text-gray-700">Ventas vs predicción · 28 días</span>
+              <span className="text-sm font-semibold text-gray-700">
+                Venta total de la tienda {isCLP ? "(CLP)" : sf ? "(unidades)" : ""}
+              </span>
               <p className="text-xs text-gray-400">
-                {chartScope}
-                {forecastSkus.length === 0 && " (corre un pronóstico en Predecir demanda)"}
+                {sf
+                  ? `Últimas 4 semanas y proyección a ${sf.horizon_days} días · ${MODEL_NAMES[sf.model_used] ?? sf.model_used}${sf.wape != null ? ` · ${sf.wape.toFixed(1)}% de error` : ""}`
+                  : "Todos los productos de la ubicación activa"}
               </p>
             </div>
-            {forecastSkus.length > 1 && (
-              <select
-                value={family}
-                onChange={e => setFamily(e.target.value)}
-                aria-label="Filtrar por producto"
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
-              >
-                <option value="">Todos los pronosticados</option>
-                {forecastSkus.map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
-            )}
-            <div className="flex items-center gap-4 text-xs text-gray-500">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block" />
-                Real
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-accent inline-block" />
-                Predicho
-              </span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 text-xs text-gray-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block" />
+                  Real
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-accent inline-block" />
+                  Proyectado
+                </span>
+              </div>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs" role="group" aria-label="Días a proyectar">
+                {([14, 30] as const).map(h => (
+                  <button
+                    key={h}
+                    onClick={() => setHorizon(h)}
+                    aria-pressed={horizon === h}
+                    className={`px-2.5 py-1.5 ${horizon === h ? "bg-orange-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    {h} días
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {chartLoading ? (
-            <div className="h-60 flex items-end gap-2 px-2 pb-2">
-              {Array.from({ length: 14 }).map((_, i) => (
-                <Skeleton
-                  key={i}
-                  className="flex-1"
-                  style={{ height: `${30 + ((i * 37) % 60)}%` }}
-                />
-              ))}
+          {storeForecast.isLoading ? (
+            <BrandLoader
+              label="Proyectando la venta de tu tienda..."
+              hint="El sistema prueba varios modelos y elige el más preciso. La primera vez tarda unos segundos."
+              className="h-60"
+            />
+          ) : forecastError ? (
+            <div className="h-60 flex items-center justify-center text-center text-sm text-gray-400 px-6">
+              {forecastError.message ?? "No se pudo calcular la proyección de la tienda."}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <ComposedChart data={sf?.points ?? []} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradReal" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#1565C0" stopOpacity={0.15} />
@@ -235,11 +269,15 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9CA3AF" }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 12 }} />
+                <XAxis dataKey="date" tickFormatter={fmtShortDate} tick={{ fontSize: 11, fill: "#9CA3AF" }} tickLine={false} axisLine={false} minTickGap={24} />
+                <YAxis tickFormatter={fmtValue} tick={{ fontSize: 11, fill: "#9CA3AF" }} tickLine={false} axisLine={false} width={56} />
+                <Tooltip
+                  contentStyle={{ border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 12 }}
+                  labelFormatter={(d) => fmtShortDate(String(d))}
+                  formatter={(v: number) => (isCLP ? `$${Math.round(v).toLocaleString("es-CL")}` : `${Math.round(v).toLocaleString("es-CL")} uds`)}
+                />
                 <Area type="monotone" dataKey="real" stroke="#1565C0" strokeWidth={2} fill="url(#gradReal)" dot={false} name="Real" />
-                <Line type="monotone" dataKey="forecast" stroke="#E65100" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Predicho" />
+                <Line type="monotone" dataKey="forecast" stroke="#E65100" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Proyectado" />
               </ComposedChart>
             </ResponsiveContainer>
           )}

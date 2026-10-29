@@ -58,11 +58,14 @@ def _release_memory() -> None:
 # Se llena cada vez que el usuario corre un forecast. Leído por el dashboard.
 _wape_cache: dict[tuple, float] = {}
 
+# Clave de cache/respuesta para la prediccion de la venta total de una ubicacion (no es un producto)
+STORE_TOTAL_SKU = "__TOTAL_TIENDA__"
+
 
 def get_business_wapes(business_id: int) -> list[float]:
     """Retorna todos los WAPEs almacenados para un business. Vacío si aún no corrió ningún forecast."""
     with _cache_lock:
-        return [v for (bid, _, _), v in _wape_cache.items() if bid == business_id]
+        return [v for (bid, _, fam), v in _wape_cache.items() if bid == business_id and fam != STORE_TOTAL_SKU]
 
 
 def get_business_cached_forecasts(business_id: int) -> list:
@@ -73,6 +76,8 @@ def get_business_cached_forecasts(business_id: int) -> list:
         entries = [v for k, v in _cache.items() if k.startswith(prefix)]
     latest: dict[tuple, object] = {}
     for response, _ts in entries:
+        if response.sku_id == STORE_TOTAL_SKU:
+            continue
         sku_key = (response.sku_id, response.store_nbr)
         if sku_key not in latest or response.generated_at > latest[sku_key].generated_at:
             latest[sku_key] = response
@@ -86,7 +91,7 @@ def _persist_predictions(
     """Guarda cada punto predicho para poder comparar despues contra la venta real.
     La primera prediccion hecha para una fecha se conserva (no se pisa en corridas
     posteriores), para que la validacion sea honesta."""
-    if business_id == _BENCHMARK_BUSINESS_ID:
+    if business_id == _BENCHMARK_BUSINESS_ID or family == STORE_TOTAL_SKU:
         return
     existing = {
         d for (d,) in db.query(ForecastPrediction.target_date).filter(
@@ -218,6 +223,40 @@ def _load_series_from_db(
     return daily.clip(lower=0)
 
 
+def load_store_total_series(db: Session, business_id: int, store_nbr: int) -> tuple[pd.Series, str]:
+    """Venta diaria total de una ubicacion (todos los productos). Devuelve (serie, unidad).
+    Se suma en pesos cuando hay monto: sumar unidades de productos distintos no significa nada.
+    Mismas reglas que la serie por producto: solo cargas activas y, por (fecha, producto), gana la carga mas reciente."""
+    if business_id == _BENCHMARK_BUSINESS_ID:
+        df = pd.read_csv(_CSV_PATH, usecols=["date", "store_nbr", "sales"])
+        df = df[df["store_nbr"] == store_nbr]
+        daily = df.groupby(pd.to_datetime(df["date"]))["sales"].sum().sort_index()
+        return daily.asfreq("D", fill_value=0.0).clip(lower=0), "units"
+
+    rows = (
+        db.query(SalesHistory.date, SalesHistory.family, SalesHistory.sales, SalesHistory.revenue,
+                 SalesHistory.sales_unit, SalesHistory.ingest_id)
+        .join(IngestLog, IngestLog.id == SalesHistory.ingest_id)
+        .filter(SalesHistory.business_id == business_id)
+        .filter(SalesHistory.store_nbr == store_nbr)
+        .filter(SalesHistory.date <= date_type.today())
+        .filter(IngestLog.status == "active")
+        .all()
+    )
+    if not rows:
+        raise InsufficientDataError(days_available=0)
+    df = pd.DataFrame(rows, columns=["date", "family", "sales", "revenue", "sales_unit", "ingest_id"])
+    df = df.sort_values("ingest_id").drop_duplicates(["date", "family"], keep="last")
+    if df["revenue"].notna().mean() >= 0.9:
+        value, unit = df["revenue"].fillna(0.0), "CLP"
+    else:
+        # sin monto: si las ventas ya vienen en pesos se suman tal cual; si no, son unidades
+        unit = "CLP" if (df["sales_unit"] == "CLP").mean() >= 0.9 else "units"
+        value = df["sales"]
+    daily = value.groupby(pd.to_datetime(df["date"])).sum().sort_index().astype(float)
+    return daily.asfreq("D", fill_value=0.0).clip(lower=0), unit
+
+
 class ForecastService:
     """
     Servicio de predicción de demanda.
@@ -258,6 +297,22 @@ class ForecastService:
             finally:
                 _release_memory()
 
+    def predict_store_total(self, db: Session, business_id: int, store_nbr: int, horizon_days: int) -> ForecastResponse:
+        """AMS sobre la venta total de la ubicacion (proyeccion del Dashboard). Mismo cache y lock que por producto."""
+        cached = self.get_cached(business_id, STORE_TOTAL_SKU, store_nbr, horizon_days)
+        if cached is not None:
+            return cached
+        with _training_lock:
+            cached = self.get_cached(business_id, STORE_TOTAL_SKU, store_nbr, horizon_days)
+            if cached is not None:
+                return cached
+            series, unit = load_store_total_series(db, business_id, store_nbr)
+            try:
+                return self._train(db, business_id, STORE_TOTAL_SKU, store_nbr, horizon_days, "auto",
+                                   series=series, sales_unit=unit)
+            finally:
+                _release_memory()
+
     def _train(
         self,
         db: Session,
@@ -266,14 +321,18 @@ class ForecastService:
         store_nbr: int,
         horizon_days: int,
         model: Optional[str],
+        series: Optional[pd.Series] = None,
+        sales_unit: Optional[str] = None,
     ) -> ForecastResponse:
         key = _cache_key(business_id, sku_id, store_nbr, horizon_days, model or "auto")
 
         from forecasting.src.ams_pipeline import run_ams_pipeline, load_sku_series
         from forecasting.src.selector import MODELS, calculate_wape
 
-        # Cargar serie según fuente: CSV (Kaggle benchmark) o Supabase (usuario real)
-        if business_id == _BENCHMARK_BUSINESS_ID:
+        # Cargar serie según fuente: dada (total de tienda), CSV (Kaggle benchmark) o Supabase (usuario real)
+        if series is not None:
+            pass
+        elif business_id == _BENCHMARK_BUSINESS_ID:
             series = load_sku_series(_CSV_PATH, sku_family=sku_id, store_nbr=store_nbr)
             sales_unit = "units"
         else:

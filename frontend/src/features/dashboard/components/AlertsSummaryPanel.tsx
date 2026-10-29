@@ -1,4 +1,5 @@
 import { AlertTriangle, ChevronRight } from "lucide-react";
+import BrandLoader from "../../../shared/ui/BrandLoader";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "../../../shared/api/axios.instance";
@@ -70,7 +71,7 @@ export default function AlertsSummaryPanel() {
       </div>
 
       {isLoading && (
-        <div className="text-xs text-gray-400 py-4 text-center">Cargando…</div>
+        <BrandLoader label="Revisando tu stock..." size={32} className="py-6" />
       )}
 
       {!isLoading && alerts.length === 0 && (

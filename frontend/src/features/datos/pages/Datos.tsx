@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import BrandLoader from "../../../shared/ui/BrandLoader";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Database, ChevronDown, ChevronRight, RotateCcw, Trash2, Loader2, Sparkles,
@@ -212,10 +213,7 @@ export default function Datos() {
             <p className="text-sm">Elige un negocio para ver sus cargas.</p>
           </div>
         ) : ingests.isLoading ? (
-          <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-sm">Cargando cargas...</span>
-          </div>
+          <BrandLoader label="Cargando el historial de cargas..." className="py-16" />
         ) : loads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
             <FileSpreadsheet className="w-10 h-10 mb-2 opacity-30" />

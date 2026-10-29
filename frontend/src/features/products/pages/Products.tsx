@@ -1,6 +1,7 @@
 import { useState } from "react";
+import BrandLoader from "../../../shared/ui/BrandLoader";
 import { Plus, Package, AlertTriangle, Pencil, Trash2, Loader2, X } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchProducts, createProduct, updateProduct, deleteProduct, Product, ProductCreate } from "../api/products";
 import { useActiveBusinessId, useActiveStoreNbr } from "../../auth/store/authStore";
 import Modal from "../../../shared/ui/Modal";
@@ -24,6 +25,7 @@ export default function Products() {
   const { data: page, isLoading } = useQuery({
     queryKey: ["products", businessId, storeNbr, search],
     queryFn: () => fetchProducts({ business_id: businessId!, store_nbr: storeNbr, limit: 100, q: search || undefined }),
+    placeholderData: keepPreviousData, // al buscar se mantiene la tabla en vez de volver al cargador
     enabled: businessId != null,
     staleTime: 60_000,
   });
@@ -115,10 +117,7 @@ export default function Products() {
 
         <div className="overflow-x-auto">
           {isLoading ? (
-            <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Cargando productos...</span>
-            </div>
+            <BrandLoader label="Cargando productos..." className="py-16" />
           ) : products.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400">
               <Package className="w-10 h-10 mb-2 opacity-30" />

@@ -1,5 +1,6 @@
 import { useDeferredValue, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import BrandLoader from "../../../shared/ui/BrandLoader";
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ShoppingCart, CheckCircle, Clock, Truck, Plus, Loader2, XCircle, Download, Search, Wand2 } from 'lucide-react';
 import { useActiveBusinessId, useActiveStoreNbr } from '../../auth/store/authStore';
@@ -69,6 +70,7 @@ export default function Orders() {
     queryKey: ['orders', businessId, filters],
     queryFn: () => fetchOrders(businessId!, filters),
     enabled: businessId != null,
+    placeholderData: keepPreviousData, // al buscar/filtrar no se vuelve al cargador
   });
 
   const statusMutation = useMutation({
@@ -119,6 +121,10 @@ export default function Orders() {
         Selecciona un negocio para ver las órdenes.
       </div>
     );
+  }
+
+  if (ordersQuery.isLoading) {
+    return <BrandLoader label="Cargando tus órdenes de compra..." className="min-h-[60vh]" />;
   }
 
   return (

@@ -23,6 +23,17 @@ class DashboardChartPoint(BaseModel):
     forecast: Optional[float] = None
 
 
+class StoreForecast(BaseModel):
+    """Venta total de una ubicacion: ultimas 4 semanas reales + proyeccion del AMS."""
+    store_nbr: int
+    unit: Literal["CLP", "units"]
+    model_used: str
+    wape: Optional[float]
+    horizon_days: int
+    generated_at: datetime
+    points: list[DashboardChartPoint]
+
+
 class DashboardChartData(BaseModel):
     points: list[DashboardChartPoint]
     forecast_skus: list[str]  # SKUs incluidos en ambas lineas; vacio = total del negocio sin prediccion

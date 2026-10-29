@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import BrandLoader from "../../../shared/ui/BrandLoader";
 import { Upload, FileText, ImageIcon, CheckCircle, AlertTriangle, Loader2, Send, X, AlertCircle, Info, Plus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -133,12 +134,25 @@ export default function Ingest() {
     if (box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
   }, [chatMessages]);
 
-  // Tras cargar datos, refrescar dashboard/forecast y mandar al usuario a su Inicio
+  // El estado de ingesta es global: si se vuelve a esta pagina despues de una carga exitosa,
+  // empezar de cero en vez de quedar pegado en la pantalla de exito.
+  useEffect(() => {
+    if (useIngestStore.getState().step === "success") handleReset();
+  }, []);
+
+  function goToDashboard() {
+    handleReset();
+    navigate("/dashboard");
+  }
+
+  // Tras cargar datos, refrescar todo lo que depende de ventas/stock/catalogo y llevar al Inicio
   useEffect(() => {
     if (step !== "success") return;
-    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-    queryClient.invalidateQueries({ queryKey: ["forecast", "options"] });
-    const timer = setTimeout(() => navigate("/dashboard"), 2000);
+    for (const key of ["dashboard", "forecast", "products", "orders", "ingests", "sales", "stores", "businesses"]) {
+      queryClient.invalidateQueries({ queryKey: [key] });
+    }
+    queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith("inventory") });
+    const timer = setTimeout(goToDashboard, 2500);
     return () => clearTimeout(timer);
   }, [step]);
 
@@ -275,11 +289,12 @@ export default function Ingest() {
             className={`bg-white p-12 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center text-center space-y-6 cursor-pointer transition-colors ${dragging ? "border-orange-400 bg-orange-50" : "border-gray-200 hover:border-orange-300"}`}
           >
             {previewMut.isPending ? (
-              <div className="space-y-4">
-                <Loader2 className="w-16 h-16 text-orange-500 animate-spin mx-auto" />
-                <p className="text-lg font-bold text-gray-700">Stocky está analizando <span className="text-orange-600">{fileName}</span>...</p>
-                <p className="text-sm text-gray-400">Identificando columnas de fecha, familia y ventas</p>
-              </div>
+              <BrandLoader
+                size={64}
+                className="py-2"
+                label={`Stocky está leyendo ${fileName}...`}
+                hint="Identificando fechas, productos, ventas, catálogo y stock. Un Excel grande puede tardar hasta un minuto."
+              />
             ) : (
               <>
                 <div className="w-20 h-20 bg-blue-50 rounded-2xl flex items-center justify-center">
@@ -640,10 +655,24 @@ export default function Ingest() {
             </p>
             <p className="text-sm text-gray-400">{successData.families.join(", ")}</p>
           </div>
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Te llevamos al Inicio de {destBusinessName}...</span>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={goToDashboard}
+              className="px-5 py-2.5 bg-orange-600 text-white rounded-xl font-semibold hover:opacity-90"
+            >
+              Ir al Inicio de {destBusinessName}
+            </button>
+            <button
+              onClick={handleReset}
+              className="px-5 py-2.5 text-gray-600 border border-gray-200 rounded-xl font-medium hover:bg-gray-50"
+            >
+              Cargar otro archivo
+            </button>
           </div>
+          <p className="flex items-center justify-center gap-2 text-xs text-gray-400">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Te llevamos al Inicio en unos segundos...
+          </p>
         </div>
       )}
 

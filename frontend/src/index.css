@@ -78,3 +78,15 @@
     }
   }
 }
+/* BrandLoader: simbolo de SmartSupply animado */
+@keyframes ss-turn { 0%, 25% { transform: rotate(0deg); } 65%, 100% { transform: rotate(90deg); } }
+@keyframes ss-open-a { 0%, 100% { transform: translate(0, 0); } 45% { transform: translate(-9px, -9px); } }
+@keyframes ss-open-b { 0%, 100% { transform: translate(0, 0); } 45% { transform: translate(9px, 9px); } }
+@keyframes ss-fade { 50% { opacity: 0.35; } }
+.ss-loader { animation: ss-turn 1.3s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.ss-loader-a { animation: ss-open-a 1.3s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.ss-loader-b { animation: ss-open-b 1.3s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ss-loader-a, .ss-loader-b { animation: none; }
+  .ss-loader { animation: ss-fade 1.6s ease-in-out infinite; }
+}

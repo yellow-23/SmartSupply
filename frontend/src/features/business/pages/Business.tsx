@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import BrandLoader from "../../../shared/ui/BrandLoader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Check, Loader2, MapPin, Pencil, Plus, X } from "lucide-react";
 import { useAuthStore, useActiveBusinessId, useActiveStoreNbr } from "../../auth/store/authStore";
@@ -64,9 +65,7 @@ export default function BusinessPage() {
 
   if (!business) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400">
-        <Loader2 className="w-5 h-5 animate-spin" />
-      </div>
+      <BrandLoader label="Cargando tu negocio..." className="min-h-[50vh]" />
     );
   }
 

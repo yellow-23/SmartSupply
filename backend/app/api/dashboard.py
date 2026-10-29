@@ -1,15 +1,17 @@
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, tuple_
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user, resolve_business_id
 from app.database import get_db
 from app.models.orm import IngestLog, PurchaseOrder, SalesHistory, StockLevel, User
-from app.models.schemas import DashboardChartData, DashboardChartPoint, DashboardKPIs
-from app.services.forecast_service import get_business_cached_forecasts, get_business_wapes
+from app.models.schemas import DashboardChartData, DashboardChartPoint, DashboardKPIs, StoreForecast
+from app.services.forecast_service import (
+    ForecastService, InsufficientDataError, get_business_cached_forecasts, get_business_wapes, load_store_total_series,
+)
 
 router = APIRouter()
 
@@ -147,4 +149,35 @@ def get_chart_data(
         points=points,
         forecast_skus=sorted({c.sku_id for c in all_cached}),
         total_skus=total_skus,
+    )
+
+
+@router.get("/store-forecast", response_model=StoreForecast)
+def get_store_forecast(
+    current_user: Annotated[User, Depends(get_current_user)],
+    business_id: int | None = Query(default=None),
+    store_nbr: int = Query(default=1),
+    horizon_days: int = Query(default=14, ge=7, le=30),
+    db: Session = Depends(get_db),
+):
+    """Proyeccion de la venta total de la ubicacion (todos los productos, en CLP si hay monto).
+    La primera vez entrena el AMS (segundos); despues sale del cache hasta que cambien las ventas."""
+    bid = resolve_business_id(db, current_user, business_id)
+    try:
+        result = ForecastService().predict_store_total(db, bid, store_nbr, horizon_days)
+        series, _unit = load_store_total_series(db, bid, store_nbr)
+    except InsufficientDataError as e:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "insufficient_data", "days_available": e.days_available, "days_required": e.days_required,
+                    "message": f"Se necesitan al menos {e.days_required} días de ventas para proyectar la tienda."},
+        )
+
+    points = [DashboardChartPoint(date=d.strftime("%Y-%m-%d"), real=round(float(v), 2)) for d, v in series.iloc[-28:].items()]
+    if points:
+        points[-1].forecast = points[-1].real  # une la linea proyectada con la real
+    points += [DashboardChartPoint(date=p.date.isoformat(), forecast=p.predicted_sales) for p in result.predictions]
+    return StoreForecast(
+        store_nbr=store_nbr, unit=result.sales_unit, model_used=result.model_used, wape=result.mape_validation,
+        horizon_days=horizon_days, generated_at=result.generated_at, points=points,
     )
