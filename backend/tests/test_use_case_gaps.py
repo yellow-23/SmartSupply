@@ -112,12 +112,15 @@ def test_manual_order_fills_cost_and_delivery_from_catalog(monkeypatch):
     from app.api import orders
     from app.models.schemas import PurchaseOrderCreate
     monkeypatch.setattr(orders, "assert_business_access", lambda *a: None)
+    monkeypatch.setattr(orders.service, "get_status",
+                        lambda *a: MagicMock(current_stock=3.4, reorder_point_s=10.2, order_up_to_S=40.6))
     db = _catalog_db([MagicMock(family="MANTEQUILLA COLUN 250G", unit_cost=2190, lead_time_days=4)])
     body = PurchaseOrderCreate(business_id=9, supplier=" Colun ", lines=[{"family": "mantequilla colun 250g", "quantity": 12}])
     order = orders.create_order(body, MagicMock(id=1), db)
     assert (order.supplier, order.policy_used, order.status) == ("Colun", "manual", "pending")
     assert (order.expected_delivery - orders.date.today()).days == 4
-    assert [(l.family, l.quantity, l.unit_cost) for l in order.lines] == [("MANTEQUILLA COLUN 250G", 12, 2190)]
+    assert [(l.family, l.quantity, l.unit_cost, l.trigger_stock, l.reorder_point_s, l.order_up_to_S)
+            for l in order.lines] == [("MANTEQUILLA COLUN 250G", 12, 2190, 3, 10, 41)]
 
 
 @pytest.mark.parametrize("lines,msg", [

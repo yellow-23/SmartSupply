@@ -212,14 +212,19 @@ def _build_lines(db: Session, business_id: int, store_nbr: int, lines: list[Purc
     missing = [f for f in families if f not in products]
     if missing:
         raise HTTPException(status_code=400, detail=f"Productos no registrados en el catalogo: {', '.join(missing)}")
-    built = [
-        PurchaseOrderLine(
+    built = []
+    for f, l in zip(families, lines):
+        # Foto del inventario al crear la OC, igual que las automaticas
+        st = service.get_status(db, business_id, store_nbr, f)
+        built.append(PurchaseOrderLine(
             family=f,
             quantity=l.quantity,
             unit_cost=l.unit_cost if l.unit_cost is not None else products[f].unit_cost,
-        )
-        for f, l in zip(families, lines)
-    ]
+            trigger_stock=round(st.current_stock),
+            reorder_point_s=round(st.reorder_point_s),
+            # Sin unit_cost el S no es confiable (mismo criterio que needs_cost_setup)
+            order_up_to_S=round(st.order_up_to_S) if products[f].unit_cost else None,
+        ))
     lead = max((products[f].lead_time_days or 7) for f in families)
     return built, lead
 
