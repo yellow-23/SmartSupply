@@ -267,7 +267,7 @@ def chat(db: Session, business_id: int, messages: list[dict], max_iterations: in
     for _ in range(max_iterations):
         response = client.messages.create(
             model="claude-sonnet-5",
-            max_tokens=1024,
+            max_tokens=4096,
             system=_SYSTEM,
             tools=_TOOLS,
             messages=history,
@@ -276,8 +276,10 @@ def chat(db: Session, business_id: int, messages: list[dict], max_iterations: in
         tool_uses = [b for b in response.content if b.type == "tool_use"]
 
         if not tool_uses:
-            texts = [b for b in response.content if b.type == "text"]
-            return texts[0].text if texts else ""
+            text = "".join(b.text for b in response.content if b.type == "text").strip()
+            if response.stop_reason == "max_tokens":
+                text += "\n\n(Respuesta cortada por largo. Pídeme el resto o una lista más corta.)"
+            return text or "No pude generar una respuesta. Intenta de nuevo."
 
         # Append assistant turn (may include text preamble + tool_use blocks)
         history.append({"role": "assistant", "content": response.content})
