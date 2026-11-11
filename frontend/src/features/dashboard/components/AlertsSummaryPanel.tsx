@@ -58,20 +58,16 @@ export default function AlertsSummaryPanel() {
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-amber-500" />
-          <span className="text-sm font-semibold text-gray-700">Productos bajo el punto de reorden</span>
-          {data && data.count > 0 && (
-            <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">{data.count}</span>
-          )}
-        </div>
-        <button
-          onClick={() => navigate("/inventory")}
-          className="text-xs text-orange-600 hover:opacity-80 font-medium"
-        >
-          {data && data.count > alerts.length ? `Ver las ${data.count}` : "Ver todas"}
-        </button>
+      <div className="flex items-start gap-2.5 mb-3">
+        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+        <h3 className="flex-1 min-w-0 text-sm font-semibold text-gray-700 leading-snug">
+          Productos bajo el punto de reorden
+        </h3>
+        {data && data.count > 0 && (
+          <span className="shrink-0 text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full tabular-nums">
+            {data.count}
+          </span>
+        )}
       </div>
 
       {isLoading && (
@@ -89,16 +85,16 @@ export default function AlertsSummaryPanel() {
           <li key={item.family}>
             <button
               onClick={() => navigate(`/inventory?producto=${encodeURIComponent(item.family)}`)}
-              className="w-full flex items-center justify-between gap-2 py-2.5 text-left group"
+              className="w-full flex items-center justify-between gap-3 py-3 text-left group"
             >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-800 truncate group-hover:text-orange-700">{item.family}</p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-gray-400 mt-0.5 truncate">
                   Stock {Math.round(item.current_stock).toLocaleString("es-CL")} · reordenar en {Math.round(item.reorder_point_s).toLocaleString("es-CL")}
                   {item.needs_cost_setup && <span className="text-red-500"> · falta costo</span>}
                 </p>
               </div>
-              <span className="flex items-center gap-1 shrink-0">
+              <span className="flex items-center gap-1.5 shrink-0">
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${urgencyStyle[item.urgency] ?? urgencyStyle.normal}`}>
                   {urgencyLabel[item.urgency] ?? item.urgency}
                 </span>
@@ -108,6 +104,16 @@ export default function AlertsSummaryPanel() {
           </li>
         ))}
       </ul>
+
+      {alerts.length > 0 && (
+        <button
+          onClick={() => navigate("/inventory")}
+          className="mt-2 pt-3 w-full flex items-center justify-center gap-1 border-t border-gray-100 text-xs font-medium text-orange-600 hover:text-orange-700"
+        >
+          {data && data.count > alerts.length ? `Ver los ${data.count} productos` : "Ver en Inventario"}
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }
