@@ -78,14 +78,17 @@
     }
   }
 }
-/* BrandLoader: simbolo de SmartSupply animado */
-@keyframes ss-turn { 0%, 25% { transform: rotate(0deg); } 65%, 100% { transform: rotate(90deg); } }
-@keyframes ss-open-a { 0%, 100% { transform: translate(0, 0); } 45% { transform: translate(-9px, -9px); } }
-@keyframes ss-open-b { 0%, 100% { transform: translate(0, 0); } 45% { transform: translate(9px, 9px); } }
+/* BrandLoader: simbolo de SmartSupply animado.
+   El simbolo es identico al girarlo 180 grados, asi que cada ciclo gira media vuelta
+   y termina exactamente como empezo: el bucle no tiene salto. Las esquinas se abren
+   a mitad del giro y vuelven a cerrarse al final. */
+@keyframes ss-turn { from { transform: rotate(0deg); } to { transform: rotate(180deg); } }
+@keyframes ss-open-a { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-8px, -8px); } }
+@keyframes ss-open-b { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(8px, 8px); } }
 @keyframes ss-fade { 50% { opacity: 0.35; } }
-.ss-loader { animation: ss-turn 1.3s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
-.ss-loader-a { animation: ss-open-a 1.3s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
-.ss-loader-b { animation: ss-open-b 1.3s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.ss-loader { animation: ss-turn 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 50% 50%; }
+.ss-loader-a { animation: ss-open-a 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.ss-loader-b { animation: ss-open-b 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
 @media (prefers-reduced-motion: reduce) {
   .ss-loader-a, .ss-loader-b { animation: none; }
   .ss-loader { animation: ss-fade 1.6s ease-in-out infinite; }
